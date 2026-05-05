@@ -126,7 +126,7 @@ const DoctorDashboard = () => {
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
             <Sidebar userType="d" />
-            <main style={{ flex: 1, padding: '32px 48px' }}>
+            <main style={{ flex: 1, padding: '32px 48px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
                 
                 <ClinicalModal 
                     isOpen={confirmDelete.open}
@@ -159,23 +159,26 @@ const DoctorDashboard = () => {
                 <div style={{
                     backgroundImage: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
                     borderRadius: '24px',
-                    padding: '40px',
-                    marginBottom: '40px',
+                    padding: '28px 32px',
+                    marginBottom: '32px',
                     color: 'white',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+                    width: '100%',
+                    maxWidth: '1160px',
+                    margin: '0 auto'
                 }}>
                     <div>
-                        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '12px' }}>
+                        <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '10px' }}>
                             {getGreeting()},<br />
                             <span style={{ color: '#60a5fa' }}>Dr. {profile?.docname || 'Staff'}</span>
                         </h2>
-                        <p style={{ fontSize: '1.1rem', opacity: 0.8, marginBottom: '32px' }}>
+                        <p style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '24px' }}>
                             You have {stats.waiting} patients waiting in your queue today.
                         </p>
-                        <button onClick={() => navigate('/doctor/appointments')} style={{ padding: '12px 24px', background: '#3b82f6', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button onClick={() => navigate('/doctor/appointments')} style={{ padding: '10px 20px', background: '#3b82f6', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             View Patient Queue <ArrowRight size={18} />
                         </button>
                     </div>
@@ -183,14 +186,14 @@ const DoctorDashboard = () => {
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '15px' }}>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '3rem', fontWeight: '800', lineHeight: 1 }}>24°C</div>
-                                <div style={{ fontSize: '1rem', opacity: 0.7, fontWeight: '500' }}>Sunny Interval</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '800', lineHeight: 1 }}>24°C</div>
+                                <div style={{ fontSize: '0.95rem', opacity: 0.7, fontWeight: '500' }}>Sunny Interval</div>
                             </div>
-                            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <CloudSun size={40} />
+                            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '16px', borderRadius: '18px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <CloudSun size={36} />
                             </div>
                         </div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '600', opacity: 0.9 }}>Local Medical Center</div>
+                        <div style={{ fontSize: '1rem', fontWeight: '600', opacity: 0.9 }}>Local Medical Center</div>
                     </div>
                 </div>
 

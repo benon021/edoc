@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/Sidebar';
 import {
-    Search, Calendar, UserPlus, Users, Bookmark, Layout, CloudSun, Pill
+    Search, Calendar, UserPlus, Users, Bookmark, Layout, CloudSun, Pill, Shield, FlaskConical
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
