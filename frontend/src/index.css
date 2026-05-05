@@ -1,0 +1,112 @@
+/* =============================================================
+   FILE: index.css
+   PURPOSE: Stylesheet for the eDoc Hospital frontend.
+   ============================================================= */
+:root {
+  /* Classic Edoc Clinical Palette */
+  --primary: #007bff;
+  --primary-dark: #0056b3;
+  --primary-light: #e7f2ff;
+  --primary-glow: rgba(0, 123, 255, 0.2);
+  
+  --secondary: #6c757d;
+  --accent: #28a745;
+  
+  --success: #28a745;
+  --warning: #ffc107;
+  --error: #dc3545;
+  
+  --bg-main: #f0f2f5;
+  --bg-surface: #ffffff;
+  --border: #dee2e6;
+  
+  --text-main: #212529;
+  --text-muted: #6c757d;
+  
+  /* Edoc Classic Depth */
+  --shadow-sm: 0 .125rem .25rem rgba(0,0,0,.075);
+  --shadow-md: 0 .5rem 1rem rgba(0,0,0,.15);
+  --shadow-lg: 0 1rem 3rem rgba(0,0,0,.175);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  min-height: 100vh;
+}
+
+/* --- Classic Edoc Cards --- */
+.glass-card {
+  background: white;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  border-radius: 4px;
+}
+
+/* --- Edoc Buttons --- */
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+/* --- Input --- */
+.input-field {
+  width: 100%;
+  padding: 10px 15px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: white;
+  font-size: 0.9rem;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.2rem var(--primary-glow);
+}
+
+/* --- Layout --- */
+.main-content {
+  flex: 1;
+  padding: 30px;
+  width: 100%;
+}
+
+/* --- Gradient Text Reversion --- */
+.gradient-text {
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* --- Invisible Scrollbars --- */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

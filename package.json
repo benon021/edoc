@@ -1,0 +1,8 @@
+{
+  "name": "edoc-doctor-appointment-system",
+  "version": "1.0.0",
+  "scripts": {
+    "install:all": "npm install && cd frontend && npm install",
+    "dev": "cd frontend && npm run dev"
+  }
+}
