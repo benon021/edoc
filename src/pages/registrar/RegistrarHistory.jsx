@@ -121,7 +121,7 @@ const RegistrarHistory = () => {
             // 3. Update the consultation record too
             await supabase
                 .from('consultations')
-                .update({ doctor_id: bookingData.docid })
+                .update({ docid: bookingData.docid })
                 .eq('appointment_id', appointmentId);
             
             setShowBookingModal(false);

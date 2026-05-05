@@ -22,14 +22,15 @@ export default function DoctorLabRequests() {
         if (!profile?.id) return;
         setLoading(true);
         try {
-            // 1. Fetch appointments for this doctor to get a list of valid IDs
+            // 1. Fetch appointments for this doctor to get a list of valid IDs (exclude completed)
             const { data: appts, error: apptError } = await supabase
                 .from('appointment')
                 .select(`
                     appoid,
                     patient:pid(pid, pname)
                 `)
-                .eq('docid', profile.id);
+                .eq('docid', profile.id)
+                .neq('status', 'Completed');
 
             if (apptError) throw apptError;
             if (!appts || appts.length === 0) {

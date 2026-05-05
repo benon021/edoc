@@ -287,8 +287,8 @@ export const getInventoryForPharmacy = getMedicines;
 export const searchMedicines = (query) =>
   supabase
     .from('medicine')
-    .select('med_id, med_name, generic_name, dosage, stock_qty, expiry_date, buying_price, selling_price')
-    .or(`med_name.ilike.%${query}%,generic_name.ilike.%${query}%,barcode.eq.${query}`)
+    .select('id, med_name, generic_name, med_type, stock_qty, expiry_date, buying_price, selling_price, unit')
+    .or(`med_name.ilike.%${query}%,generic_name.ilike.%${query}%`)
     .eq('is_active', true)
     .range(0, 19);
 

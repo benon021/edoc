@@ -121,7 +121,7 @@ const DoctorAppointments = () => {
                                         {q.status === 'in_consultation' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#eff6ff', color: '#3b82f6', fontSize: '0.75rem', fontWeight: '600' }}>In Consultation</span>}
                                         {q.status === 'pending_lab' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem', fontWeight: '600' }}>At Lab</span>}
                                         {q.status === 'results_ready' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#f0fdf4', color: '#166534', fontSize: '0.75rem', fontWeight: '600' }}>Results Ready</span>}
-                                        {q.status === 'completed' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#ecfdf5', color: '#059669', fontSize: '0.75rem', fontWeight: '600' }}>Done</span>}
+                                        {q.status?.toLowerCase() === 'completed' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#ecfdf5', color: '#059669', fontSize: '0.75rem', fontWeight: '600' }}>Done</span>}
                                     </td>
                                     <td style={{ padding: '16px 24px' }}>
                                         <button onClick={() => navigate(`/doctor/consultation?appoid=${q.appoid}`)} style={{ background: 'transparent', border: '1px solid var(--border)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600' }}>

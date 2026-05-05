@@ -160,7 +160,7 @@ const PharmaWorkbench = () => {
             return;
         }
 
-        const mid = item.med_id;
+        const mid = item.id;
         const existing = cart.find(c => c.id === mid);
         if (existing) {
             if (existing.qty >= stock) {
@@ -203,7 +203,7 @@ const PharmaWorkbench = () => {
                     const bestMatch = validCandidates[0];
                     newItems.push({ 
                         ...bestMatch, 
-                        id: bestMatch.med_id,
+                        id: bestMatch.id,
                         qty: drug.qty, 
                         price: bestMatch.selling_price || 0, 
                         is_taxable: bestMatch.is_taxable, 
@@ -244,7 +244,7 @@ const PharmaWorkbench = () => {
         setCart(cart.map(c => {
             if (c.id === id) {
                 const newQty = Math.max(1, c.qty + delta);
-                const stock = inventory.find(i => i.med_id === id)?.stock_qty || 0;
+                const stock = inventory.find(i => i.id === id)?.stock_qty || 0;
                 return { ...c, qty: Math.min(newQty, stock) };
             }
             return c;
@@ -311,9 +311,9 @@ const PharmaWorkbench = () => {
             
             // 3. Update stock 
             for (const item of cart) {
-                const drug = inventory.find(i => i.med_id === item.id);
+                const drug = inventory.find(i => i.id === item.id);
                 const currentStock = drug?.stock_qty || 0;
-                await supabase.from('medicine').update({ stock_qty: currentStock - item.qty }).eq('med_id', item.id);
+                await supabase.from('medicine').update({ stock_qty: currentStock - item.qty }).eq('id', item.id);
             }
             
             // 4. Mark prescription as dispensed
@@ -352,7 +352,7 @@ const PharmaWorkbench = () => {
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#ffffff' }}>
             <Sidebar userType="ph" />
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <main className="pharma-workbench-main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 
                 {/* Edoc Style Header */}
                 <header style={{ 
@@ -377,7 +377,7 @@ const PharmaWorkbench = () => {
                     </div>
                 </header>
 
-                <div style={{ padding: '30px', flex: 1, display: 'grid', gridTemplateColumns: '1fr 350px', gap: '30px' }}>
+                <div className="pharma-workbench-grid" style={{ flex: 1 }}>
                     
                     {/* Catalog Section */}
                     <section style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -387,7 +387,7 @@ const PharmaWorkbench = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                     <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#007bff', margin: 0 }}>Clinical Queue</h3>
-                                    <div style={{ position: 'relative', width: '250px' }}>
+                                    <div style={{ position: 'relative', width: '210px', minWidth: '180px' }}>
                                         <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#adb5bd' }} />
                                         <input 
                                             type="text" 
@@ -411,8 +411,9 @@ const PharmaWorkbench = () => {
                                 }).map(p => (
                                     <div 
                                         key={p.id} 
+                                        className="pharma-workbench-queue-card"
                                         style={{ 
-                                            minWidth: '220px',
+                                            minWidth: '180px',
                                             padding: '15px', 
                                             borderRadius: '4px', 
                                             border: `1px solid ${selectedPresc?.id === p.id ? '#007bff' : '#dee2e6'}`,
@@ -458,7 +459,7 @@ const PharmaWorkbench = () => {
                                 <button style={{ padding: '10px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '600' }}>Search</button>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+                            <div className="pharma-workbench-inventory">
                                 {(inventory || []).filter(item => {
                                     if (!item) return false;
                                     const search = (searchTerm || '').toLowerCase();
@@ -475,7 +476,7 @@ const PharmaWorkbench = () => {
 
                                     return (
                                         <div 
-                                            key={item.med_id} 
+                                            key={item.id} 
                                             onClick={() => setIntelModal({ open: true, data: { ...item, type: 'drug' } })}
                                             style={{ 
                                                 padding: '15px', 

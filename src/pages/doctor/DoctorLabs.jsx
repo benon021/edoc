@@ -42,11 +42,12 @@ const DoctorLabs = () => {
                 return;
             }
 
-            // 2. Fetch all appointments for this doctor with patient names
+            // 2. Fetch all appointments for this doctor with patient names (exclude completed)
             const { data: appointments, error: appError } = await supabase
                 .from('appointment')
                 .select('appoid, patient:pid(pid, pname)')
-                .eq('docid', numericDocId);
+                .eq('docid', numericDocId)
+                .neq('status', 'Completed');
 
             if (appError) throw appError;
 

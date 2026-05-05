@@ -45,7 +45,7 @@ const PharmaInventory = () => {
         try {
             setLoading(true);
             const [invRes, supRes] = await Promise.all([
-                supabase.from('medicine').select('id, med_name, generic_name, med_type, med_cat, stock_qty, buying_price, selling_price, expiry_date, unit, reorder_level, supplier_id, suppliers:supplier_id(name)').order('med_name'),
+                supabase.from('medicine').select('id, med_name, generic_name, med_type, category, stock_qty, buying_price, selling_price, expiry_date, unit, reorder_level, supplier_id, suppliers:supplier_id(name)').order('med_name'),
                 supabase.from('suppliers').select('id, name')
             ]);
             
@@ -192,7 +192,7 @@ const PharmaInventory = () => {
                                 const reorder = item.reorder_level || 10;
                                 
                                 return (
-                                    <tr key={item.med_id} style={{ 
+                                    <tr key={item.id} style={{ 
                                         borderBottom: '1px solid #dee2e6',
                                         background: isExpired ? '#fee2e2' : (stock <= 0 ? '#f1f5f9' : (isNearingExpiry ? '#fffaf0' : 'transparent')),
                                         borderLeft: isExpired ? '4px solid #ef4444' : (stock <= 0 ? '4px solid #94a3b8' : 'none')

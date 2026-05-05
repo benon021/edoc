@@ -30,13 +30,13 @@ const MedicineStatus = () => {
     const today = new Date();
     const categories = {
         EXPIRED: inventory.filter(i => new Date(i.expiry_date) <= today),
-        STOCK_OUT: inventory.filter(i => i.quantity <= 0),
+        STOCK_OUT: inventory.filter(i => (i.stock_qty || 0) <= 0),
         CRITICAL: inventory.filter(i => {
             const exp = new Date(i.expiry_date);
             const diff = (exp - today) / (1000 * 60 * 60 * 24);
             return diff > 0 && diff <= 30;
         }),
-        LOW_STOCK: inventory.filter(i => i.quantity > 0 && i.quantity <= i.min_stock),
+        LOW_STOCK: inventory.filter(i => (i.stock_qty || 0) > 0 && (i.stock_qty || 0) <= (i.reorder_level || 10)),
         SOON: inventory.filter(i => {
             const exp = new Date(i.expiry_date);
             const diff = (exp - today) / (1000 * 60 * 60 * 24);
@@ -45,7 +45,7 @@ const MedicineStatus = () => {
         HEALTHY: inventory.filter(i => {
             const exp = new Date(i.expiry_date);
             const diff = (exp - today) / (1000 * 60 * 60 * 24);
-            return i.quantity > i.min_stock && diff > 90;
+            return (i.stock_qty || 0) > (i.reorder_level || 10) && diff > 90;
         })
     };
 
@@ -147,12 +147,12 @@ const MedicineStatus = () => {
                             ) : currentList.map(item => (
                                 <tr key={item.id} style={{ borderBottom: '1px solid #dee2e6' }}>
                                     <td style={{ padding: '15px 25px' }}>
-                                        <div style={{ fontWeight: '700', color: '#343a40' }}>{item.name}</div>
+                                        <div style={{ fontWeight: '700', color: '#343a40' }}>{item.med_name}</div>
                                         <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>{item.category}</div>
                                     </td>
-                                    <td style={{ padding: '15px 25px', fontSize: '0.85rem', color: '#495057' }}>{item.batch_no}</td>
+                                    <td style={{ padding: '15px 25px', fontSize: '0.85rem', color: '#495057' }}>{item.batch_no || item.batch_number}</td>
                                     <td style={{ padding: '15px 25px', fontSize: '0.85rem', color: '#495057' }}>{new Date(item.expiry_date).toLocaleDateString()}</td>
-                                    <td style={{ padding: '15px 25px', fontWeight: '700', color: item.quantity <= item.min_stock ? '#dc3545' : '#212529' }}>{item.quantity}</td>
+                                    <td style={{ padding: '15px 25px', fontWeight: '700', color: (item.stock_qty || 0) <= (item.reorder_level || 10) ? '#dc3545' : '#212529' }}>{item.stock_qty || 0}</td>
                                     <td style={{ padding: '15px 25px', textAlign: 'right' }}>
                                         <span style={{ 
                                             fontSize: '0.75rem', 

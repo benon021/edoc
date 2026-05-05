@@ -467,6 +467,10 @@ const ConsultationModule = () => {
     }, [appoid, navigate, fetchCatalog, fetchBundles, fetchTechnicians]);
 
     const refreshData = async () => {
+        if (!appoid || appoid === 'null') {
+            setLoading(false);
+            return;
+        }
         try {
             // Get Appointment & Patient Details
             const { data: apptData, error: apptError } = await supabase

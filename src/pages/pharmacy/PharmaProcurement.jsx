@@ -52,15 +52,65 @@ const PharmaProcurement = () => {
             const { data: items } = await supabase.from('procurement_item').select('*').eq('order_id', id);
             
             for (const item of (items || [])) {
-                const med = inventory.find(i => i.name === item.medicine_name);
+                const med = inventory.find(i => i.med_name === item.medicine_name);
                 if (med) {
-                    await supabase.from('medicine').update({ quantity: med.quantity + item.quantity }).eq('id', med.id);
+                    await supabase.from('medicine').update({ stock_qty: (med.stock_qty || 0) + item.quantity }).eq('id', med.id);
                 }
             }
             fetchData();
         } catch (e) {
             console.error(e);
         }
+    };
+
+    const handleSaveOrder = async () => {
+        try {
+            const total = newOrder.items.reduce((acc, i) => acc + (Number(i.qty) * Number(i.cost)), 0);
+            const { data: orderData, error: orderError } = await supabase.from('procurement_order').insert({
+                supplier_id: newOrder.supplier_id || null,
+                status: 'pending',
+                total_cost: total,
+                notes: newOrder.notes
+            }).select('id').single();
+
+            if (orderError) throw orderError;
+
+            if (orderData && orderData.id) {
+                const itemsToInsert = newOrder.items.map(item => ({
+                    order_id: orderData.id,
+                    medicine_name: item.name,
+                    quantity: item.qty,
+                    unit_price: item.cost
+                }));
+                await supabase.from('procurement_item').insert(itemsToInsert);
+            }
+            setShowModal(false);
+            setNewOrder({ supplier_id: '', notes: '', items: [{ name: '', qty: 0, cost: 0 }] });
+            fetchData();
+        } catch (e) {
+            console.error(e);
+            alert("Error creating order.");
+        }
+    };
+
+    const handleRestock = () => {
+        // Auto-generate purchase order from selected restock items
+        const items = selectedRestockItems.map(id => {
+            const med = inventory.find(i => i.id === id);
+            return {
+                name: med.med_name,
+                qty: Math.max(10, (med.reorder_level || 10) * 2 - (med.stock_qty || 0)), // suggest order qty
+                cost: med.buying_price || 0
+            };
+        });
+        
+        // Auto-assign supplier if all items have same supplier, else blank
+        const medSuppliers = [...new Set(selectedRestockItems.map(id => inventory.find(i => i.id === id)?.supplier_id).filter(Boolean))];
+        const supplier_id = medSuppliers.length === 1 ? medSuppliers[0] : '';
+
+        setNewOrder({ supplier_id, notes: 'Auto-generated restock order', items });
+        setShowRestockModal(false);
+        setShowModal(true);
     };
 
     const toggleItemSelection = (id) => {
@@ -72,7 +122,7 @@ const PharmaProcurement = () => {
     const metrics = [
         { label: 'Active Orders', count: orders.filter(o => o.status === 'pending').length, icon: FileText, color: '#007bff' },
         { label: 'Intake Logs', count: orders.filter(o => o.status === 'received').length, icon: History, color: '#28a745' },
-        { label: 'Depleted Nodes', count: inventory.filter(i => i.quantity <= i.min_stock).length, icon: AlertCircle, color: '#dc3545' },
+        { label: 'Depleted Nodes', count: inventory.filter(i => (i.stock_qty || 0) <= (i.reorder_level || 10)).length, icon: AlertCircle, color: '#dc3545' },
         { label: 'Partner Network', count: suppliers.length, icon: Users, color: '#6c757d' },
     ];
 
@@ -189,12 +239,12 @@ const PharmaProcurement = () => {
                                     </tr>
                                 ))
                             ) : (
-                                inventory.filter(i => i.quantity <= i.min_stock).map(item => (
+                                inventory.filter(i => (i.stock_qty || 0) <= (i.reorder_level || 10)).map(item => (
                                     <tr key={item.id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                                        <td style={{ padding: '15px 25px', fontWeight: '700' }}>{item.name}</td>
+                                        <td style={{ padding: '15px 25px', fontWeight: '700' }}>{item.med_name}</td>
                                         <td style={{ padding: '15px 25px' }}>{item.category}</td>
-                                        <td style={{ padding: '15px 25px', color: '#dc3545', fontWeight: '700' }}>{item.quantity} {item.uom}</td>
-                                        <td style={{ padding: '15px 25px' }}>TH: {item.min_stock}</td>
+                                        <td style={{ padding: '15px 25px', color: '#dc3545', fontWeight: '700' }}>{item.stock_qty || 0} {item.unit}</td>
+                                        <td style={{ padding: '15px 25px' }}>TH: {item.reorder_level || 10}</td>
                                         <td style={{ padding: '15px 25px', textAlign: 'right' }}>
                                             <button onClick={() => { setSelectedRestockItems([item.id]); setShowRestockModal(true); }} style={{ padding: '6px 12px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}>Restock</button>
                                         </td>
@@ -205,7 +255,91 @@ const PharmaProcurement = () => {
                     </table>
                 </div>
 
-                {/* Edoc Style Modals... (Simplified) */}
+                {/* Edoc Style Modals */}
+                {showModal && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                        <div style={{ background: 'white', width: '100%', maxWidth: '700px', borderRadius: '4px', padding: '30px', boxShadow: '0 1rem 3rem rgba(0,0,0,.175)', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '25px', borderBottom: '1px solid #dee2e6', paddingBottom: '15px' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#343a40' }}>Generate Purchase Order</h3>
+                                <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#adb5bd' }}><X size={24} /></button>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', top: '-18px', left: '2px', fontSize: '0.65rem', color: '#adb5bd', fontWeight: '700' }}>VENDOR / SUPPLIER</div>
+                                        <select className="input-field" value={newOrder.supplier_id} onChange={e => setNewOrder({...newOrder, supplier_id: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                                            <option value="">Select Vendor...</option>
+                                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', top: '-18px', left: '2px', fontSize: '0.65rem', color: '#adb5bd', fontWeight: '700' }}>NOTES</div>
+                                        <input type="text" placeholder="Optional notes..." className="input-field" value={newOrder.notes} onChange={e => setNewOrder({...newOrder, notes: e.target.value})} style={{ width: '100%', padding: '10px', border: '1px solid #dee2e6', borderRadius: '4px' }} />
+                                    </div>
+                                </div>
+                                
+                                <div style={{ marginTop: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>ORDER ITEMS</div>
+                                        <button onClick={() => setNewOrder({...newOrder, items: [...newOrder.items, { name: '', qty: 0, cost: 0 }]})} style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#e7f2ff', color: '#007bff', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}>+ Add Item</button>
+                                    </div>
+                                    
+                                    {newOrder.items.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                            <input type="text" placeholder="Medicine Name" value={item.name} onChange={e => {
+                                                const newItems = [...newOrder.items];
+                                                newItems[idx].name = e.target.value;
+                                                setNewOrder({...newOrder, items: newItems});
+                                            }} style={{ flex: 2, padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px' }} />
+                                            
+                                            <input type="number" placeholder="Qty" value={item.qty || ''} onChange={e => {
+                                                const newItems = [...newOrder.items];
+                                                newItems[idx].qty = parseInt(e.target.value) || 0;
+                                                setNewOrder({...newOrder, items: newItems});
+                                            }} style={{ flex: 1, padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px' }} />
+                                            
+                                            <input type="number" placeholder="Unit Cost" value={item.cost || ''} onChange={e => {
+                                                const newItems = [...newOrder.items];
+                                                newItems[idx].cost = parseFloat(e.target.value) || 0;
+                                                setNewOrder({...newOrder, items: newItems});
+                                            }} style={{ flex: 1, padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px' }} />
+                                            
+                                            <button onClick={() => {
+                                                const newItems = newOrder.items.filter((_, i) => i !== idx);
+                                                setNewOrder({...newOrder, items: newItems});
+                                            }} style={{ background: '#f8d7da', color: '#dc3545', border: 'none', borderRadius: '4px', width: '35px', cursor: 'pointer' }}><X size={16} /></button>
+                                        </div>
+                                    ))}
+                                    
+                                    <div style={{ textAlign: 'right', marginTop: '15px', fontSize: '1.1rem', fontWeight: '700', color: '#007bff' }}>
+                                        Total: KSh {newOrder.items.reduce((acc, i) => acc + (Number(i.qty) * Number(i.cost)), 0).toLocaleString()}
+                                    </div>
+                                </div>
+
+                                <button onClick={handleSaveOrder} style={{ padding: '15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer', marginTop: '10px' }}>SUBMIT PURCHASE ORDER</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {showRestockModal && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                        <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '4px', padding: '30px', boxShadow: '0 1rem 3rem rgba(0,0,0,.175)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#343a40' }}>Restock Item</h3>
+                                <button onClick={() => setShowRestockModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#adb5bd' }}><X size={24} /></button>
+                            </div>
+                            <p style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '20px' }}>
+                                Do you want to generate a Purchase Order to restock {selectedRestockItems.length} selected item(s)?
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button onClick={handleRestock} style={{ flex: 1, padding: '10px', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}>Generate PO</button>
+                                <button onClick={() => setShowRestockModal(false)} style={{ flex: 1, padding: '10px', background: '#f8f9fa', color: '#343a40', border: '1px solid #dee2e6', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );

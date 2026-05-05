@@ -92,6 +92,51 @@ body {
   width: 100%;
 }
 
+.pharma-workbench-main {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 18px;
+}
+
+.pharma-workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 24px;
+  padding: 24px 0 30px;
+}
+
+.pharma-workbench-queue-card {
+  min-width: 180px;
+}
+
+.pharma-workbench-inventory {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 15px;
+}
+
+@media (max-width: 1180px) {
+  .pharma-workbench-grid {
+    grid-template-columns: 1fr;
+  }
+  .pharma-workbench-main {
+    padding: 0 12px;
+  }
+  .pharma-workbench-queue-card {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 760px) {
+  .pharma-workbench-grid {
+    gap: 16px;
+  }
+  .pharma-workbench-main {
+    padding: 0 10px;
+  }
+}
+
 /* --- Gradient Text Reversion --- */
 .gradient-text {
   background: none;

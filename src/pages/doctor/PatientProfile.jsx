@@ -77,7 +77,7 @@ let consultationsData = [];
                         .select(`
                             *
                         `)
-                        .eq('patient_id', patientPidInt)
+                        .eq('pid', patientPidInt)
                         .in('status', ['final', 'completed'])
                         .order('consultation_date', { ascending: false });
                     if (data) consultationsData = data;
@@ -98,29 +98,37 @@ let consultationsData = [];
                     let prescriptions = [];
                     let lab_reports = [];
                     let vitals = [];
+                    let lab_reqs = [];
                     try {
                         const [
                             { data: presData },
-                            { data: labData },
-                            { data: vitData }
+                            { data: vitData },
+                            { data: reqData }
                         ] = await Promise.all([
                             supabase.from('prescriptions').select('*').in('consultation_id', consultIds),
-                            supabase.from('lab_reports').select('*').eq('patient_id', pidInt),
-                            supabase.from('vitals_records').select('*').in('consultation_id', consultIds)
+                            supabase.from('vitals_records').select('*').in('consultation_id', consultIds),
+                            supabase.from('lab_requests').select('id, consultation_id').in('consultation_id', consultIds)
                         ]);
                         prescriptions = presData || [];
-                        lab_reports = labData || [];
                         vitals = vitData || [];
+                        lab_reqs = reqData || [];
+
+                        if (lab_reqs.length > 0) {
+                            const reqIds = lab_reqs.map(r => r.id);
+                            const { data: labData } = await supabase.from('lab_reports').select('*').in('request_id', reqIds);
+                            lab_reports = labData || [];
+                        }
                     } catch (promiseError) {
                         console.warn('[PatientProfile] Related data fetch failed:', promiseError);
                     }
 
                     enrichedConsultations = consultationsData.map(c => {
+                        const cReqIds = lab_reqs.filter(r => r.consultation_id === c.id).map(r => r.id);
                         return {
                             ...c,
                             doctor_name: c.doctor?.docname || 'Unknown Doctor',
                             prescriptions: prescriptions?.filter(p => p.consultation_id === c.id) || [],
-                            lab_results: lab_results?.filter(r => r.lab_requests?.consultation_id === c.id) || [],
+                            lab_results: lab_reports?.filter(r => cReqIds.includes(r.request_id)) || [],
                             vitals: vitals?.find(v => v.consultation_id === c.id) || null
                         };
                     });
@@ -517,15 +525,55 @@ let consultationsData = [];
                                                             <FlaskConical size={18} color="#059669" /> DIAGNOSTIC LAB RESULTS
                                                         </h4>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            {c.lab_results && c.lab_results.length > 0 ? c.lab_results.map((res, i) => (
-                                                                <div key={i} style={{ background: '#f0fdf4', padding: '20px', borderRadius: '20px', border: '1px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <div>
-                                                                        <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#065f46' }}>{res.test_name}</div>
-                                                                        <div style={{ fontSize: '1.1rem', color: '#065f46', fontWeight: '700', marginTop: '4px' }}>{res.result_value} {res.result_unit}</div>
+                                                            {c.lab_results && c.lab_results.length > 0 ? c.lab_results.map((res, i) => {
+                                                                let parsedResults = {};
+                                                                try {
+                                                                    parsedResults = typeof res.results === 'string' ? JSON.parse(res.results) : (res.results || {});
+                                                                } catch(e) {}
+                                                                
+                                                                return (
+                                                                    <div key={i} style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                                                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                            <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                <FlaskConical size={16} color="#059669" /> {res.test_name}
+                                                                            </div>
+                                                                            <span style={{ padding: '4px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#059669', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '800' }}>VERIFIED</span>
+                                                                        </div>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: '10px' }}>
+                                                                            {Object.entries(parsedResults).map(([key, val], idx) => {
+                                                                                const isComplex = typeof val === 'object' && val !== null;
+                                                                                const rVal = isComplex ? val.value : val;
+                                                                                const rUnit = isComplex ? val.unit : '';
+                                                                                const rStatus = isComplex ? (val.status || 'Normal') : 'Normal';
+                                                                                
+                                                                                const getStatusColor = (s) => {
+                                                                                    const low = s.toLowerCase();
+                                                                                    if (low.includes('critical') || low.includes('high')) return '#ef4444';
+                                                                                    if (low.includes('low')) return '#3b82f6';
+                                                                                    if (low.includes('reactive') && !low.includes('non')) return '#f59e0b';
+                                                                                    return '#10b981';
+                                                                                };
+                                                                                const sColor = getStatusColor(rStatus);
+
+                                                                                return (
+                                                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                            <Activity size={14} color={sColor} />
+                                                                                            <span style={{ color: '#475569', fontWeight: '600' }}>{key === 'undefined' || key.trim() === '' ? 'Unnamed Parameter' : key}</span>
+                                                                                        </div>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                                            <span style={{ color: '#0f172a', fontWeight: '800' }}>{rVal} <span style={{ color: '#64748b', fontWeight: '600' }}>{rUnit}</span></span>
+                                                                                            <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '6px', background: `${sColor}15`, color: sColor, fontWeight: '800', minWidth: '60px', textAlign: 'center', border: `1px solid ${sColor}30` }}>
+                                                                                                {rStatus.toUpperCase()}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
                                                                     </div>
-                                                                    <span style={{ padding: '6px 12px', background: 'white', border: '1px solid #dcfce7', color: '#10b981', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '800' }}>VERIFIED</span>
-                                                                </div>
-                                                            )) : (
+                                                                );
+                                                            }) : (
                                                                 <div style={{ padding: '40px', background: '#f8fafc', borderRadius: '24px', border: '1px dashed #e2e8f0', textAlign: 'center', color: '#94a3b8' }}>
                                                                     No diagnostic results recorded.
                                                                 </div>

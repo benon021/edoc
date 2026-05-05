@@ -17,7 +17,7 @@ import { supabase } from '../../lib/supabase';
 const DoctorDashboard = () => {
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const [stats, setStats] = useState({ total: 0, waiting: 0, completed: 0 });
+    const [stats, setStats] = useState({ total: 0, waiting: 0, completed: 0, totalPatients: 0 });
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [confirmDelete, setConfirmDelete] = useState({ open: false, appo: null });
@@ -62,6 +62,14 @@ const DoctorDashboard = () => {
                 
             if (error) throw error;
             
+            // Fetch all-time appointments for this doctor to calculate unique total patients
+            const { data: allApps } = await supabase
+                .from('appointment')
+                .select('pid')
+                .eq('docid', docIdInt);
+                
+            const uniquePatientsCount = allApps ? new Set(allApps.map(a => a.pid)).size : 0;
+            
             if (data) {
                 // Flatten the patient data
                 const formattedQueue = data.map(appo => ({
@@ -78,8 +86,8 @@ const DoctorDashboard = () => {
                 
                 // Calculate stats
                 const waiting = formattedQueue.filter(a => a.status === 'waiting').length;
-                const completed = formattedQueue.filter(a => a.status === 'completed').length;
-                setStats({ total: formattedQueue.length, waiting, completed });
+                const completed = formattedQueue.filter(a => a.status?.toLowerCase() === 'completed').length;
+                setStats({ total: formattedQueue.length, waiting, completed, totalPatients: uniquePatientsCount });
             }
         } catch (err) {
             console.error("Failed to fetch today's queue", err);
@@ -120,13 +128,14 @@ const DoctorDashboard = () => {
         { label: 'Today Queue', count: stats.total, icon: Calendar, path: '/doctor/appointments', color: '#3b82f6' },
         { label: 'Waiting', count: stats.waiting, icon: Clock, path: '/doctor/appointments', color: '#f59e0b' },
         { label: 'Completed', count: stats.completed, icon: CheckCircle, path: '/doctor/appointments', color: '#10b981' },
-        { label: 'Total Patients', count: stats.total, icon: Users, path: '/doctor/patients', color: '#8b5cf6' },
+        { label: 'Total Patients', count: stats.totalPatients, icon: Users, path: '/doctor/patients', color: '#8b5cf6' },
     ];
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
             <Sidebar userType="d" />
-            <main style={{ flex: 1, padding: '32px 48px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+            <main className="doctor-dashboard-main" style={{ flex: 1, padding: '32px 48px', maxWidth: '1400px', margin: '0 auto', width: '100%', overflowX: 'auto' }}>
+                <div className="doctor-dashboard-inner">
                 
                 <ClinicalModal 
                     isOpen={confirmDelete.open}
@@ -316,7 +325,17 @@ const DoctorDashboard = () => {
                     </div>
                 </div>
 
+                </div>
                 <style>{`
+                    @media (max-width: 1024px) {
+                        .doctor-dashboard-main { 
+                            padding: 16px !important; 
+                        }
+                        .doctor-dashboard-inner { 
+                            min-width: 1000px; 
+                            zoom: calc(100vw / 1050); 
+                        }
+                    }
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                     .animate-spin { animation: spin 1s linear infinite; }
                 `}</style>

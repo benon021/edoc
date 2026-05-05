@@ -284,19 +284,30 @@ const handleToggle = async (item) => {
                              <div>
                                 <label style={{ display: 'flex', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: 12, justifyContent: 'space-between', alignItems: 'center' }}>
                                     Test Parameters (Fields)
-                                    <button 
-                                        type="button"
-                                        onClick={() => {
-                                            let currentFields = [];
-                                            try { currentFields = form.ref_ranges ? JSON.parse(form.ref_ranges) : []; } catch(e) { currentFields = []; }
-                                            if (!Array.isArray(currentFields)) currentFields = [];
-                                            const updated = [...currentFields, { field: '', unit: '', ref: '' }];
-                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
-                                        }}
-                                        style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 6, fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
-                                    >
-                                        + Add Field
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                setForm(v => ({ ...v, ref_ranges: '[]' }));
+                                            }}
+                                            style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', padding: '4px 8px', borderRadius: 6, fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                        >
+                                            - Clear Fields
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                let currentFields = [];
+                                                try { currentFields = form.ref_ranges ? JSON.parse(form.ref_ranges) : []; } catch(e) { currentFields = []; }
+                                                if (!Array.isArray(currentFields)) currentFields = [];
+                                                const updated = [...currentFields, { field: '', unit: '', ref: '' }];
+                                                setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                            }}
+                                            style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 6, fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                        >
+                                            + Add Field
+                                        </button>
+                                    </div>
                                 </label>
                                 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 250, overflowY: 'auto', padding: '4px' }}>
