@@ -610,52 +610,52 @@ const ConsultationModule = () => {
 
     const handleSelectMed = (med) => {
         const isExpired = new Date(med.expiry_date) < new Date();
-        const isDepleted = med.quantity <= 0;
+        const isDepleted = med.stock_qty <= 0;
 
         if (isExpired) {
             setClinicalModal({
                 open: true,
                 type: 'warning',
                 title: 'Expired Medication Warning',
-                message: `WARNING: ${med.name} has EXPIRED (${med.expiry_date}). While you can still prescribe it for clinical reasons, please note the pharmacy will be blocked from dispensing it until it is replenished.`,
+                message: `WARNING: ${med.med_name} has EXPIRED (${med.expiry_date}). While you can still prescribe it for clinical reasons, please note the pharmacy will be blocked from dispensing it until it is replenished.`,
                 onConfirm: () => {
                     setNewDrug({
                         ...newDrug,
                         drug_id: med.id,
-                        drug_name: med.name,
+                        drug_name: med.med_name,
                         brand_name: med.brand_name || '',
-                        drug_form: med.drug_form || 'Tablet',
+                        drug_form: med.med_type || 'Tablet',
                         dosage: med.dosage || '500mg',
                         frequency: 'Twice a day (BD) [1x2]',
                         duration: '5 days',
-                        sell_price: med.sell_price,
-                        stock: med.quantity,
+                        sell_price: med.selling_price,
+                        stock: med.stock_qty,
                         food_relation: 'After Food'
                     });
-                    setMedSearch(med.name);
+                    setMedSearch(med.med_name);
                     setShowMedDropdown(false);
                 }
             });
             return;
         }
         if (isDepleted) {
-            showToast(`${med.name} is currently out of stock. The pharmacist will need to restock before dispensing.`, "info");
+            showToast(`${med.med_name} is currently out of stock. The pharmacist will need to restock before dispensing.`, "info");
         }
 
         setNewDrug({
             ...newDrug,
             drug_id: med.id,
-            drug_name: med.name,
+            drug_name: med.med_name,
             brand_name: med.brand_name || '',
-            drug_form: med.drug_form || 'Tablet',
+            drug_form: med.med_type || 'Tablet',
             dosage: med.dosage || '500mg',
             frequency: 'Twice a day (BD) [1x2]',
             duration: '5 days',
-            sell_price: med.sell_price,
-            stock: med.quantity,
+            sell_price: med.selling_price,
+            stock: med.stock_qty,
             food_relation: 'After Food'
         });
-        setMedSearch(med.name);
+        setMedSearch(med.med_name);
         setShowMedDropdown(false);
     };
 
@@ -1934,8 +1934,8 @@ const ConsultationModule = () => {
                                                 const today = new Date();
                                                 const isExpired = expiryDate < today;
                                                 const isNearingExpiry = !isExpired && expiryDate < new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-                                                const isDepleted = med.quantity <= 0;
-                                                const isLowStock = med.quantity < 20 && med.quantity > 0;
+                                                const isDepleted = med.stock_qty <= 0;
+                                                const isLowStock = med.stock_qty < 20 && med.stock_qty > 0;
 
                                                 return (
                                                     <div key={med.id} onClick={() => handleSelectMed(med)} style={{
@@ -1946,18 +1946,18 @@ const ConsultationModule = () => {
                                                     }}>
                                                         <div>
                                                             <div style={{ fontWeight: '700', color: isExpired ? '#dc3545' : (isNearingExpiry ? '#fd7e14' : '#1e293b') }}>
-                                                                {med.name}
+                                                                {med.med_name}
                                                                 {isExpired && <span style={{ fontSize: '0.65rem', background: '#dc3545', color: 'white', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>EXPIRED</span>}
                                                                 {isNearingExpiry && <span style={{ fontSize: '0.65rem', background: '#fd7e14', color: 'white', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>EXPIRING SOON</span>}
                                                             </div>
-                                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{med.formula} ({med.drug_form || 'Tablet'})</div>
+                                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{med.generic_name} ({med.med_type || 'Tablet'})</div>
                                                         </div>
                                                         <div style={{ textAlign: 'right' }}>
                                                             <div style={{
                                                                 fontSize: '0.9rem', fontWeight: '700',
                                                                 color: isDepleted ? '#ef4444' : (isLowStock ? '#f59e0b' : '#10b981')
                                                             }}>
-                                                                {isDepleted ? 'Out of Stock' : (isLowStock ? `Low Stock (${med.quantity})` : `${med.quantity} available`)}
+                                                                {isDepleted ? 'Out of Stock' : (isLowStock ? `Low Stock (${med.stock_qty})` : `${med.stock_qty} available`)}
                                                             </div>
                                                             <div style={{ fontSize: '0.7rem', color: isExpired ? '#dc3545' : (isNearingExpiry ? '#fd7e14' : '#94a3b8') }}>Exp: {med.expiry_date}</div>
                                                         </div>

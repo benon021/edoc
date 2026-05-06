@@ -296,12 +296,12 @@ export const createMedicine = (data) =>
   supabase.from('medicine').insert([data]).select();
 
 export const updateMedicine = (medId, data) =>
-  supabase.from('medicine').update(data).eq('med_id', medId);
+  supabase.from('medicine').update(data).eq('id', medId);
 
 export const updateMedicineInventory = updateMedicine;
 
 export const deleteMedicine = (medId) =>
-  supabase.from('medicine').delete().eq('med_id', medId);
+  supabase.from('medicine').delete().eq('id', medId);
 
 export const getMedicineStatus = () =>
   supabase.from('medicine').select('*').order('med_name');

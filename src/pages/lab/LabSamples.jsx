@@ -33,7 +33,7 @@ export default function LabSamples() {
                     patient!inner(pid, pname, pgender)
                 `)
                 .eq('status', 'pending')
-                .order('order_timestamp', { ascending: false });
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
             
@@ -109,7 +109,7 @@ export default function LabSamples() {
                         {found && (
                             <div style={{ border: '2px solid #0ea5e9', borderRadius: 14, overflow: 'hidden' }}>
                                 <div style={{ background: '#0ea5e9', color: 'white', padding: '12px 16px', fontWeight: 700, fontSize: '0.9rem' }}>
-                                    Request #{found.id} — {found.test_type}
+                                    Request #{found.id} — {found.test_name}
                                 </div>
                                 <div style={{ padding: 16 }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
@@ -159,7 +159,7 @@ export default function LabSamples() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <div style={{ fontWeight: 700, color: '#1e293b' }}>{s.pname}</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{s.test_type} · {s.specimen_type}</div>
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{s.test_name} · {s.specimen_type}</div>
                                     </div>
                                     <button onClick={() => { setFound(s); setSampleId(String(s.id)); setNotFound(false); }}
                                         style={{ padding: '4px 12px', borderRadius: 8, background: '#ef4444', color: 'white', border: 'none', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
@@ -202,7 +202,7 @@ export default function LabSamples() {
                                         <div style={{ fontWeight: 600, color: '#1e293b' }}>{s.pname}</div>
                                         <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{s.pgender}</div>
                                     </td>
-                                    <td style={{ padding: '14px 20px', fontWeight: 500, fontSize: '0.875rem' }}>{s.test_type}</td>
+                                    <td style={{ padding: '14px 20px', fontWeight: 500, fontSize: '0.875rem' }}>{s.test_name}</td>
                                     <td style={{ padding: '14px 20px', fontSize: '0.875rem', color: '#64748b' }}>{s.specimen_type || '—'}</td>
                                     <td style={{ padding: '14px 20px' }}>
                                         <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700, background: s.urgency === 'Urgent' ? '#fef2f2' : '#f0f9ff', color: s.urgency === 'Urgent' ? '#ef4444' : '#0369a1' }}>

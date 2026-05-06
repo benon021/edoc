@@ -110,7 +110,7 @@ export default function LabRequests() {
         try {
             const techId = selectedTechs[id];
             const updateData = { status: newStatus };
-            if (techId) updateData.assigned_technician = techId; // Using a hypothetical column or we might need to add it
+            if (techId) updateData.technician_id = techId; // Corrected column name
 
             const { error } = await supabase.from('lab_requests').update(updateData).eq('id', id);
             if (error) throw error;
