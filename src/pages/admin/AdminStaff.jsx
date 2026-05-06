@@ -54,8 +54,8 @@ const AdminStaff = () => {
     };
 
     const filtered = staff.filter(s => 
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.role.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.role || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -100,7 +100,7 @@ const AdminStaff = () => {
                                     <td style={{ padding: '16px 24px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: s.status === 'suspended' ? '#fda4af' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: 'var(--primary)' }}>
-                                                {s.name.charAt(0)}
+                                                {(s.name || 'U').charAt(0)}
                                             </div>
                                             <div>
                                                 <div style={{ fontWeight: '700', color: s.status === 'suspended' ? '#be123c' : 'inherit' }}>{s.name}</div>

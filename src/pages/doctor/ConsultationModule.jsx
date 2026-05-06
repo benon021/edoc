@@ -1969,7 +1969,7 @@ const ConsultationModule = () => {
                                 </div>
 
                                 {/* Allergy Alert */}
-                                {newDrug.drug_name && patient?.allergies && patient.allergies.toLowerCase().includes(newDrug.drug_name.toLowerCase()) && (
+                                {newDrug.drug_name && patient?.allergies && (patient.allergies || '').toLowerCase().includes((newDrug.drug_name || '').toLowerCase()) && (
                                     <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', padding: '12px 16px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: '#991b1b' }}>
                                         <AlertTriangle size={20} />
                                         <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>
@@ -2160,7 +2160,7 @@ const ConsultationModule = () => {
                                             const val = e.target.value;
                                             setNewLab({ ...newLab, test_name: val });
                                             // Auto-calc specimen if exact match found
-                                            const match = catalog.find(t => t.test_name.toLowerCase() === val.toLowerCase());
+                                            const match = catalog.find(t => (t.test_name || '').toLowerCase() === val.toLowerCase());
                                             if (match) {
                                                 setNewLab({ ...newLab, test_name: match.test_name, specimen_type: match.required_sample || '' });
                                             }
@@ -2169,7 +2169,7 @@ const ConsultationModule = () => {
                                     {catalog.length > 0 && newLab.test_name && (
                                         <div style={{ position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', marginTop: '4px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', maxHeight: '200px', overflowY: 'auto' }}>
                                             {catalog
-                                                .filter(t => t.test_name.toLowerCase().includes(newLab.test_name.toLowerCase()) && t.is_enabled)
+                                                .filter(t => (t.test_name || '').toLowerCase().includes((newLab.test_name || '').toLowerCase()) && t.is_enabled)
                                                 .slice(0,10)
                                                 .map(t => (
                                                     <div
@@ -2193,7 +2193,7 @@ const ConsultationModule = () => {
                                                         </span>
                                                     </div>
                                                 ))}
-                                            {catalog.filter(t => t.test_name.toLowerCase().includes(newLab.test_name.toLowerCase())).length === 0 && (
+                                            {catalog.filter(t => (t.test_name || '').toLowerCase().includes((newLab.test_name || '').toLowerCase())).length === 0 && (
                                                 <div style={{ padding: '12px 16px', color: '#94a3b8', fontStyle: 'italic' }}>
                                                     No matching tests found
                                                 </div>

@@ -10,10 +10,9 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
     Home, Users, Settings, UserCircle, Pill, FlaskConical, FileText,
-    ShoppingCart, ShoppingBag, Truck, LayoutDashboard, DollarSign,
-    Receipt, Package, Activity, LogOut, CalendarRange, Stethoscope,
-    UserPlus, CalendarPlus, ListOrdered, Printer, Microscope, Tag,
-    CheckCircle, ChevronRight, Globe
+    CheckCircle, ChevronRight, Globe, Menu, ChevronLeft, UserPlus, ListOrdered,
+    Printer, CalendarRange, Stethoscope, LayoutDashboard, Package, Activity,
+    DollarSign, Microscope, Tag, ShoppingCart, Truck, ShoppingBag, LogOut
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -28,6 +27,8 @@ const Sidebar = ({ userType }) => {
     // Hospital branding fetched from Supabase system_config
     const [hospitalConfig, setHospitalConfig] = React.useState({ name: 'eDoc Hospital', logo: '' });
     const [expandedMenu, setExpandedMenu] = React.useState(null);
+    const [isCollapsed, setIsCollapsed] = React.useState(window.innerWidth < 1200);
+    const [showMobile, setShowMobile] = React.useState(false);
 
     const sidebarRef = React.useRef(null);
 
@@ -130,77 +131,134 @@ const Sidebar = ({ userType }) => {
 
     const items = navItems[userType] || [];
 
+    const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+    const toggleMobile = () => setShowMobile(!showMobile);
+
     return (
+        <>
+        {/* Mobile Toggle Button */}
+        <button 
+            onClick={toggleMobile}
+            style={{
+                position: 'fixed',
+                bottom: '20px',
+                right: '20px',
+                width: '50px',
+                height: '50px',
+                borderRadius: '50%',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                zIndex: 1000,
+                display: window.innerWidth < 768 ? 'flex' : 'none',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+            }}
+        >
+            <Menu size={24} />
+        </button>
+
         <aside ref={sidebarRef} style={{
-            width: '260px',
+            width: isCollapsed ? '80px' : '260px',
             background: '#ffffff',
             borderRight: '1px solid #dee2e6',
             height: '100vh',
-            display: 'flex',
+            display: (window.innerWidth < 768 && !showMobile) ? 'none' : 'flex',
             flexDirection: 'column',
-            position: 'sticky',
+            position: window.innerWidth < 768 ? 'fixed' : 'sticky',
             top: 0,
-            zIndex: 100
+            left: 0,
+            zIndex: 1100,
+            transition: 'width 0.3s ease, transform 0.3s ease',
+            boxShadow: window.innerWidth < 768 ? '0 0 20px rgba(0,0,0,0.1)' : 'none'
         }}>
+            {/* Collapse Toggle (Desktop) */}
+            <button 
+                onClick={toggleSidebar}
+                style={{
+                    position: 'absolute',
+                    right: '-12px',
+                    top: '32px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'white',
+                    border: '1px solid #dee2e6',
+                    display: window.innerWidth < 768 ? 'none' : 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    zIndex: 10
+                }}
+            >
+                {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
             {/* Hospital Branding Header */}
-            <div style={{ padding: '24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                <div style={{ minWidth: '40px', width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {hospitalConfig.logo ? (
                         <img src={hospitalConfig.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                         <Globe size={24} color="white" />
                     )}
                 </div>
-                <div>
-                    <h2 style={{ fontSize: '1rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>
-                        {hospitalConfig.name}
-                    </h2>
-                    <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Medical Terminal
-                    </span>
-                </div>
+                {!isCollapsed && (
+                    <div style={{ whiteSpace: 'nowrap' }}>
+                        <h2 style={{ fontSize: '1rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>
+                            {hospitalConfig.name}
+                        </h2>
+                        <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Medical Terminal
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Profile Block */}
             <div style={{ padding: '32px 24px', textAlign: 'center', borderBottom: '1px solid #f8f9fa' }}>
                 <div style={{
-                    width: '100px', height: '100px', borderRadius: '50%',
+                    width: isCollapsed ? '40px' : '100px', height: isCollapsed ? '40px' : '100px', borderRadius: '50%',
                     background: '#f8f9fa', margin: '0 auto 20px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '4px solid #f1f5f9', overflow: 'hidden',
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)'
+                    border: isCollapsed ? '2px solid #f1f5f9' : '4px solid #f1f5f9', overflow: 'hidden',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
+                    transition: 'all 0.3s'
                 }}>
                     {displayPhoto ? (
                         <img src={displayPhoto} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                        <UserCircle size={80} color="#cbd5e1" strokeWidth={1} />
+                        <UserCircle size={isCollapsed ? 30 : 80} color="#cbd5e1" strokeWidth={1} />
                     )}
                 </div>
 
-                {/* Display name from Supabase profile */}
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '900', color: '#1e293b', marginBottom: '4px', letterSpacing: '-0.02em' }}>
-                    {displayName}
-                </h3>
-                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '24px', fontWeight: '500' }}>
-                    {displayEmail}
-                </p>
+                {!isCollapsed && (
+                    <>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '900', color: '#1e293b', marginBottom: '4px', letterSpacing: '-0.02em' }}>
+                            {displayName}
+                        </h3>
+                        <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '24px', fontWeight: '500' }}>
+                            {displayEmail}
+                        </p>
+                    </>
+                )}
 
                 {/* Logout — calls Supabase signOut via AuthContext */}
                 <button
                     id="sidebar-logout-btn"
                     onClick={handleLogout}
                     style={{
-                        width: '100%', padding: '10px',
+                        width: '100%', padding: isCollapsed ? '10px 0' : '10px',
                         background: '#f1f5f9', color: '#1e293b',
                         border: '1px solid #e2e8f0', borderRadius: '10px',
                         fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isCollapsed ? '0' : '8px',
                         transition: '0.2s'
                     }}
-                    onMouseOver={e => e.currentTarget.style.background = '#e2e8f0'}
-                    onMouseOut={e => e.currentTarget.style.background = '#f1f5f9'}
+                    title={isCollapsed ? "Log out" : ""}
                 >
-                    <LogOut size={16} /> Log out
+                    <LogOut size={16} /> {!isCollapsed && "Log out"}
                 </button>
             </div>
 
@@ -233,10 +291,10 @@ const Sidebar = ({ userType }) => {
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <item.icon size={20} />
-                                    <span>{item.name}</span>
+                                    <item.icon size={20} style={{ minWidth: '20px' }} />
+                                    {!isCollapsed && <span>{item.name}</span>}
                                 </div>
-                                {hasSubItems && (
+                                {hasSubItems && !isCollapsed && (
                                     <ChevronRight size={16} style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: '0.3s' }} />
                                 )}
                             </div>
@@ -273,9 +331,23 @@ const Sidebar = ({ userType }) => {
             </nav>
 
             <div style={{ padding: '20px', fontSize: '0.75rem', color: '#adb5bd', textAlign: 'center', borderTop: '1px solid #f8f9fa' }}>
-                Powered by lumiaxy System
+                {isCollapsed ? "LX" : "Powered by lumiaxy System"}
             </div>
         </aside>
+        
+        {/* Mobile Overlay */}
+        {showMobile && window.innerWidth < 768 && (
+            <div 
+                onClick={toggleMobile}
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    zIndex: 1050
+                }}
+            />
+        )}
+        </>
     );
 };
 

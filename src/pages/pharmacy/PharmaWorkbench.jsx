@@ -63,7 +63,7 @@ const PharmaWorkbench = () => {
         try {
             setLoading(true);
             const [invRes, prescRes] = await Promise.all([
-                supabase.from('medicine').select('id, med_name, generic_name, stock_qty, selling_price, expiry_date, batch_no, med_type, unit'),
+                supabase.from('medicine').select('id, med_name, generic_name, stock_qty, selling_price, expiry_date, batch_no, med_type, unit, is_taxable, prescription_required'),
                 supabase.from('prescriptions')
                     .select(`
                         id,
@@ -134,6 +134,8 @@ const PharmaWorkbench = () => {
             setInventory(invData || []);
         } catch (err) {
             console.error("Fetch error:", err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -281,19 +283,33 @@ const PharmaWorkbench = () => {
             const receiptNo = `RX-${Date.now().toString().slice(-6).toUpperCase()}`;
             
             // 1. Insert into pharmacy_sale
-            const { data: saleData, error: saleError } = await supabase.from('pharmacy_sale').insert({
+            const salePayload = {
                 pid: selectedPresc ? selectedPresc.pid : null,
                 customer_name: selectedPresc ? selectedPresc.pname : 'Walk-in Customer',
-                total_amount: total,
-                discount_amount: 0,
+                total_amount: subtotal,
                 tax_amount: taxAmount,
+                grand_total: total,
+                discount_amount: 0,
                 payment_method: paymentMethod,
-                pharmacist_id: profile?.phid || 1,
                 clinical_verification: selectedPresc ? 'Prescription Verified' : 'Walk-in Sale',
                 receipt_no: receiptNo
-            }).select('id').single();
+            };
             
-            if (saleError) throw saleError;
+            // Only attach pharmacist_id if safely available to avoid Foreign Key crashes
+            if (profile?.phid || user?.phid) {
+                salePayload.pharmacist_id = profile?.phid || user?.phid;
+            }
+            
+            const { data: saleData, error: saleError } = await supabase.from('pharmacy_sale').insert(salePayload).select('id').single();
+            
+            if (saleError) {
+                console.error("Sale insertion error:", saleError);
+                throw saleError;
+            }
+            
+            if (!saleData) {
+                throw new Error("Failed to retrieve sale ID after insertion.");
+            }
             
             const saleId = saleData.id;
             
@@ -302,7 +318,10 @@ const PharmaWorkbench = () => {
                 sale_id: saleId,
                 medicine_id: item.id,
                 quantity: item.qty,
+                qty_sold: item.qty,
                 unit_price: item.price,
+                selling_price: item.price,
+                subtotal: item.price * item.qty,
                 tax_amount: item.is_taxable ? (item.price * item.qty * 0.16) : 0
             }));
             
@@ -496,7 +515,7 @@ const PharmaWorkbench = () => {
                                                     {item.med_name}
                                                 </div>
                                                 <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>
-                                                    LKR {Number(item.selling_price || 0).toFixed(2)} • <span style={{ color: stock <= 0 ? '#dc3545' : (stock < 10 ? '#fd7e14' : '#28a745'), fontWeight: '700' }}>
+                                                    KSh {Number(item.selling_price || 0).toFixed(2)} • <span style={{ color: stock <= 0 ? '#dc3545' : (stock < 10 ? '#fd7e14' : '#28a745'), fontWeight: '700' }}>
                                                         {stock <= 0 ? 'UNAVAILABLE' : `${stock} Left`}
                                                     </span>
                                                 </div>
@@ -555,7 +574,7 @@ const PharmaWorkbench = () => {
                                         <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px' }}>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>{item.name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>LKR {item.price}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>KSh {item.price}</div>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <button onClick={() => updateQty(item.id, -1)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#007bff' }}><Minus size={14} /></button>

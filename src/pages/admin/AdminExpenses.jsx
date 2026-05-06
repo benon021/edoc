@@ -51,7 +51,7 @@ const AdminExpenses = () => {
                         <div key={e.id} style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                                 <div style={{ padding: '8px 12px', background: '#fef2f2', color: '#ef4444', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '800' }}>
-                                    {e.category.toUpperCase()}
+                                    {(e.category || 'General').toUpperCase()}
                                 </div>
                                 <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <Calendar size={14} /> {new Date(e.expense_date).toLocaleDateString()}

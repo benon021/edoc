@@ -57,8 +57,8 @@ const AdminLogs = () => {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '600px', overflowY: 'auto', paddingRight: '10px' }}>
-                        {logs.filter(l => l.action.toLowerCase().includes(searchTerm.toLowerCase()) || l.user_email.toLowerCase().includes(searchTerm.toLowerCase())).map(log => {
-                            const style = getActionStyle(log.action);
+                        {logs.filter(l => (l.action || '').toLowerCase().includes(searchTerm.toLowerCase()) || (l.user_email || '').toLowerCase().includes(searchTerm.toLowerCase())).map(log => {
+                            const style = getActionStyle(log.action || '');
                             return (
                                 <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '180px 1fr 200px', gap: '20px', padding: '16px', background: '#1e293b50', borderRadius: '12px', borderLeft: `4px solid ${style.color}`, alignItems: 'center' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -68,12 +68,12 @@ const AdminLogs = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <style.icon size={16} color={style.color} />
                                         <div>
-                                            <span style={{ color: style.color, fontWeight: '800', fontSize: '0.85rem' }}>{log.action.toUpperCase()}</span>
+                                            <span style={{ color: style.color, fontWeight: '800', fontSize: '0.85rem' }}>{(log.action || 'Unknown').toUpperCase()}</span>
                                             <p style={{ color: '#cbd5e1', fontSize: '0.875rem', marginTop: '2px' }}>{log.details}</p>
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700' }}>BY: {log.user_email}</span>
+                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700' }}>BY: {log.user_email || 'System'}</span>
                                     </div>
                                 </div>
                             );

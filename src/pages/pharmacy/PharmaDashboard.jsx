@@ -119,14 +119,16 @@ const PharmaDashboard = () => {
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     borderRadius: '16px',
-                    padding: '40px 50px',
-                    marginBottom: '40px',
+                    padding: '30px 40px',
+                    marginBottom: '30px',
                     color: 'white',
-                    minHeight: '280px',
+                    minHeight: '220px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                    flexWrap: 'wrap',
+                    gap: '20px'
                 }}>
                     <div style={{ flex: 1 }}>
                         <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '8px', letterSpacing: '-0.5px' }}>
@@ -161,7 +163,7 @@ const PharmaDashboard = () => {
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#343a40', marginBottom: '25px' }}>Status</h2>
 
                 {/* Edoc Status Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' }}>
+                <div className="responsive-grid grid-4" style={{ marginBottom: '40px' }}>
                     {statCards.map((stat, idx) => (
                         <div key={idx} style={{ background: 'white', padding: '20px 25px', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -176,7 +178,7 @@ const PharmaDashboard = () => {
                 </div>
 
                 {/* Edoc Content Sections */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                <div className="responsive-grid grid-2" style={{ gap: '30px' }}>
 
                     {/* Appointments Section - Real RX Requests */}
                     <div>

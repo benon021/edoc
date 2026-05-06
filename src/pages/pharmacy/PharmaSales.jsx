@@ -24,15 +24,26 @@ const PharmaSales = () => {
 
     const fetchSales = async () => {
         try {
-            // Attempt fetch with join
+            // Attempt fetch with join - note: schema seems to link pharmacist_id to doctor table
             let { data, error } = await supabase
                 .from('pharmacy_sale')
-                .select('*, pharmacist:pharmacist_id(phname)')
+                .select('*, pharmacist:pharmacist_id(docname)')
                 .order('created_at', { ascending: false });
                 
-            // Fallback if join fails (e.g. relation doesn't exist)
+            // Fallback if join with docname fails, try phname
             if (error) {
-                console.warn("Join failed, fetching sales without pharmacist link:", error.message);
+                console.warn("Join with docname failed, trying phname:", error.message);
+                const retry = await supabase
+                    .from('pharmacy_sale')
+                    .select('*, pharmacist:pharmacist_id(phname)')
+                    .order('created_at', { ascending: false });
+                data = retry.data;
+                error = retry.error;
+            }
+
+            // Final fallback: fetch without join
+            if (error) {
+                console.warn("Join failed completely, fetching sales without pharmacist link:", error.message);
                 const fallback = await supabase
                     .from('pharmacy_sale')
                     .select('*')
@@ -46,7 +57,7 @@ const PharmaSales = () => {
             const formatted = (data || []).map(s => ({
                 ...s,
                 sale_id: s.id || s.sale_id, // ensure compatibility
-                phname: s.pharmacist?.phname || null
+                phname: s.pharmacist?.phname || s.pharmacist?.docname || null
             }));
             
             setSales(formatted);
@@ -168,7 +179,7 @@ const PharmaSales = () => {
                                     <td style={{ padding: '16px 24px' }}>
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#f1f5f9', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700' }}>
                                             {getPaymentIcon(sale.payment_method)}
-                                            {sale.payment_method.toUpperCase()}
+                                            {(sale.payment_method || 'N/A').toUpperCase()}
                                         </div>
                                     </td>
                                     <td style={{ padding: '16px 24px', fontSize: '0.875rem', color: '#64748b' }}>

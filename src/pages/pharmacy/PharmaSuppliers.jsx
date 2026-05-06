@@ -163,8 +163,8 @@ const PharmaSuppliers = () => {
             <main style={{ flex: 1, padding: '24px 30px' }}>
                 
                 {/* Edoc Style Header Search & Date */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                    <div style={{ display: 'flex', gap: '10px', flex: 1, maxWidth: '800px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '300px' }}>
                         <div style={{ position: 'relative', flex: 1 }}>
                             <Search size={18} style={{ position: 'absolute', left: '15px', top: '12px', color: '#adb5bd' }} />
                             <input 
@@ -196,7 +196,7 @@ const PharmaSuppliers = () => {
                 </div>
 
                 {/* Edoc Status Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' }}>
+                <div className="responsive-grid grid-4" style={{ marginBottom: '40px' }}>
                     {metrics.map((stat, idx) => (
                         <div key={idx} style={{ background: 'white', padding: '20px 25px', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -210,8 +210,8 @@ const PharmaSuppliers = () => {
                     ))}
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                         <thead style={{ background: '#f8f9fa', borderBottom: '2px solid #007bff' }}>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '15px 25px', fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>SUPPLIER IDENTITY</th>

@@ -33,8 +33,8 @@ const AdminMasterCatalog = () => {
             const pharData = pharRes.data || [];
 
             const combined = [
-                ...labData.map(t => ({ ...t, type: 'lab', id: t.id, name: t.test_name, price: t.price || 0, category: t.category })),
-                ...pharData.map(m => ({ ...m, type: 'medicine', id: m.id, name: m.name, price: m.sell_price || 0, category: 'Pharmacy' }))
+                ...labData.map(t => ({ ...t, type: 'lab', id: t.id, name: t.test_name || 'Unnamed Test', price: t.price || 0, category: t.category })),
+                ...pharData.map(m => ({ ...m, type: 'medicine', id: m.id, name: m.med_name || m.name || 'Unnamed Medicine', price: m.sell_price || m.selling_price || 0, category: 'Pharmacy' }))
             ];
             
             setItems(combined);
@@ -47,7 +47,7 @@ const AdminMasterCatalog = () => {
     useEffect(() => { fetchAll(); }, []);
 
     const filtered = items.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = (item.name || '').toLowerCase().includes((searchTerm || '').toLowerCase());
         if (activeTab === 'all') return matchesSearch;
         return matchesSearch && item.type === activeTab;
     });

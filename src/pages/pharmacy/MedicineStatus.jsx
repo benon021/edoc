@@ -97,7 +97,7 @@ const MedicineStatus = () => {
                 </div>
 
                 {/* Edoc Status Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '15px', marginBottom: '40px' }}>
+                <div className="responsive-grid grid-5" style={{ marginBottom: '40px' }}>
                     {statusMetrics.map((stat, idx) => (
                         <div 
                             key={idx} 
@@ -126,12 +126,12 @@ const MedicineStatus = () => {
                 </div>
 
                 {/* Health Ledger Table */}
-                <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
-                    <div style={{ padding: '15px 25px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', overflowX: 'auto' }}>
+                    <div style={{ padding: '15px 25px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: '800px' }}>
                         <div style={{ fontWeight: '700', color: '#343a40' }}>Showing: {activeStatus.replace('_', ' ')}</div>
                         <div style={{ fontSize: '0.8rem', color: '#6c757d' }}>{currentList.length} Items found</div>
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                         <thead style={{ background: '#ffffff', borderBottom: '2px solid #007bff' }}>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '15px 25px', fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>MEDICINE NAME</th>

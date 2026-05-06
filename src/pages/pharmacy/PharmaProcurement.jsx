@@ -22,7 +22,7 @@ const PharmaProcurement = () => {
     const [showRestockModal, setShowRestockModal] = useState(false);
     const [selectedRestockItems, setSelectedRestockItems] = useState([]);
     const [selectedVendor, setSelectedVendor] = useState(null);
-    const [newOrder, setNewOrder] = useState({ supplier_id: '', notes: '', items: [{ name: '', qty: 0, cost: 0 }] });
+    const [newOrder, setNewOrder] = useState({ supplier_id: '', notes: '', items: [{ med_id: '', qty: 0, cost: 0 }] });
 
     useEffect(() => {
         fetchData();
@@ -31,7 +31,7 @@ const PharmaProcurement = () => {
     const fetchData = async () => {
         try {
             const [{ data: oRes }, { data: sRes }, { data: iRes }] = await Promise.all([
-                supabase.from('procurement_order').select('*, suppliers:supplier_id(name)').order('created_at', { ascending: false }),
+                supabase.from('procurement_orders').select('*, suppliers:supplier_id(name)').order('created_at', { ascending: false }),
                 supabase.from('suppliers').select('*'),
                 supabase.from('medicine').select('*')
             ]);
@@ -47,12 +47,12 @@ const PharmaProcurement = () => {
     const handleReceive = async (id) => {
         if (!window.confirm("Mark this order as received?")) return;
         try {
-            await supabase.from('procurement_order').update({ status: 'received', received_at: new Date().toISOString() }).eq('id', id);
+            await supabase.from('procurement_orders').update({ status: 'received', received_at: new Date().toISOString() }).eq('id', id);
             
-            const { data: items } = await supabase.from('procurement_item').select('*').eq('order_id', id);
+            const { data: items } = await supabase.from('procurement_items').select('*').eq('order_id', id);
             
             for (const item of (items || [])) {
-                const med = inventory.find(i => i.med_name === item.medicine_name);
+                const med = inventory.find(i => i.id === item.med_id);
                 if (med) {
                     await supabase.from('medicine').update({ stock_qty: (med.stock_qty || 0) + item.quantity }).eq('id', med.id);
                 }
@@ -66,11 +66,11 @@ const PharmaProcurement = () => {
     const handleSaveOrder = async () => {
         try {
             const total = newOrder.items.reduce((acc, i) => acc + (Number(i.qty) * Number(i.cost)), 0);
-            const { data: orderData, error: orderError } = await supabase.from('procurement_order').insert({
+            const { data: orderData, error: orderError } = await supabase.from('procurement_orders').insert({
                 supplier_id: newOrder.supplier_id || null,
                 status: 'pending',
-                total_cost: total,
-                notes: newOrder.notes
+                total_cost: total
+                // 'notes' is missing in the current DB schema for procurement_orders
             }).select('id').single();
 
             if (orderError) throw orderError;
@@ -78,14 +78,14 @@ const PharmaProcurement = () => {
             if (orderData && orderData.id) {
                 const itemsToInsert = newOrder.items.map(item => ({
                     order_id: orderData.id,
-                    medicine_name: item.name,
+                    med_id: item.med_id,
                     quantity: item.qty,
-                    unit_price: item.cost
+                    unit_cost: item.cost
                 }));
-                await supabase.from('procurement_item').insert(itemsToInsert);
+                await supabase.from('procurement_items').insert(itemsToInsert);
             }
             setShowModal(false);
-            setNewOrder({ supplier_id: '', notes: '', items: [{ name: '', qty: 0, cost: 0 }] });
+            setNewOrder({ supplier_id: '', notes: '', items: [{ med_id: '', qty: 0, cost: 0 }] });
             fetchData();
         } catch (e) {
             console.error(e);
@@ -98,7 +98,7 @@ const PharmaProcurement = () => {
         const items = selectedRestockItems.map(id => {
             const med = inventory.find(i => i.id === id);
             return {
-                name: med.med_name,
+                med_id: med.id,
                 qty: Math.max(10, (med.reorder_level || 10) * 2 - (med.stock_qty || 0)), // suggest order qty
                 cost: med.buying_price || 0
             };
@@ -282,16 +282,29 @@ const PharmaProcurement = () => {
                                 <div style={{ marginTop: '10px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                         <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>ORDER ITEMS</div>
-                                        <button onClick={() => setNewOrder({...newOrder, items: [...newOrder.items, { name: '', qty: 0, cost: 0 }]})} style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#e7f2ff', color: '#007bff', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}>+ Add Item</button>
+                                        <button onClick={() => setNewOrder({...newOrder, items: [...newOrder.items, { med_id: '', qty: 0, cost: 0 }]})} style={{ fontSize: '0.75rem', padding: '4px 8px', background: '#e7f2ff', color: '#007bff', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}>+ Add Item</button>
                                     </div>
                                     
                                     {newOrder.items.map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                                            <input type="text" placeholder="Medicine Name" value={item.name} onChange={e => {
-                                                const newItems = [...newOrder.items];
-                                                newItems[idx].name = e.target.value;
-                                                setNewOrder({...newOrder, items: newItems});
-                                            }} style={{ flex: 2, padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px' }} />
+                                            <select 
+                                                value={item.med_id} 
+                                                onChange={e => {
+                                                    const selectedMed = inventory.find(inv => inv.id === parseInt(e.target.value));
+                                                    const newItems = [...newOrder.items];
+                                                    newItems[idx].med_id = parseInt(e.target.value);
+                                                    if (selectedMed) {
+                                                        newItems[idx].cost = selectedMed.buying_price || 0;
+                                                    }
+                                                    setNewOrder({...newOrder, items: newItems});
+                                                }} 
+                                                style={{ flex: 2, padding: '8px', border: '1px solid #dee2e6', borderRadius: '4px' }}
+                                            >
+                                                <option value="">Select Medicine...</option>
+                                                {inventory.map(m => (
+                                                    <option key={m.id} value={m.id}>{m.med_name}</option>
+                                                ))}
+                                            </select>
                                             
                                             <input type="number" placeholder="Qty" value={item.qty || ''} onChange={e => {
                                                 const newItems = [...newOrder.items];

@@ -45,10 +45,10 @@ const AdminAttendance = () => {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
-                    {attendance.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
+                    {attendance.filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
                         <div key={`${s.role}-${s.id}`} style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: 'var(--primary)', fontSize: '1.25rem' }}>
-                                {s.name.charAt(0)}
+                                {(s.name || 'U').charAt(0)}
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: '800', fontSize: '1.1rem' }}>{s.name}</div>

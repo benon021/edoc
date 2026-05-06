@@ -45,7 +45,7 @@ const PharmaInventory = () => {
         try {
             setLoading(true);
             const [invRes, supRes] = await Promise.all([
-                supabase.from('medicine').select('id, med_name, generic_name, med_type, category, stock_qty, buying_price, selling_price, expiry_date, unit, reorder_level, supplier_id, suppliers:supplier_id(name)').order('med_name'),
+                supabase.from('medicine').select('id, med_name, generic_name, med_type, category, stock_qty, buying_price, selling_price, expiry_date, batch_no, is_taxable, prescription_required, unit, reorder_level, supplier_id, suppliers:supplier_id(name)').order('med_name'),
                 supabase.from('suppliers').select('id, name')
             ]);
             
@@ -67,17 +67,17 @@ const PharmaInventory = () => {
             const { error } = await supabase.from('medicine').insert({
                 med_name: newMed.med_name,
                 generic_name: newMed.generic_name,
-                category: newMed.category,
+                med_type: newMed.category,
                 barcode: newMed.barcode || '',
-                prescription_required: newMed.prescription_required ? 1 : 0,
-                batch_number: newMed.batch_number,
+                prescription_required: newMed.prescription_required,
+                batch_no: newMed.batch_number,
                 stock_qty: newMed.stock_qty,
                 expiry_date: newMed.expiry_date,
                 reorder_level: newMed.reorder_level,
                 supplier_id: newMed.supplier_id || null,
                 buying_price: newMed.buying_price,
                 selling_price: newMed.selling_price,
-                is_taxable: newMed.is_taxable ? 1 : 0,
+                is_taxable: newMed.is_taxable,
                 unit: newMed.unit,
                 is_active: true
             });
@@ -157,7 +157,7 @@ const PharmaInventory = () => {
                 </div>
 
                 {/* Edoc Status Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' }}>
+                <div className="responsive-grid grid-4" style={{ marginBottom: '40px' }}>
                     {metrics.map((stat, idx) => (
                         <div key={idx} style={{ background: 'white', padding: '20px 25px', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -171,8 +171,8 @@ const PharmaInventory = () => {
                     ))}
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                         <thead style={{ background: '#f8f9fa', borderBottom: '2px solid #007bff' }}>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '15px 25px', fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>MEDICINE IDENTITY</th>
@@ -203,7 +203,7 @@ const PharmaInventory = () => {
                                                 {isExpired && <span style={{ marginLeft: '8px', fontSize: '0.65rem', background: '#dc3545', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>EXPIRED</span>}
                                                 {isNearingExpiry && <span style={{ marginLeft: '8px', fontSize: '0.65rem', background: '#fd7e14', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>EXPIRING SOON</span>}
                                             </div>
-                                            <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>{item.batch_number} • {item.unit || 'Tablets'}</div>
+                                            <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>{item.batch_no} • {item.unit || 'Tablets'}</div>
                                         </td>
                                         <td style={{ padding: '15px 25px', fontSize: '0.85rem', color: '#495057' }}>{item.generic_name || 'N/A'}</td>
                                         <td style={{ padding: '15px 25px' }}>
@@ -223,7 +223,7 @@ const PharmaInventory = () => {
                                             </div>
                                         </td>
                                         <td style={{ padding: '15px 25px', textAlign: 'right', fontWeight: '700', color: '#007bff' }}>
-                                            LKR {Number(item.selling_price || 0).toLocaleString()}
+                                            KSh {Number(item.selling_price || 0).toLocaleString()}
                                         </td>
                                     </tr>
                                 );

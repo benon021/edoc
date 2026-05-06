@@ -31,8 +31,8 @@ const AdminBundles = () => {
 
             setBundles(bundleRes.data || []);
             setItems([
-                ...(labRes.data || []).map(l => ({ type: 'lab', id: l.id, name: l.test_name })),
-                ...(pharRes.data || []).map(p => ({ type: 'medicine', id: p.id, name: p.name }))
+                ...(labRes.data || []).map(l => ({ type: 'lab', id: l.id, name: l.test_name || 'Unnamed Test' })),
+                ...(pharRes.data || []).map(p => ({ type: 'medicine', id: p.id, name: p.med_name || p.name || 'Unnamed Medicine' }))
             ]);
         } catch (err) { console.error(err); }
         setLoading(false);
@@ -67,7 +67,7 @@ const AdminBundles = () => {
         fetchData();
     };
 
-    const filteredCatalog = items.filter(i => i.name.toLowerCase().includes(searchItem.toLowerCase())).slice(0, 5);
+    const filteredCatalog = items.filter(i => (i.name || '').toLowerCase().includes((searchItem || '').toLowerCase())).slice(0, 5);
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
