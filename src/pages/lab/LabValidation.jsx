@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { ShieldCheck, CheckCircle, AlertOctagon, Clock, Eye, X, User, Microscope, RefreshCw, Flag } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -95,10 +94,9 @@ export default function LabValidation() {
     const parseResults = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="l" />
-            {toast && <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#10b981', color: 'white', padding: '12px 24px', borderRadius: 12, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{toast.msg}</div>}
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+                {toast && <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#10b981', color: 'white', padding: '12px 24px', borderRadius: 12, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{toast.msg}</div>}
+                
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -256,7 +254,6 @@ export default function LabValidation() {
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 }

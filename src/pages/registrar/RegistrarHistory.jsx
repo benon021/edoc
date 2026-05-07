@@ -1,17 +1,18 @@
 // =============================================================
-// FILE: RegistrarHistory.jsx
+// FILE: RegistrarHistory.jsx [v1.1 - Stable]
 // PURPOSE: React component for viewing patient history.
 // =============================================================
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
-import { Search, Clock, ChevronRight, Activity, Calendar, FlaskConical, Pill, ArrowRight, UserPlus, FileText } from 'lucide-react';
+import { Search, Clock, ChevronRight, Activity, Calendar, FlaskConical, Pill, ArrowRight, UserPlus, FileText, ListOrdered } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const RegistrarHistory = () => {
+    const { profile } = useAuth();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('all');
+    const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'all');
     const [doctors, setDoctors] = useState([]);
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -39,33 +40,45 @@ const RegistrarHistory = () => {
         try {
             setLoading(true);
             
-            // Get patients who have an active appointment
-            const { data: appointments, error } = await supabase
-                .from('appointment')
-                .select('appoid, status, patient:pid(*), doctor:docid(docname)')
-                .in('status', ['waiting', 'in_consultation', 'pending_lab']);
-                
-            if (appointments) {
-                // Map the appointments to patient objects with appointment info attached
-                const bookedPatients = appointments.map(app => ({
-                    ...app.patient,
-                    appointment: {
-                        appoid: app.appoid,
-                        status: app.status,
-                        doctor_name: app.doctor?.docname
-                    }
-                }));
-                
-                // Deduplicate by pid (in case a patient has multiple active appointments)
-                const uniquePatients = Array.from(new Map(bookedPatients.map(p => [p.pid, p])).values());
-                setPatients(uniquePatients);
+            if (activeTab === 'archive') {
+                // Fetch ALL patients for Master Archive
+                const { data, error } = await supabase
+                    .from('patient')
+                    .select('*')
+                    .order('pname', { ascending: true });
+                if (data) {
+                    setPatients(data.map(p => ({ ...p, appointment: null })));
+                }
+            } else {
+                // Fetch active appointments for Clinical Pipeline
+                const { data: appointments, error } = await supabase
+                    .from('appointment')
+                    .select('appoid, status, patient:pid(*), doctor:docid(docname)')
+                    .in('status', ['waiting', 'in_consultation', 'pending_lab']);
+                    
+                if (appointments) {
+                    const bookedPatients = appointments.map(app => ({
+                        ...app.patient,
+                        appointment: {
+                            appoid: app.appoid,
+                            status: app.status,
+                            doctor_name: app.doctor?.docname
+                        }
+                    }));
+                    const uniquePatients = Array.from(new Map(bookedPatients.map(p => [p.pid, p])).values());
+                    setPatients(uniquePatients);
+                }
             }
         } catch (err) {
-            console.error('Error fetching booked patients:', err);
+            console.error('Error fetching patients:', err);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchPatients();
+    }, [activeTab]);
 
     const handleHandoverClick = (patient) => {
         setSelectedPatient(patient);
@@ -143,9 +156,7 @@ const RegistrarHistory = () => {
     });
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="r" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '1.875rem', fontWeight: '800', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -156,13 +167,14 @@ const RegistrarHistory = () => {
                 </header>
 
                 {/* Tabs & Search */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: 'white', padding: '16px 24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: 'white', padding: '16px 24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         {[ 
                             { id: 'all', label: 'All Active' },
                             { id: 'waiting', label: 'Waiting Area' },
                             { id: 'consulting', label: 'In Consultation' },
-                            { id: 'lab', label: 'At Laboratory' }
+                            { id: 'lab', label: 'At Laboratory' },
+                            { id: 'archive', label: 'Master Archive' }
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -198,7 +210,7 @@ const RegistrarHistory = () => {
                 </div>
 
                 {/* Data Grid */}
-                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ background: '#f8fafc' }}>
                             <tr>
@@ -229,14 +241,34 @@ const RegistrarHistory = () => {
                                             </div>
                                         </td>
                                         <td style={{ padding: '16px 24px', fontWeight: '600', color: '#475569' }}>
-                                            {patient.appointment?.doctor_name ? `Dr. ${patient.appointment.doctor_name}` : 'Not Assigned'}
+                                            {activeTab === 'archive' ? (
+                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>N/A (Archived)</span>
+                                            ) : (
+                                                patient.appointment?.doctor_name ? `Dr. ${patient.appointment.doctor_name}` : 'Not Assigned'
+                                            )}
                                         </td>
                                         <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                             <button 
                                                 onClick={() => handleHandoverClick(patient)}
-                                                style={{ padding: '8px 16px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: '0.2s' }}
-                                                onMouseOver={(e) => e.currentTarget.style.borderColor = '#94a3b8'}
-                                                onMouseOut={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                                                disabled={profile?.role === 'a'}
+                                                style={{ 
+                                                    padding: '8px 16px', 
+                                                    background: 'white', 
+                                                    border: '1px solid #e2e8f0', 
+                                                    borderRadius: '8px', 
+                                                    fontSize: '0.85rem', 
+                                                    fontWeight: '600', 
+                                                    color: profile?.role === 'a' ? '#94a3b8' : '#1e293b', 
+                                                    cursor: profile?.role === 'a' ? 'not-allowed' : 'pointer', 
+                                                    display: 'inline-flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '6px', 
+                                                    transition: '0.2s',
+                                                    opacity: profile?.role === 'a' ? 0.6 : 1
+                                                }}
+                                                onMouseOver={(e) => { if (profile?.role !== 'a') e.currentTarget.style.borderColor = '#94a3b8'; }}
+                                                onMouseOut={(e) => { if (profile?.role !== 'a') e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                                                title={profile?.role === 'a' ? 'Clinical routing must be managed by clinical staff' : 'Change assigned doctor'}
                                             >
                                                 Change Doctor <ChevronRight size={14} />
                                             </button>
@@ -247,7 +279,6 @@ const RegistrarHistory = () => {
                         </tbody>
                     </table>
                 </div>
-            </main>
 
             {/* Handover / Re-Route Modal */}
             {showBookingModal && selectedPatient && (
@@ -289,10 +320,5 @@ const RegistrarHistory = () => {
         </div>
     );
 };
-
-// Simple stub for ListOrdered icon since it wasn't imported directly above
-const ListOrdered = ({ color, size }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
-);
 
 export default RegistrarHistory;

@@ -5,8 +5,7 @@
 // =============================================================
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
-import { Users, Search, Calendar, Filter, User, ChevronRight, MapPin, Phone, Clock, ArrowUpDown } from 'lucide-react';
+import { Users, Search, Calendar, ChevronRight, MapPin, Phone, Clock } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
@@ -110,10 +109,7 @@ const DoctorPatients = () => {
     };
 
     return (
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#f1f5f9' }}>
-            <Sidebar userType="d" />
-
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '0', background: '#f1f5f9', minHeight: '100vh' }}>
                 {/* Header Section */}
                 <header style={{ 
                     padding: '32px 48px', 
@@ -183,7 +179,7 @@ const DoctorPatients = () => {
                 </div>
 
                 {/* Table Section */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '32px 48px' }}>
+                <div style={{ padding: '32px 48px' }}>
                     <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                             <thead>
@@ -266,7 +262,10 @@ const DoctorPatients = () => {
                         </div>
                     </div>
                 </div>
-            </main>
+            <style>{`
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                    .animate-spin { animation: spin 1s linear infinite; }
+            `}</style>
         </div>
     );
 };

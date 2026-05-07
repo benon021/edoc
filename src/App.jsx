@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import MainLayout from './components/layouts/MainLayout';
 
 // Pages
 import Home from './pages/Home';
@@ -12,8 +13,8 @@ import AdminLogs from './pages/admin/AdminLogs';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminExpenses from './pages/admin/AdminExpenses';
 import AdminAttendance from './pages/admin/AdminAttendance';
-import AdminMasterCatalog from './pages/admin/AdminMasterCatalog';
-import AdminBundles from './pages/admin/AdminBundles';
+
+
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import ConsultationModule from './pages/doctor/ConsultationModule';
 import DoctorAppointments from './pages/doctor/DoctorAppointments';
@@ -29,6 +30,7 @@ import RegistrarRegistration from './pages/registrar/RegistrarRegistration';
 import RegistrarPatients from './pages/registrar/RegistrarPatients';
 import RegistrarHistory from './pages/registrar/RegistrarHistory';
 import RegistrarPrint from './pages/registrar/RegistrarPrint';
+import RegistrarBilling from './pages/registrar/RegistrarBilling';
 import RegistrarSettings from './pages/registrar/RegistrarSettings';
 import LabDashboard from './pages/lab/LabDashboard';
 import LabWorkbench from './pages/lab/LabWorkbench';
@@ -45,6 +47,9 @@ import PharmaSettings from './pages/pharmacy/PharmaSettings';
 import PharmaSuppliers from './pages/pharmacy/PharmaSuppliers';
 import PharmaProcurement from './pages/pharmacy/PharmaProcurement';
 import MedicineStatus from './pages/pharmacy/MedicineStatus';
+import PharmaReports from './pages/pharmacy/PharmaReports';
+import RegistrarReports from './pages/registrar/RegistrarReports';
+import AdminReports from './pages/admin/AdminReports';
 import { NotificationProvider } from './components/NotificationContext';
 import ICD10Search from './components/ICD10Search';
 
@@ -79,58 +84,66 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
 
-          {/* Admin — protected */}
-          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/register-patient" element={<ProtectedRoute><AdminRegisterPatient /></ProtectedRoute>} />
-          <Route path="/admin/staff" element={<ProtectedRoute><AdminStaff /></ProtectedRoute>} />
-          <Route path="/admin/financials" element={<ProtectedRoute><AdminFinancials /></ProtectedRoute>} />
-          <Route path="/admin/logs" element={<ProtectedRoute><AdminLogs /></ProtectedRoute>} />
-          <Route path="/admin/settings" element={<ProtectedRoute><AdminSettings /></ProtectedRoute>} />
-          <Route path="/admin/expenses" element={<ProtectedRoute><AdminExpenses /></ProtectedRoute>} />
-          <Route path="/admin/attendance" element={<ProtectedRoute><AdminAttendance /></ProtectedRoute>} />
-          <Route path="/admin/master-catalog" element={<ProtectedRoute><AdminMasterCatalog /></ProtectedRoute>} />
-          <Route path="/admin/bundles" element={<ProtectedRoute><AdminBundles /></ProtectedRoute>} />
+          {/* PROTECTED APP SHELL */}
+          <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+            
+            {/* Admin */}
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/register-patient" element={<AdminRegisterPatient />} />
+            <Route path="/admin/staff" element={<AdminStaff />} />
 
-          {/* Doctor — protected */}
-          <Route path="/doctor" element={<ProtectedRoute><DoctorDashboard /></ProtectedRoute>} />
-          <Route path="/doctor/consultation" element={<ProtectedRoute><ConsultationModule /></ProtectedRoute>} />
-          <Route path="/doctor/appointments" element={<ProtectedRoute><DoctorAppointments /></ProtectedRoute>} />
-          <Route path="/doctor/patients" element={<ProtectedRoute><DoctorPatients /></ProtectedRoute>} />
-          <Route path="/doctor/prescriptions" element={<ProtectedRoute><DoctorPrescriptions /></ProtectedRoute>} />
-          <Route path="/doctor/labs" element={<ProtectedRoute><DoctorLabs /></ProtectedRoute>} />
-          <Route path="/doctor/messages" element={<ProtectedRoute><DoctorMessages /></ProtectedRoute>} />
-          <Route path="/doctor/reports" element={<ProtectedRoute><DoctorReports /></ProtectedRoute>} />
-          <Route path="/doctor/settings" element={<ProtectedRoute><DoctorSettings /></ProtectedRoute>} />
-          <Route path="/doctor/patient/:pid" element={<ProtectedRoute><PatientProfile /></ProtectedRoute>} />
+            <Route path="/admin/financials" element={<AdminFinancials />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/logs" element={<AdminLogs />} />
+            <Route path="/admin/expenses" element={<AdminExpenses />} />
+            <Route path="/admin/attendance" element={<AdminAttendance />} />
+            <Route path="/admin/reports" element={<AdminReports />} />
 
-          {/* Registrar — protected */}
-          <Route path="/registrar" element={<ProtectedRoute><RegistrarDashboard /></ProtectedRoute>} />
-          <Route path="/registrar/new-patient" element={<ProtectedRoute><RegistrarRegistration /></ProtectedRoute>} />
-          <Route path="/registrar/patients" element={<ProtectedRoute><RegistrarPatients /></ProtectedRoute>} />
-          <Route path="/registrar/history" element={<ProtectedRoute><RegistrarHistory /></ProtectedRoute>} />
-          <Route path="/registrar/print" element={<ProtectedRoute><RegistrarPrint /></ProtectedRoute>} />
-          <Route path="/registrar/settings" element={<ProtectedRoute><RegistrarSettings /></ProtectedRoute>} />
+            {/* Doctor */}
+            <Route path="/doctor" element={<DoctorDashboard />} />
+            <Route path="/doctor/consultation" element={<ConsultationModule />} />
+            <Route path="/doctor/appointments" element={<DoctorAppointments />} />
+            <Route path="/doctor/patients" element={<DoctorPatients />} />
+            <Route path="/doctor/prescriptions" element={<DoctorPrescriptions />} />
+            <Route path="/doctor/labs" element={<DoctorLabs />} />
+            <Route path="/doctor/settings" element={<DoctorSettings />} />
+            <Route path="/doctor/reports" element={<DoctorReports />} />
+            <Route path="/doctor/messages" element={<DoctorMessages />} />
+            <Route path="/doctor/patient/:id" element={<PatientProfile />} />
 
-          {/* Lab — protected */}
-          <Route path="/lab" element={<ProtectedRoute><LabDashboard /></ProtectedRoute>} />
-          <Route path="/lab/workbench" element={<ProtectedRoute><LabWorkbench /></ProtectedRoute>} />
-          <Route path="/lab/results" element={<ProtectedRoute><LabResults /></ProtectedRoute>} />
-          <Route path="/lab/catalog" element={<ProtectedRoute><LabCatalog /></ProtectedRoute>} />
-          <Route path="/lab/inventory" element={<ProtectedRoute><LabInventory /></ProtectedRoute>} />
-          <Route path="/lab/analytics" element={<ProtectedRoute><LabAnalytics /></ProtectedRoute>} />
-          <Route path="/lab/settings" element={<ProtectedRoute><LabSettings /></ProtectedRoute>} />
+            {/* Registrar */}
+            <Route path="/registrar" element={<RegistrarDashboard />} />
+            <Route path="/registrar/new-patient" element={<RegistrarRegistration />} />
+            <Route path="/registrar/patients" element={<RegistrarPatients />} />
+            <Route path="/registrar/history" element={<RegistrarHistory />} />
+            <Route path="/registrar/billing" element={<RegistrarBilling />} />
+            <Route path="/registrar/print" element={<RegistrarPrint />} />
+            <Route path="/registrar/settings" element={<RegistrarSettings />} />
+            <Route path="/registrar/reports" element={<RegistrarReports />} />
 
-          {/* Pharmacy — protected */}
-          <Route path="/pharmacy" element={<ProtectedRoute><PharmaDashboard /></ProtectedRoute>} />
-          <Route path="/pharmacy/workbench" element={<ProtectedRoute><PharmaWorkbench /></ProtectedRoute>} />
-          <Route path="/pharmacy/inventory" element={<ProtectedRoute><PharmaInventory /></ProtectedRoute>} />
-          <Route path="/pharmacy/sales" element={<ProtectedRoute><PharmaSales /></ProtectedRoute>} />
-          <Route path="/pharmacy/settings" element={<ProtectedRoute><PharmaSettings /></ProtectedRoute>} />
-          <Route path="/pharmacy/suppliers" element={<ProtectedRoute><PharmaSuppliers /></ProtectedRoute>} />
-          <Route path="/pharmacy/procurement" element={<ProtectedRoute><PharmaProcurement /></ProtectedRoute>} />
-          <Route path="/pharmacy/status" element={<ProtectedRoute><MedicineStatus /></ProtectedRoute>} />
+            {/* Lab */}
+            <Route path="/lab" element={<LabDashboard />} />
+            <Route path="/lab/workbench" element={<LabWorkbench />} />
+            <Route path="/lab/results" element={<LabResults />} />
+            <Route path="/lab/catalog" element={<LabCatalog />} />
+            <Route path="/lab/inventory" element={<LabInventory />} />
+            <Route path="/lab/analytics" element={<LabAnalytics />} />
+            <Route path="/lab/settings" element={<LabSettings />} />
 
-          <Route path="/icd-prototype" element={<ICD10Search />} />
+            {/* Pharmacy */}
+            <Route path="/pharmacy" element={<PharmaDashboard />} />
+            <Route path="/pharmacy/workbench" element={<PharmaWorkbench />} />
+            <Route path="/pharmacy/inventory" element={<PharmaInventory />} />
+            <Route path="/pharmacy/procurement" element={<PharmaProcurement />} />
+            <Route path="/pharmacy/status" element={<MedicineStatus />} />
+            <Route path="/pharmacy/suppliers" element={<PharmaSuppliers />} />
+            <Route path="/pharmacy/sales" element={<PharmaSales />} />
+            <Route path="/pharmacy/settings" element={<PharmaSettings />} />
+            <Route path="/pharmacy/reports" element={<PharmaReports />} />
+
+          </Route>
+
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

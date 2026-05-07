@@ -4,12 +4,10 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { 
-    Truck, Plus, FileText, CheckCircle, Clock, X, 
-    Download, AlertCircle, Warehouse, Users, Search, 
-    ArrowRightLeft, PackageCheck, ClipboardList, ShoppingCart,
-    History, ShieldCheck, Calendar
+    Plus, FileText, X, 
+    AlertCircle, Users, Search, 
+    History, Calendar
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -21,7 +19,6 @@ const PharmaProcurement = () => {
     const [showModal, setShowModal] = useState(false);
     const [showRestockModal, setShowRestockModal] = useState(false);
     const [selectedRestockItems, setSelectedRestockItems] = useState([]);
-    const [selectedVendor, setSelectedVendor] = useState(null);
     const [newOrder, setNewOrder] = useState({ supplier_id: '', notes: '', items: [{ med_id: '', qty: 0, cost: 0 }] });
 
     useEffect(() => {
@@ -70,7 +67,6 @@ const PharmaProcurement = () => {
                 supplier_id: newOrder.supplier_id || null,
                 status: 'pending',
                 total_cost: total
-                // 'notes' is missing in the current DB schema for procurement_orders
             }).select('id').single();
 
             if (orderError) throw orderError;
@@ -113,12 +109,6 @@ const PharmaProcurement = () => {
         setShowModal(true);
     };
 
-    const toggleItemSelection = (id) => {
-        setSelectedRestockItems(prev => 
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
-    };
-
     const metrics = [
         { label: 'Active Orders', count: orders.filter(o => o.status === 'pending').length, icon: FileText, color: '#007bff' },
         { label: 'Intake Logs', count: orders.filter(o => o.status === 'received').length, icon: History, color: '#28a745' },
@@ -130,10 +120,7 @@ const PharmaProcurement = () => {
     const todayDate = new Date().toISOString().split('T')[0];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#ffffff' }}>
-            <Sidebar userType="ph" />
-            <main style={{ flex: 1, padding: '24px 30px' }}>
-                
+        <div style={{ padding: '24px 40px', maxWidth: '1600px', margin: '0 auto', background: '#ffffff', minHeight: '100vh' }}>
                 {/* Edoc Style Header Search & Date */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                     <div style={{ display: 'flex', gap: '10px', flex: 1, maxWidth: '800px' }}>
@@ -353,7 +340,6 @@ const PharmaProcurement = () => {
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 };

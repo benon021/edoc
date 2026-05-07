@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { Microscope, ClipboardList, CheckCircle, AlertCircle, TrendingUp, CloudSun, RefreshCw, Activity } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -113,34 +112,53 @@ export default function LabDashboard() {
     ];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="l" />
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
 
-                {/* Hero Banner */}
-                <div style={{ backgroundImage: 'linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,58,95,0.88)), url(/img/b8.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: 20, padding: '40px 50px', marginBottom: 36, color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 260, boxShadow: '0 20px 40px rgba(15,23,42,0.2)' }}>
-                    <div>
-                        <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginBottom: 6 }}>
+                {/* Modern Dynamic Welcome Hero */}
+                <div style={{
+                    backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/img/b8.jpg')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    borderRadius: '24px',
+                    padding: '40px',
+                    marginBottom: '40px',
+                    color: 'white',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ flex: 1 }}>
+                        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '12px' }}>
                             {getGreeting()},<br />
-                            <span style={{ color: '#60a5fa' }}>{profile?.labname || 'Lab Technician'}</span>
+                            <span style={{ color: '#60a5fa' }}>{profile?.labname || 'Laboratory Technician'}</span>
                         </h2>
-                        <p style={{ fontSize: '1rem', opacity: 0.85, marginBottom: 28 }}>Ready to process today's samples 🔬</p>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                            <span style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1 }}>{t}</span>
-                            <span style={{ fontSize: '1.3rem', fontWeight: 600, opacity: 0.75 }}>{period}</span>
+                        <p style={{ fontSize: '1.1rem', opacity: 1, fontWeight: '600', marginBottom: '32px', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                            You have <span style={{ color: '#60a5fa', fontWeight: '800' }}>{stats.pending}</span> pending laboratory requests to process today. 🔬
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button onClick={() => navigate('/lab/workbench')} style={{ padding: '12px 24px', background: '#3b82f6', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+                                <Microscope size={18} /> Open Lab Workbench
+                            </button>
+                            <button onClick={() => navigate('/lab/history')} style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <ClipboardList size={18} /> Test Archives
+                            </button>
                         </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, marginBottom: 8 }}>
-                            <div>
-                                <div style={{ fontSize: '2.5rem', fontWeight: 800 }}>23°C</div>
-                                <div style={{ fontSize: '0.9rem', opacity: 0.85 }}>Nairobi</div>
+
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '20px' }}>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '3rem', fontWeight: '800', lineHeight: 1 }}>24°C</div>
+                                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Partly Cloudy</div>
                             </div>
-                            <div style={{ background: 'rgba(255,255,255,0.15)', padding: 14, borderRadius: '50%', backdropFilter: 'blur(8px)' }}>
-                                <CloudSun size={36} />
+                            <div style={{ background: 'rgba(255,255,255,0.15)', padding: '16px', borderRadius: '50%', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                <CloudSun size={48} />
                             </div>
                         </div>
-                        <div style={{ opacity: 0.8, fontSize: '0.9rem' }}>{todayDate}</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '600', opacity: 0.9 }}>Clinical Laboratory HQ</div>
                     </div>
                 </div>
 
@@ -160,7 +178,7 @@ export default function LabDashboard() {
                 {/* Main Content */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 28 }}>
                     {/* Active Requests Table */}
-                    <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                         <div style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <TrendingUp size={18} color="#3b82f6" /> Active Lab Requests
@@ -203,7 +221,7 @@ export default function LabDashboard() {
 
                     {/* Quick Status Panel */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                        <div style={{ background: 'white', padding: 24, borderRadius: 16, border: '1px solid #e2e8f0' }}>
+                        <div style={{ background: 'white', padding: 24, borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
                             <h3 style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 20 }}>Workflow Status</h3>
                             {[
                                 { label: 'Awaiting Sample', count: stats.pending, color: '#f59e0b' },
@@ -219,7 +237,7 @@ export default function LabDashboard() {
                                 </div>
                             ))}
                         </div>
-                        <div style={{ background: 'linear-gradient(135deg, #0f172a, #1e3a5f)', color: 'white', padding: 24, borderRadius: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ background: 'linear-gradient(135deg, #0f172a, #1e3a5f)', color: 'white', padding: 24, borderRadius: 16, display: 'flex', alignItems: 'center', gap: 16, boxShadow: 'var(--shadow-md)' }}>
                             <div style={{ background: 'rgba(255,255,255,0.1)', padding: 14, borderRadius: 12 }}>
                                 <Activity size={28} />
                             </div>
@@ -231,7 +249,6 @@ export default function LabDashboard() {
                         </div>
                     </div>
                 </div>
-            </main>
         </div>
     );
 }

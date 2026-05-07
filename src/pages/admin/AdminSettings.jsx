@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { getSystemConfig, updateSystemConfig } from '../../lib/api';
 import { 
     Settings, Save, Globe, Landmark, Percent, HardDrive, 
@@ -112,9 +111,7 @@ const AdminSettings = () => {
     );
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="a" />
-            
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f1f5f9', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
             {toast && (
                 <div style={{ 
                     position: 'fixed', top: 32, right: 32, zIndex: 9999, 
@@ -129,7 +126,6 @@ const AdminSettings = () => {
                 </div>
             )}
 
-            <main style={{ flex: 1, padding: '48px 64px', overflowY: 'auto' }}>
                 <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.04em', marginBottom: '8px' }}>System Control Portal</h1>
@@ -287,7 +283,6 @@ const AdminSettings = () => {
                         </div>
                     )}
                 </div>
-            </main>
             
             <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes slideIn {
@@ -300,4 +295,3 @@ const AdminSettings = () => {
 };
 
 export default AdminSettings;
-

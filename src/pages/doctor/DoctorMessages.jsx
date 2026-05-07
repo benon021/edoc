@@ -4,25 +4,21 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React from 'react';
-import Sidebar from '../../components/Sidebar';
 import { MessageSquare } from 'lucide-react';
 
 const DoctorMessages = () => {
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="d" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
-                    <h1 style={{ fontSize: '1.875rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <MessageSquare size={28} color="var(--primary)" /> Internal Messages
+                    <h1 style={{ fontSize: '1.875rem', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <MessageSquare size={32} color="#007bff" /> Internal Messages
                     </h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Communicate with lab technicians, nurses, and admins.</p>
+                    <p style={{ color: '#64748b' }}>Communicate with lab technicians, nurses, and admins.</p>
                 </header>
                 
-                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border)', padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '48px', textAlign: 'center', color: '#64748b' }}>
                     Inbox is empty.
                 </div>
-            </main>
         </div>
     );
 };

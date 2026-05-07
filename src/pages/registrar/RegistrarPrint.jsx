@@ -4,9 +4,9 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Printer, Search, FileText, Calendar, Users, Clock } from 'lucide-react';
-import Sidebar from '../../components/Sidebar';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { FileText, Calendar, Search, Users, Clock, Printer } from 'lucide-react';
 import './RegistrarPrint.css';
 
 const RegistrarPrint = () => {
@@ -15,36 +15,72 @@ const RegistrarPrint = () => {
     const [activeTab, setActiveTab] = useState('forms');
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [historyData, setHistoryData] = useState(null);
-    const [user, setUser] = useState({});
+    const { profile } = useAuth();
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        setUser(storedUser);
         fetchPatients();
     }, []);
 
     const fetchPatients = async () => {
-        const token = localStorage.getItem('token');
         try {
-            const res = await axios.get('/api/registrar/patients', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setPatients(res.data || []);
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('patient')
+                .select('*')
+                .order('pname', { ascending: true });
+            if (error) throw error;
+            setPatients(data || []);
         } catch (err) {
             console.error('Error fetching patients', err);
+        } finally {
+            setLoading(false);
         }
     };
 
     const fetchHistory = async (pid) => {
-        const token = localStorage.getItem('token');
         try {
-            const res = await axios.get(`/api/registrar/patient-history/${pid}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            setLoading(true);
+            // 1. Get patient info
+            const { data: patient } = await supabase
+                .from('patient')
+                .select('*')
+                .eq('pid', pid)
+                .single();
+
+            // 2. Get appointments and consultations for timeline
+            const [apptRes, consultRes] = await Promise.all([
+                supabase.from('appointment').select('appodate, status, doctor:docid(docname)').eq('pid', pid),
+                supabase.from('consultations').select('consultation_date, clinical_impression, doctor:docid(docname)').eq('pid', pid)
+            ]);
+
+            const events = [];
+            (apptRes.data || []).forEach(a => {
+                events.push({
+                    event_date: a.appodate,
+                    type: 'APPOINTMENT',
+                    provider: a.doctor?.docname || 'Staff',
+                    detail: `Status: ${a.status}`
+                });
             });
-            setHistoryData(res.data);
+            (consultRes.data || []).forEach(c => {
+                events.push({
+                    event_date: new Date(c.consultation_date).toISOString().split('T')[0],
+                    type: 'CONSULTATION',
+                    provider: c.doctor?.docname || 'Staff',
+                    detail: c.clinical_impression || 'Clinical visit'
+                });
+            });
+
+            setHistoryData({
+                patient,
+                events: events.sort((a, b) => new Date(b.event_date) - new Date(a.event_date))
+            });
             setActiveTab('history');
         } catch (err) {
             console.error('Error fetching history', err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -59,16 +95,7 @@ const RegistrarPrint = () => {
     );
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%)' }}>
-
-            {/* ── SIDEBAR ── */}
-            <div className="no-print">
-                <Sidebar userType="r" />
-            </div>
-
-            {/* ── MAIN SCREEN ── */}
-            <main className="main-content" style={{ flex: 1, padding: '40px' }}>
-
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 {/* Header */}
                 <header className="no-print" style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -80,16 +107,16 @@ const RegistrarPrint = () => {
                         </p>
                     </div>
                     <div style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', borderRadius: '20px', border: '1px solid white', boxShadow: '0 10px 20px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#06b6d4', boxShadow: '0 0 15px #06b6d4', animation: 'pulse 2s infinite' }} />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#06b6d4', boxShadow: '0 0 15px #06b6d4' }} />
                         <span style={{ fontSize: '14px', fontWeight: '900', color: '#1e293b', letterSpacing: '0.05em' }}>ARCHIVE SERVER ONLINE</span>
                     </div>
                 </header>
 
                 {/* Action Hub */}
-                <div className="no-print" style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '30px', marginBottom: '40px', border: '1px solid rgba(255,255,255,0.8)', boxShadow: '0 20px 40px rgba(0,0,0,0.05)' }}>
+                <div className="no-print" style={{ background: 'white', padding: '30px', borderRadius: '30px', marginBottom: '40px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                     <div style={{ display: 'flex', gap: '15px', marginBottom: '24px' }}>
                         {['forms', 'reports'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 28px', borderRadius: '14px', border: 'none', background: activeTab === tab ? 'linear-gradient(135deg,#0891b2,#0e7490)' : 'white', color: activeTab === tab ? 'white' : '#64748b', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: activeTab === tab ? '0 10px 20px -5px rgba(8,145,178,0.4)' : '0 2px 4px rgba(0,0,0,0.04)' }}>
+                            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 28px', borderRadius: '14px', border: 'none', background: activeTab === tab ? '#0891b2' : '#f8fafc', color: activeTab === tab ? 'white' : '#64748b', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 {tab === 'forms' ? <FileText size={18} /> : <Calendar size={18} />}
                                 {tab === 'forms' ? 'Registry Dossiers' : 'Daily Archives'}
                             </button>
@@ -98,12 +125,11 @@ const RegistrarPrint = () => {
                     <div style={{ position: 'relative' }}>
                         <Search color="#0891b2" size={22} style={{ position: 'absolute', left: '22px', top: '50%', transform: 'translateY(-50%)' }} />
                         <input
-                            className="vibrant-search"
                             type="text"
                             placeholder="Search by Name or Patient ID..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            style={{ width: '100%', padding: '18px 20px 18px 60px', borderRadius: '16px', border: '2px solid transparent', background: 'white', fontSize: '16px', fontWeight: '600', color: '#1e293b', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', boxSizing: 'border-box' }}
+                            style={{ width: '100%', padding: '18px 20px 18px 60px', borderRadius: '16px', border: '1px solid #e2e8f0', background: 'white', fontSize: '16px', fontWeight: '600', color: '#1e293b' }}
                         />
                     </div>
                 </div>
@@ -115,18 +141,18 @@ const RegistrarPrint = () => {
                             <p style={{ color: '#94a3b8', fontWeight: '600', gridColumn: '1/-1', textAlign: 'center', padding: '60px' }}>No patients found.</p>
                         )}
                         {filtered.map(p => (
-                            <div key={p.pid} className="dossier-card" style={{ background: 'white', padding: '28px', borderRadius: '24px', border: '1px solid #e2e8f0', position: 'relative', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, width: '5px', height: '100%', background: 'linear-gradient(to bottom,#06b6d4,#10b981)' }} />
+                            <div key={p.pid} style={{ background: 'white', padding: '28px', borderRadius: '24px', border: '1px solid #e2e8f0', position: 'relative', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '5px', height: '100%', background: '#06b6d4' }} />
                                 <span style={{ fontSize: '11px', fontWeight: '900', color: '#0891b2', background: '#ecfeff', padding: '4px 10px', borderRadius: '6px' }}>{p.patient_display_id}</span>
                                 <h3 style={{ fontSize: '19px', fontWeight: '900', color: '#0f172a', margin: '10px 0 4px' }}>{p.pname}</h3>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '13px', fontWeight: '600', marginBottom: '20px' }}>
                                     <Users size={13} /> {p.pgender} • {p.pbloodgroup || 'Group TBD'}
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button className="btn-secondary" onClick={() => fetchHistory(p.pid)} style={{ flex: 1, padding: '11px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#0891b2', cursor: 'pointer', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <button onClick={() => fetchHistory(p.pid)} style={{ flex: 1, padding: '11px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#0891b2', cursor: 'pointer', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         <Clock size={15} /> ARCHIVE
                                     </button>
-                                    <button className="btn-primary" onClick={() => handlePrint(p)} style={{ flex: 1, padding: '11px', borderRadius: '10px', border: 'none', background: '#0f172a', color: 'white', cursor: 'pointer', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <button onClick={() => handlePrint(p)} style={{ flex: 1, padding: '11px', borderRadius: '10px', border: 'none', background: '#0f172a', color: 'white', cursor: 'pointer', fontWeight: '800', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         <Printer size={15} /> PRINT
                                     </button>
                                 </div>
@@ -138,7 +164,6 @@ const RegistrarPrint = () => {
                 {/* ── PRINTABLE: PAGE 1 & 2 ── */}
                 {selectedPatient && (
                     <div className="print-only" style={{ display: 'none' }}>
-
                         {/* PAGE 1 */}
                         <div style={{ padding: '40px 60px', background: 'white', minHeight: '1050px', fontFamily: 'Inter,sans-serif', pageBreakAfter: 'always' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginBottom: '40px' }}>
@@ -158,7 +183,6 @@ const RegistrarPrint = () => {
                                 </div>
                             </div>
 
-                            {/* S1 */}
                             <div style={{ marginBottom: '50px' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '24px', color: '#1e293b', textTransform: 'uppercase' }}>1. Basic Identity &amp; Residency</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
@@ -172,7 +196,6 @@ const RegistrarPrint = () => {
                                 </div>
                             </div>
 
-                            {/* S2 */}
                             <div style={{ marginBottom: '40px' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '24px', color: '#1e293b', textTransform: 'uppercase' }}>2. Physiological Baseline (Initial Vitals)</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px' }}>
@@ -189,7 +212,6 @@ const RegistrarPrint = () => {
                                     ))}
                                 </div>
                             </div>
-
                             <div style={{ textAlign: 'center', fontSize: '11px', color: '#cbd5e1', marginTop: '40px' }}>
                                 Clinical record for {selectedPatient.pname} — Page 1 of 2
                             </div>
@@ -203,8 +225,6 @@ const RegistrarPrint = () => {
                                     <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0' }}>REF: {selectedPatient.patient_display_id}</p>
                                 </div>
                             </div>
-
-                            {/* S3 */}
                             <div style={{ marginBottom: '36px' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '20px', color: '#1e293b', textTransform: 'uppercase' }}>3. Clinical Summary</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
@@ -218,16 +238,12 @@ const RegistrarPrint = () => {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* S4 */}
                             <div style={{ marginBottom: '36px' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '20px', color: '#1e293b', textTransform: 'uppercase' }}>4. History &amp; Chronic Observations</h3>
                                 <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', minHeight: '100px', fontSize: '14px', lineHeight: '1.8', color: '#1e293b' }}>
                                     {selectedPatient.pconditions || '_________________________________________________________________________________________________________________________________________________'}
                                 </div>
                             </div>
-
-                            {/* S5 */}
                             <div style={{ marginBottom: '36px' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '20px', color: '#1e293b', textTransform: 'uppercase' }}>5. Admin &amp; Emergency Security</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
@@ -245,8 +261,6 @@ const RegistrarPrint = () => {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Signature */}
                             <div style={{ borderTop: '4px solid #1e293b', paddingTop: '30px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '40px', marginTop: '40px' }}>
                                 <div>
                                     <h4 style={{ fontWeight: '900', marginBottom: '10px' }}>Official Clinical Declaration</h4>
@@ -254,7 +268,7 @@ const RegistrarPrint = () => {
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ height: '50px' }} />
-                                    <div style={{ borderTop: '2px solid #1e293b', paddingTop: '8px', fontSize: '12px', fontWeight: '700' }}>Registrar: {user.regname || 'SYSTEM ADMIN'}</div>
+                                    <div style={{ borderTop: '2px solid #1e293b', paddingTop: '8px', fontSize: '12px', fontWeight: '700' }}>Registrar: {profile?.regname || profile?.docname || 'ADMINISTRATOR'}</div>
                                     <div style={{ borderTop: '1px solid #94a3b8', marginTop: '30px', paddingTop: '8px', fontSize: '12px', fontWeight: '700' }}>INSTITUTIONAL STAMP</div>
                                 </div>
                             </div>
@@ -311,7 +325,6 @@ const RegistrarPrint = () => {
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 };

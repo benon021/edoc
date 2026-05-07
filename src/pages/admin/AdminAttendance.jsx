@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { Clock, UserCheck, Calendar, Search, MapPin, Monitor } from 'lucide-react';
 import { getAllStaff } from '../../lib/api';
 
@@ -24,21 +23,18 @@ const AdminAttendance = () => {
     }, []);
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
                     <h1 style={{ fontSize: '2.25rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '8px' }}>Staff Attendance</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Monitor digital presence and operational hours across departments.</p>
+                    <p style={{ color: '#64748b' }}>Monitor digital presence and operational hours across departments.</p>
                 </header>
 
                 <div style={{ marginBottom: '24px', position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)' }} />
+                    <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input 
                         type="text" 
                         placeholder="Search by staff name or role..." 
-                        className="input-field" 
-                        style={{ paddingLeft: '48px' }} 
+                        style={{ width: '100%', padding: '12px 16px 12px 48px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', fontSize: '1rem', outline: 'none' }} 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
@@ -46,8 +42,8 @@ const AdminAttendance = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
                     {attendance.filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())).map(s => (
-                        <div key={`${s.role}-${s.id}`} style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: 'var(--primary)', fontSize: '1.25rem' }}>
+                        <div key={`${s.role}-${s.id}`} style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', color: '#007bff', fontSize: '1.25rem' }}>
                                 {(s.name || 'U').charAt(0)}
                             </div>
                             <div style={{ flex: 1 }}>
@@ -65,7 +61,6 @@ const AdminAttendance = () => {
                         </div>
                     ))}
                 </div>
-            </main>
         </div>
     );
 };

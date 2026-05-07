@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { getAdminLogs } from '../../lib/api';
 import { Shield, Clock, Search, Terminal, AlertCircle, Info, Lock } from 'lucide-react';
 
@@ -28,9 +27,7 @@ const AdminLogs = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
                     <h1 style={{ fontSize: '2.25rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <Shield size={36} color="var(--primary)" /> System Audit Logs
@@ -86,7 +83,6 @@ const AdminLogs = () => {
                         )}
                     </div>
                 </div>
-            </main>
         </div>
     );
 };

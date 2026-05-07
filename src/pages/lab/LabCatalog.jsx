@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { Tag, Plus, Edit2, Trash2, Search, X, ToggleLeft, ToggleRight, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -113,10 +112,8 @@ const handleToggle = async (item) => {
     const catColors = { Hematology: '#3b82f6', Biochemistry: '#10b981', Microbiology: '#f59e0b', Serology: '#8b5cf6', 'Clinical Pathology': '#ef4444', Immunology: '#0ea5e9', Molecular: '#ec4899', Other: '#6b7280' };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="l" />
-            {toast && <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#10b981', color: 'white', padding: '12px 24px', borderRadius: 12, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{toast.msg}</div>}
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+                {toast && <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#10b981', color: 'white', padding: '12px 24px', borderRadius: 12, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{toast.msg}</div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -216,7 +213,6 @@ const handleToggle = async (item) => {
                         </tbody>
                     </table>
                 </div>
-            </main>
 
             {/* Delete Confirmation Modal */}
             {deleteConfirm && deletingItem && (
@@ -260,11 +256,11 @@ const handleToggle = async (item) => {
                         </div>
                         <div style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
                             {[
-                                { label: 'Test Name *', key: 'test_name', type: 'text', placeholder: 'e.g. Full Blood Count' },
-                                { label: 'Description', key: 'description', type: 'text', placeholder: 'Brief description of what the test measures' },
-                                { label: 'Price (KES) *', key: 'price', type: 'number', placeholder: '1500' },
-                                { label: 'Required Specimen', key: 'required_sample', type: 'text', placeholder: 'e.g. Whole blood (EDTA)' },
-                                { label: 'Turnaround Time', key: 'turnaround_time', type: 'text', placeholder: 'e.g. 2–4 hours' },
+                                { label: 'Test Name *', key: 'test_name', type: 'text', placeholder: 'e.g. Blood Sugar or Malaria' },
+                                { label: 'About this Test', key: 'description', type: 'text', placeholder: 'Explain what this test checks for' },
+                                { label: 'Price (KES) *', key: 'price', type: 'number', placeholder: 'Enter amount' },
+                                { label: 'Sample Needed', key: 'required_sample', type: 'text', placeholder: 'e.g. Blood, Urine, or Swab' },
+                                { label: 'Time to Results', key: 'turnaround_time', type: 'text', placeholder: 'How long until results are ready?' },
                             ].map(f => (
                                 <div key={f.key}>
                                     <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: 6 }}>{f.label}</label>
@@ -274,11 +270,26 @@ const handleToggle = async (item) => {
                             ))}
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: 6 }}>Category</label>
-                                <div style={{ position: 'relative' }}>
-                                    <select value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))} style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', appearance: 'none' }}>
-                                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                                    </select>
-                                    <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: 12, color: '#64748b', pointerEvents: 'none' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <select 
+                                            value={CATEGORIES.includes(form.category) ? form.category : 'Other'} 
+                                            onChange={e => setForm(v => ({ ...v, category: e.target.value === 'Other' ? '' : e.target.value }))} 
+                                            style={{ width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', appearance: 'none' }}
+                                        >
+                                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        <ChevronDown size={16} style={{ position: 'absolute', right: 12, top: 12, color: '#64748b', pointerEvents: 'none' }} />
+                                    </div>
+                                    
+                                    {(!CATEGORIES.includes(form.category) || form.category === 'Other') && (
+                                        <input 
+                                            placeholder="Type custom category name..." 
+                                            value={form.category === 'Other' ? '' : form.category} 
+                                            onChange={e => setForm(v => ({ ...v, category: e.target.value }))}
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', boxSizing: 'border-box', background: '#fffbeb', border: '1px solid #fef3c7' }} 
+                                        />
+                                    )}
                                 </div>
                             </div>
                              <div>
@@ -300,7 +311,7 @@ const handleToggle = async (item) => {
                                                 let currentFields = [];
                                                 try { currentFields = form.ref_ranges ? JSON.parse(form.ref_ranges) : []; } catch(e) { currentFields = []; }
                                                 if (!Array.isArray(currentFields)) currentFields = [];
-                                                const updated = [...currentFields, { field: '', unit: '', ref: '' }];
+                                                const updated = [...currentFields, { field: '', unit: '', ref: '', type: 'Number' }];
                                                 setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
                                             }}
                                             style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 6, fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
@@ -313,34 +324,79 @@ const handleToggle = async (item) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 250, overflowY: 'auto', padding: '4px' }}>
                                     {(() => {
                                         let fields = [];
-                                        try { fields = form.ref_ranges ? JSON.parse(form.ref_ranges) : []; } catch(e) { fields = []; }
+                                        try { 
+                                            const raw = form.ref_ranges;
+                                            if (raw) {
+                                                if (typeof raw === 'string') {
+                                                    fields = JSON.parse(raw);
+                                                } else {
+                                                    fields = raw;
+                                                }
+                                            } else {
+                                                fields = [];
+                                            }
+                                        } catch(e) { 
+                                            console.error("Error parsing ref_ranges:", e);
+                                            fields = []; 
+                                        }
                                         if (!Array.isArray(fields)) fields = [];
                                         
                                         if (fields.length === 0) return <div style={{ textAlign: 'center', padding: '12px', border: '1px dashed #e2e8f0', borderRadius: 10, fontSize: '0.75rem', color: '#94a3b8' }}>No parameters defined yet. Click "Add Field" above.</div>;
 
                                         return fields.map((f, idx) => (
-                                            <div key={idx} style={{ display: 'flex', gap: 6, background: '#f8fafc', padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', alignItems: 'center' }}>
-                                                <input placeholder="Parameter Name" value={f.field || ''} onChange={e => {
-                                                    const updated = [...fields];
-                                                    updated[idx].field = e.target.value;
-                                                    setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
-                                                }} style={{ flex: 2, padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
-                                                <input placeholder="Unit" value={f.unit || ''} onChange={e => {
-                                                    const updated = [...fields];
-                                                    updated[idx].unit = e.target.value;
-                                                    setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
-                                                }} style={{ flex: 1, padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
-                                                <input placeholder="Ref Range" value={f.ref || ''} onChange={e => {
-                                                    const updated = [...fields];
-                                                    updated[idx].ref = e.target.value;
-                                                    setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
-                                                }} style={{ flex: 1.5, padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
-                                                <button type="button" onClick={() => {
-                                                    const updated = fields.filter((_, i) => i !== idx);
-                                                    setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
-                                                }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '4px', borderRadius: 6, cursor: 'pointer' }}>
-                                                    <Trash2 size={14} />
-                                                </button>
+                                            <div key={idx} style={{ background: '#f8fafc', padding: '16px', borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 8 }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 0.8fr 1fr 40px', gap: 12, alignItems: 'end' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>What are we measuring?</label>
+                                                        <input placeholder="e.g. Sugar Level" value={f.field || ''} onChange={e => {
+                                                            const updated = [...fields];
+                                                            updated[idx].field = e.target.value;
+                                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                        }} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem', boxSizing: 'border-box', background: 'white' }} />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Answer Type</label>
+                                                        <select value={f.type || 'Number'} onChange={e => {
+                                                            const updated = [...fields];
+                                                            updated[idx].type = e.target.value;
+                                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                        }} style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.75rem', background: 'white' }}>
+                                                            <option value="Number">Number</option>
+                                                            <option value="Text">Notes/Text</option>
+                                                            <option value="Pos/Neg">Positive or Negative</option>
+                                                            <option value="React/Non">Reactive or Non-Reactive</option>
+                                                            <option value="Normal/Abnormal">Normal or Abnormal</option>
+                                                            <option value="Levels">Graded Levels (+, ++, +++)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Unit</label>
+                                                        <input placeholder="e.g. mg/dL" value={f.unit || ''} onChange={e => {
+                                                            const updated = [...fields];
+                                                            updated[idx].unit = e.target.value;
+                                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                        }} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem', boxSizing: 'border-box', background: 'white' }} />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Normal Range</label>
+                                                        <input placeholder="e.g. 70 to 100" value={f.ref || ''} onChange={e => {
+                                                            const updated = [...fields];
+                                                            updated[idx].ref = e.target.value;
+                                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                        }} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem', boxSizing: 'border-box', background: 'white' }} />
+                                                    </div>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                            const updated = fields.filter((_, i) => i !== idx);
+                                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                        }} 
+                                                        style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', height: '35px', width: '35px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        title="Remove"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ));
                                     })()}

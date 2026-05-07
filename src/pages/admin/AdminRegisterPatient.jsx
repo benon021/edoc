@@ -5,7 +5,6 @@
 // =============================================================
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
 import { signUpPatient } from '../../lib/api';
 
 const AdminRegisterPatient = () => {
@@ -19,11 +18,6 @@ const AdminRegisterPatient = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const handleLogout = () => {
-        localStorage.clear();
-        navigate('/login');
     };
 
     const handleSignup = async (e) => {
@@ -55,17 +49,13 @@ const AdminRegisterPatient = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-
-            {/* Main Content */}
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
                     <h1 style={{ fontSize: '1.875rem', marginBottom: '8px' }}>Patient Registration</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Register a new patient into the offline healthcare system.</p>
                 </header>
 
-                <div className="glass-card" style={{ padding: '40px', maxWidth: '800px', background: 'white' }}>
+                <div className="glass-card" style={{ padding: '40px', maxWidth: '800px', background: 'white', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
                     <form onSubmit={handleSignup} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                         <div>
                             <label className="form-label">First Name</label>
@@ -118,7 +108,6 @@ const AdminRegisterPatient = () => {
                         </div>
                     </form>
                 </div>
-            </main>
         </div>
     );
 };

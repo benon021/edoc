@@ -1,4 +1,4 @@
-// =============================================================
+﻿// =============================================================
 // FILE: api.js
 // PURPOSE: Central data-access layer — replaces all old fetch('/api/...')
 //          calls that used to go to the Express backend.
@@ -181,7 +181,7 @@ export const getDoctorQueue = async (docEmail) => {
   if (!doc) return { data: null, error: new Error('Doctor not found') };
   return supabase
     .from('appointment')
-    .select(`appoid, apponum, status, created_at, patient:patient(pid, pname, ptel, patient_display_id, pgender), schedule:schedule(scheduletime, scheduledate)`)
+    .select(`appoid, apponum, status, created_at, patient:pid(pid, pname, ptel, patient_display_id, pgender), schedule:scheduleid(scheduletime, scheduledate)`)
     .eq('docid', doc.docid)
     .or(`schedule.scheduledate.eq.${today},status.in.(waiting,in_consultation)`)
     .order('apponum', { ascending: true });
@@ -191,7 +191,7 @@ export const getRegistrarActiveQueue = async () => {
     const today = new Date().toISOString().split('T')[0];
     return supabase
       .from('appointment')
-      .select(`appoid, status, apponum, patient:patient(pname,patient_display_id), doctor:doctor(docname), consultations:consultations(id), lab_requests:lab_requests(id)`)
+      .select(`appoid, status, apponum, patient:pid(pname,patient_display_id), doctor:docid(docname), consultations:consultations(id), lab_requests:lab_requests(id)`)
       .eq('appodate', today)
       .order('apponum', { ascending: false });
 };
@@ -262,6 +262,8 @@ export const updateLabInventory = (id, data) =>
 
 export const updateLabCatalogItem = (id, data) =>
   supabase.from('lab_catalog').update(data).eq('id', id);
+
+export const createLabCatalogItem = (data) => supabase.from('lab_catalog').insert([data]).select();
 
 export const getLabSamples = () =>
   supabase.from('lab_samples').select('*').order('created_at', { ascending: false });
@@ -376,8 +378,8 @@ export const getAdminStats = async () => {
   ] = await Promise.all([
     supabase.from('patient').select('pid'),
     supabase.from('profiles').select('role'),
-    supabase.from('pharmacy_sale').select('total_amount'),
-    supabase.from('lab_reports').select('cost'),
+    supabase.from('pharmacy_sale').select('*'),
+    supabase.from('lab_reports').select('id, cost, created_at'),
     supabase.from('prescriptions').select('id').gte('created_at', startOfDay).lte('created_at', endOfDay),
   ]);
 
@@ -413,10 +415,10 @@ export const getAdminFinancials = async () => {
 };
 
 export const getAdminProfitStats = async () => {
-  const { data: pharmacyData } = await supabase.from('pharmacy_sale').select('total_amount');
-  const { data: labData } = await supabase.from('lab_reports').select('cost');
+  const { data: pharmacyData } = await supabase.from('pharmacy_sale').select('*');
+  const { data: labData } = await supabase.from('lab_reports').select('id, cost');
   const { data: expenseData } = await supabase.from('expenses').select('amount');
-  const { data: saleItems } = await supabase.from('pharmacy_sale_item').select('quantity, buying_price');
+  const { data: saleItems } = await supabase.from('pharmacy_sale_item').select('*');
   const grossRevenue = (pharmacyData?.reduce((sum, row) => sum + Number(row.total_amount || 0), 0) || 0) + (labData?.reduce((sum, row) => sum + Number(row.cost || 0), 0) || 0);
   const opex = expenseData?.reduce((sum, row) => sum + Number(row.amount || 0), 0) || 0;
   const cogs = saleItems?.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.buying_price || 0), 0) || 0;

@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { 
     AlertCircle, CheckCircle, Clock, XCircle, ShieldAlert, Activity, 
     Search, Calendar, Filter, Download
@@ -61,10 +60,7 @@ const MedicineStatus = () => {
     const todayDate = today.toISOString().split('T')[0];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#ffffff' }}>
-            <Sidebar userType="ph" />
-            <main style={{ flex: 1, padding: '24px 30px' }}>
-                
+        <div style={{ padding: '24px 40px', maxWidth: '1600px', margin: '0 auto', background: '#ffffff', minHeight: '100vh' }}>
                 {/* Edoc Style Header Search & Date */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                     <div style={{ display: 'flex', gap: '10px', flex: 1, maxWidth: '800px' }}>
@@ -170,7 +166,6 @@ const MedicineStatus = () => {
                         </tbody>
                     </table>
                 </div>
-            </main>
         </div>
     );
 };

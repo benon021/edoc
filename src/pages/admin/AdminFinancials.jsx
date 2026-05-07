@@ -1,100 +1,291 @@
-// =============================================================
-// FILE: AdminFinancials.jsx
-// PURPOSE: React component / entry point for the eDoc Hospital
-//          frontend. Part of the Vite + React SPA.
-// =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
-import { getAdminFinancials, getAdminProfitStats } from '../../lib/api';
-import { DollarSign, Download, Calendar, Filter, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { DollarSign, Plus, Edit2, Search, Activity, Stethoscope, Microscope, Pill, FileText, CheckCircle, Save } from 'lucide-react';
+import { getLabCatalog, updateLabCatalogItem, createLabCatalogItem } from '../../lib/api';
 
 const AdminFinancials = () => {
-    const [financials, setFinancials] = useState({ pharmacy_sales: [], lab_sales: [] });
-    const [profitReport, setProfitReport] = useState({ gross_revenue: 0, cogs: 0, opex: 0, net_profit: 0 });
-    const [filter, setFilter] = useState('All');
+    const [activeTab, setActiveTab] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    
+    // Base static configuration for non-database items
+    const [basePricing, setBasePricing] = useState([
+        { id: 'admin_1', source: 'static', category: 'Administration', name: 'Registration Fee', price: 500, status: 'Active' },
+        { id: 'cons_1', source: 'static', category: 'Consultation', name: 'General Consultation', price: 2500, status: 'Active' },
+        { id: 'cons_2', source: 'static', category: 'Consultation', name: 'Specialist Consultation', price: 4000, status: 'Active' },
+        { id: 'proc_1', source: 'static', category: 'Procedure', name: 'Wound Dressing', price: 1500, status: 'Active' },
+        { id: 'proc_2', source: 'static', category: 'Procedure', name: 'Suturing', price: 3000, status: 'Active' }
+    ]);
+
+    const [pricingData, setPricingData] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const [newItem, setNewItem] = useState({ category: 'Consultation', name: '', price: 0 });
+    const [editingId, setEditingId] = useState(null);
+    const [editingSource, setEditingSource] = useState(null);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const { data: labs } = await getLabCatalog();
+
+            const formattedLabs = (labs || []).map(l => ({
+                id: l.id,
+                source: 'lab',
+                category: 'Laboratory',
+                name: l.test_name,
+                price: Number(l.price || 0),
+                status: l.is_enabled ? 'Active' : 'Inactive'
+            }));
+
+            setPricingData([...basePricing, ...formattedLabs]);
+        } catch (error) {
+            console.error("Failed to load pricing catalog", error);
+            setPricingData([...basePricing]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        getAdminFinancials()
-            .then(data => setFinancials(data))
-            .catch(console.error);
+        loadData();
+    }, [basePricing]);
 
-        getAdminProfitStats()
-            .then(data => setProfitReport(data))
-            .catch(console.error);
-    }, []);
+    const getIconForCategory = (cat) => {
+        switch(cat) {
+            case 'Consultation': return <Stethoscope size={18} />;
+            case 'Laboratory': return <Microscope size={18} />;
+            case 'Pharmacy': return <Pill size={18} />;
+            case 'Procedure': return <Activity size={18} />;
+            default: return <FileText size={18} />;
+        }
+    };
 
-    const totalPharmacy = financials.pharmacy_sales.reduce((acc, s) => acc + Number(s.total_amount), 0);
-    const totalLab = financials.lab_sales.reduce((acc, s) => acc + Number(s.cost || 0), 0);
+    const getColorForCategory = (cat) => {
+        switch(cat) {
+            case 'Consultation': return { bg: '#eff6ff', text: '#3b82f6', border: '#bfdbfe' };
+            case 'Laboratory': return { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' };
+            case 'Pharmacy': return { bg: '#fffbeb', text: '#b45309', border: '#fde68a' };
+            case 'Procedure': return { bg: '#f5f3ff', text: '#5b21b6', border: '#ddd6fe' };
+            default: return { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+        }
+    };
+
+    const handleSaveItem = async () => {
+        if (!newItem.name || newItem.price <= 0) return;
+        
+        if (editingId) {
+            if (editingSource === 'lab') {
+                await updateLabCatalogItem(editingId, { test_name: newItem.name, price: newItem.price });
+            } else {
+                setBasePricing(basePricing.map(item => item.id === editingId ? { ...item, ...newItem } : item));
+            }
+            loadData(); // refresh
+        } else {
+            if (newItem.category === 'Laboratory') {
+                await createLabCatalogItem({ test_name: newItem.name, price: newItem.price, category: 'General', is_enabled: true });
+                loadData();
+            } else {
+                setBasePricing([...basePricing, { ...newItem, id: 'custom_' + Date.now(), source: 'static', status: 'Active' }]);
+            }
+        }
+        setShowModal(false);
+        setEditingId(null);
+        setEditingSource(null);
+        setNewItem({ category: 'Consultation', name: '', price: 0 });
+    };
+
+    const handleEditItem = (item) => {
+        setNewItem({ category: item.category, name: item.name, price: item.price });
+        setEditingId(item.id);
+        setEditingSource(item.source);
+        setShowModal(true);
+    };
+
+    const filteredData = pricingData.filter(item => 
+        (activeTab === 'all' || item.category.toLowerCase() === activeTab) &&
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
-                <header style={{ marginBottom: '48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h1 style={{ fontSize: '2.25rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '8px' }}>Profit & Loss Intelligence</h1>
-                        <p style={{ color: 'var(--text-muted)' }}>Enterprise-wide fiscal performance and operational burn tracking.</p>
-                    </div>
-                    <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Download size={18} /> Export Fiscal Report
-                    </button>
-                </header>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', animation: 'fadeIn 0.5s' }}>
+            {/* Header */}
+            <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.03em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ background: '#3b82f6', color: 'white', padding: '12px', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.3)' }}>
+                            <DollarSign size={28} strokeWidth={2.5} />
+                        </div>
+                        Financial Fee & Pricing Matrix
+                    </h1>
+                    <p style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: '500', maxWidth: '600px' }}>
+                        Centralized management for consultation rates, registration fees, lab tests, and clinical procedures.
+                        </p>
+                        </div>
+                        <button
+                        onClick={() => { setEditingId(null); setNewItem({ category: 'Consultation', name: '', price: 0 }); setShowModal(true); }}
+                        style={{ background: '#0f172a', color: 'white', border: 'none', padding: '16px 28px', borderRadius: '16px', fontWeight: '800', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.2)', transition: '0.2s', transform: 'translateY(0)' }}
+                        onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                        >
+                        <Plus size={20} /> Add New Price Entry
+                        </button>
+                        </header>
 
-                {/* Profit Control Center */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '48px' }}>
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
-                        <p style={{ fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Gross Revenue</p>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '900' }}>KSh {Number(profitReport.gross_revenue).toLocaleString()}</h2>
+                        {/* Main Content Area */}
+                        <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+
+                        {/* Toolbar */}
+                        <div style={{ padding: '24px 32px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                        {['all', 'administration', 'consultation', 'laboratory', 'procedure'].map(tab => (                            <button 
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                style={{ 
+                                    padding: '10px 20px', borderRadius: '12px', fontWeight: '800', fontSize: '0.9rem', textTransform: 'capitalize', cursor: 'pointer', transition: '0.2s',
+                                    background: activeTab === tab ? '#3b82f6' : 'white',
+                                    color: activeTab === tab ? 'white' : '#64748b',
+                                    border: activeTab === tab ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                                    boxShadow: activeTab === tab ? '0 4px 6px -1px rgba(59, 130, 246, 0.3)' : 'none'
+                                }}
+                            >
+                                {tab}
+                            </button>
+                        ))}
                     </div>
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
-                        <p style={{ fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>COGS (Inventory Cost)</p>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#f59e0b' }}>- KSh {Number(profitReport.cogs).toLocaleString()}</h2>
-                    </div>
-                    <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
-                        <p style={{ fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>OPEX (Expenses)</p>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ef4444' }}>- KSh {Number(profitReport.opex).toLocaleString()}</h2>
-                    </div>
-                    <div style={{ background: 'var(--primary)', padding: '24px', borderRadius: '24px', color: 'white', boxShadow: '0 20px 25px -5px rgba(14, 165, 233, 0.3)' }}>
-                        <p style={{ fontSize: '0.75rem', fontWeight: '800', opacity: 0.8, textTransform: 'uppercase', marginBottom: '8px' }}>Net Profit</p>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '900' }}>KSh {Number(profitReport.net_profit).toLocaleString()}</h2>
+                    <div style={{ position: 'relative', width: '300px' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <input 
+                            type="text" 
+                            placeholder="Search prices or procedures..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ width: '100%', padding: '12px 16px 12px 44px', borderRadius: '12px', border: '2px solid #e2e8f0', background: 'white', fontSize: '0.95rem', fontWeight: '600', color: '#0f172a', outline: 'none', transition: 'border-color 0.2s' }}
+                            onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                        />
                     </div>
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>Transaction Ledger</h3>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <select className="input-field" style={{ width: 'auto', height: '40px' }} value={filter} onChange={e => setFilter(e.target.value)}>
-                                <option>All Departments</option>
-                                <option>Pharmacy</option>
-                                <option>Laboratory</option>
-                            </select>
+                {/* Data Table */}
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                        <tr>
+                            <th style={{ padding: '20px 32px', textAlign: 'left', fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item / Action</th>
+                            <th style={{ padding: '20px 32px', textAlign: 'left', fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
+                            <th style={{ padding: '20px 32px', textAlign: 'right', fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Standard Fee (KES)</th>
+                            <th style={{ padding: '20px 32px', textAlign: 'center', fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                            <th style={{ padding: '20px 32px', textAlign: 'right', fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredData.map(item => {
+                            const colors = getColorForCategory(item.category);
+                            return (
+                                <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = 'white'}>
+                                    <td style={{ padding: '20px 32px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: colors.bg, color: colors.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {getIconForCategory(item.category)}
+                                            </div>
+                                            <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '1.05rem' }}>{item.name}</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '20px 32px' }}>
+                                        <span style={{ padding: '6px 14px', borderRadius: '8px', background: colors.bg, color: colors.text, border: '1px solid ' + colors.border, fontSize: '0.8rem', fontWeight: '800', display: 'inline-block' }}>
+                                            {item.category.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '20px 32px', textAlign: 'right' }}>
+                                        <span style={{ fontWeight: '900', color: '#10b981', fontSize: '1.1rem', background: '#f0fdf4', padding: '8px 16px', borderRadius: '10px', border: '1px solid #bbf7d0', display: 'inline-block' }}>
+                                            {Number(item.price).toLocaleString()}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '20px 32px', textAlign: 'center' }}>
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', background: '#f0fdf4', padding: '6px 12px', borderRadius: '20px', fontWeight: '800', fontSize: '0.8rem' }}>
+                                            <CheckCircle size={14} /> {item.status}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '20px 32px', textAlign: 'right' }}>
+                                        <button onClick={() => handleEditItem(item)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseOver={e => { e.currentTarget.style.color = '#3b82f6'; e.currentTarget.style.borderColor = '#bfdbfe'; }} onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#e2e8f0'; }}>
+                                            <Edit2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                {filteredData.length === 0 && (
+                    <div style={{ padding: '64px', textAlign: 'center', color: '#94a3b8' }}>
+                        <Activity size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#475569' }}>No pricing records found.</h3>
+                        <p>Adjust your search filters or add a new entry.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Add Price Entry Modal */}
+            {showModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)', animation: 'slideUp 0.3s ease-out' }}>
+                        <div style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {editingId ? <Edit2 size={20} color="#10b981" /> : <Plus size={20} color="#3b82f6" />} 
+                                {editingId ? 'Edit Price Entry' : 'Add Price Entry'}
+                            </h3>
+                            <button onClick={() => setShowModal(false)} style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>×</button>
+                        </div>
+                        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            
+                            <div>
+                                <label style={{ display: 'block', fontWeight: '800', color: '#475569', marginBottom: '8px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category / Type of Action</label>
+                                <select 
+                                    value={newItem.category} 
+                                    onChange={e => setNewItem({...newItem, category: e.target.value})}
+                                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#f8fafc', fontSize: '1rem', fontWeight: '700', color: '#0f172a', outline: 'none' }}
+                                >
+                                    <option value="Administration">Administration (Reg Fee, etc.)</option>
+                                    <option value="Consultation">Consultation</option>
+                                    <option value="Laboratory">Laboratory Test</option>
+                                    <option value="Procedure">Procedure</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontWeight: '800', color: '#475569', marginBottom: '8px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item / Action Name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. Complete Blood Count (CBC)"
+                                    value={newItem.name} 
+                                    onChange={e => setNewItem({...newItem, name: e.target.value})}
+                                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#f8fafc', fontSize: '1rem', fontWeight: '700', color: '#0f172a', outline: 'none' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontWeight: '800', color: '#475569', marginBottom: '8px', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Standard Fee (KES)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: '#10b981' }}>KES</div>
+                                    <input 
+                                        type="number" 
+                                        placeholder="0"
+                                        value={newItem.price || ''} 
+                                        onChange={e => setNewItem({...newItem, price: Number(e.target.value)})}
+                                        style={{ width: '100%', padding: '16px 16px 16px 60px', borderRadius: '12px', border: '2px solid #e2e8f0', background: '#f8fafc', fontSize: '1.1rem', fontWeight: '900', color: '#0f172a', outline: 'none' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <button onClick={handleSaveItem} style={{ width: '100%', background: '#3b82f6', color: 'white', padding: '16px', borderRadius: '16px', border: 'none', fontWeight: '900', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px', boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.3)' }}>
+                                <Save size={20} /> Save Pricing Entry
+                            </button>
                         </div>
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                            <tr>
-                                <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.875rem', color: '#64748b' }}>TX ID</th>
-                                <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.875rem', color: '#64748b' }}>DEPARTMENT</th>
-                                <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.875rem', color: '#64748b' }}>CUSTOMER</th>
-                                <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.875rem', color: '#64748b' }}>DATE</th>
-                                <th style={{ textAlign: 'right', padding: '16px 32px', fontSize: '0.875rem', color: '#64748b' }}>AMOUNT</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {financials.pharmacy_sales.map(s => (
-                                <tr key={`ph-${s.sale_id}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                                    <td style={{ padding: '16px 32px', fontWeight: '700' }}>#{s.receipt_no || `RX-${s.sale_id}`}</td>
-                                    <td style={{ padding: '16px 32px' }}><span style={{ padding: '4px 10px', background: '#f0f9ff', color: '#0ea5e9', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800' }}>PHARMACY</span></td>
-                                    <td style={{ padding: '16px 32px', fontWeight: '600' }}>{s.customer_name}</td>
-                                    <td style={{ padding: '16px 32px', color: '#64748b', fontSize: '0.875rem' }}>{new Date(s.created_at).toLocaleDateString()}</td>
-                                    <td style={{ padding: '16px 32px', textAlign: 'right', fontWeight: '800' }}>KSh {Number(s.total_amount).toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
                 </div>
-            </main>
+            )}
+            <style>{`
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            `}</style>
         </div>
     );
 };

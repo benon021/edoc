@@ -4,9 +4,8 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import EntityDetailModal from '../../components/pharmacy/EntityDetailModal';
-import { Pill, Search, User, Calendar, Clock, ChevronRight, FileText, Filter, Eye } from 'lucide-react';
+import { Pill, Search, Calendar, Filter, Eye } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -21,7 +20,7 @@ const DoctorPrescriptions = () => {
     const user = profile || {};
 
     useEffect(() => {
-        if (profile?.id) {
+        if (profile?.docid) {
             fetchPrescriptions();
         }
     }, [profile]);
@@ -29,17 +28,20 @@ const DoctorPrescriptions = () => {
     const fetchPrescriptions = async () => {
         setLoading(true);
         try {
+            const docIdInt = parseInt(profile?.docid);
+            if (isNaN(docIdInt)) return;
+
             const { data, error } = await supabase
                 .from('prescriptions')
                 .select(`
                     id, appointment_id, drug_name, dosage, total_quantity, instructions, status, created_at,
                     appointment!inner(
                         appodate,
-                        schedule!inner(docid),
+                        docid,
                         patient!inner(pid, pname, ptel, patient_display_id)
                     )
                 `)
-                .eq('appointment.schedule.docid', profile.id)
+                .eq('appointment.docid', docIdInt)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -102,17 +104,14 @@ const DoctorPrescriptions = () => {
 
     const filtered = prescriptions.filter(p => {
         const matchesSearch = 
-            p.pname.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            p.drug_list?.toLowerCase().includes(searchTerm.toLowerCase());
+            (p.pname || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+            (p.drug_list || '').toLowerCase().includes(searchTerm.toLowerCase());
         const matchesFilter = filterStatus === 'all' || p.status?.toLowerCase() === filterStatus;
         return matchesSearch && matchesFilter;
     });
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9' }}>
-            <Sidebar userType="d" />
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                
+        <div style={{ padding: '0', background: '#f1f5f9', minHeight: '100vh' }}>
                 {/* Modern Header */}
                 <header style={{ 
                     padding: '24px 48px', 
@@ -146,7 +145,7 @@ const DoctorPrescriptions = () => {
                     </div>
                 </header>
 
-                <div style={{ padding: '32px 48px', flex: 1 }}>
+                <div style={{ padding: '32px 48px' }}>
                     {/* Search Bar */}
                     <div style={{ position: 'relative', marginBottom: '24px' }}>
                         <Search size={20} style={{ position: 'absolute', left: '16px', top: '14px', color: '#94a3b8' }} />
@@ -193,12 +192,12 @@ const DoctorPrescriptions = () => {
                                         style={{ borderBottom: '1px solid #f1f5f9', transition: '0.2s', cursor: 'pointer' }} 
                                         onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
                                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                        onClick={() => setIntelModal({ open: true, data: { ...p, docname: user.name } })}
+                                        onClick={() => setIntelModal({ open: true, data: { ...p, docname: user.docname || user.name } })}
                                     >
                                         <td style={{ padding: '16px 24px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9', fontWeight: '700' }}>
-                                                    {p.pname.charAt(0)}
+                                                    {p.pname ? p.pname.charAt(0) : 'P'}
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: '700', color: '#1e293b' }}>{p.pname}</div>
@@ -238,7 +237,7 @@ const DoctorPrescriptions = () => {
                                         <td style={{ padding: '16px 24px' }}>
                                             <button 
                                                 style={{ padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                                                onClick={(e) => { e.stopPropagation(); setIntelModal({ open: true, data: { ...p, docname: user.name } }); }}
+                                                onClick={(e) => { e.stopPropagation(); setIntelModal({ open: true, data: { ...p, docname: user.docname || user.name } }); }}
                                             >
                                                 <Eye size={16} /> Details
                                             </button>
@@ -256,7 +255,6 @@ const DoctorPrescriptions = () => {
                     data={intelModal.data} 
                     type="prescription"
                 />
-            </main>
         </div>
     );
 };

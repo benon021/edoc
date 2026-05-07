@@ -5,7 +5,6 @@
 // =============================================================
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
 import { 
     Users, Search, CalendarPlus, User, Phone, Fingerprint, RefreshCw, 
     AlertTriangle, Edit, Trash2, X, Save, Thermometer, Info, ShieldCheck, 
@@ -15,9 +14,11 @@ import Select from 'react-select';
 import { useNotification } from '../../components/NotificationContext';
 import { getPatients, getDoctors, deletePatient, updatePatient, bookAppointment } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const RegistrarPatients = () => {
     const navigate = useNavigate();
+    const { profile } = useAuth();
     
     const [patients, setPatients] = useState([]);
     const [selectedPatients, setSelectedPatients] = useState(new Set());
@@ -79,8 +80,17 @@ const RegistrarPatients = () => {
                     return !hasTodayAppo;
                 });
 
-                // Sort by PID descending (Newest first)
-                const sorted = unbookedPatients.sort((a, b) => b.pid - a.pid);
+                // Sort chronologically in the queue (oldest first)
+                // Use the earliest known timestamp fields if present.
+                const toTime = (p) => {
+                    // appointment rows should include appodate when loaded via join above
+                    if (p.appointment?.[0]?.appodate) return new Date(p.appointment[0].appodate).getTime();
+                    if (p.pdate_registered) return new Date(p.pdate_registered).getTime();
+                    if (p.created_at) return new Date(p.created_at).getTime();
+                    return 0;
+                };
+
+                const sorted = [...unbookedPatients].sort((a, b) => toTime(a) - toTime(b));
                 setPatients(sorted);
             }
         } catch (err) {
@@ -243,9 +253,8 @@ const RegistrarPatients = () => {
                 // Refresh patient list (removes booked patients) + redirect
                 fetchPatients();
                 
-                setTimeout(() => {
-                    navigate('/registrar/history');
-                }, 1500);
+                // Keep the operator in the same patient directory flow
+                // (do not redirect to registrar history / other routing).
             }
             if (errors.length > 0) {
                 showAlert("Warning", `Some bookings failed: ${errors.join(', ')}`, "warning");
@@ -304,13 +313,11 @@ const RegistrarPatients = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="r" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '1.875rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <Users size={28} color="var(--primary)" /> Patient Directory
+                            <Users size={28} color="var(--primary)" /> Patient Booking & Directory
                             {selectedPatients.size > 0 && (
                                 <span style={{ 
                                     fontSize: '0.875rem', background: '#ff7200', color: 'white', 
@@ -321,7 +328,7 @@ const RegistrarPatients = () => {
                                 </span>
                             )}
                         </h1>
-                        <p style={{ color: 'var(--text-muted)' }}>Manage records and routing for all registered patients.</p>
+                        <p style={{ color: 'var(--text-muted)' }}>Manage records, routing, and clinical bookings for all patients.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
                         {selectedPatients.size > 0 && (
@@ -372,6 +379,7 @@ const RegistrarPatients = () => {
                                 <th style={{ textAlign: 'left', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Queue #</th>
                                 <th style={{ textAlign: 'left', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Patient Details</th>
                                 <th style={{ textAlign: 'left', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Identification</th>
+                                <th style={{ textAlign: 'center', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Visits</th>
                                 <th style={{ textAlign: 'center', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Actions</th>
                             </tr>
                         </thead>
@@ -413,9 +421,30 @@ const RegistrarPatients = () => {
                                         <td style={{ padding: '16px 24px' }}>
                                             <div style={{ fontSize: '0.875rem', color: '#475569', fontWeight: '500' }}>{p.patient_display_id}</div>
                                         </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                                <Activity size={12} /> {p.appointment?.length || 0}
+                                            </div>
+                                        </td>
                                         <td style={{ padding: '16px 24px' }}>
                                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                <button onClick={() => openBookingModal(p)} style={{ padding: '8px 12px', background: '#ff7200', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: '600' }}>Book</button>
+                                                <button 
+                                                    onClick={() => openBookingModal(p)} 
+                                                    disabled={profile?.role === 'a'}
+                                                    style={{ 
+                                                        padding: '8px 12px', 
+                                                        background: profile?.role === 'a' ? '#e2e8f0' : '#ff7200', 
+                                                        color: profile?.role === 'a' ? '#94a3b8' : 'white', 
+                                                        border: 'none', 
+                                                        borderRadius: '6px', 
+                                                        cursor: profile?.role === 'a' ? 'not-allowed' : 'pointer', 
+                                                        fontSize: '0.8125rem', 
+                                                        fontWeight: '600' 
+                                                    }}
+                                                    title={profile?.role === 'a' ? 'Clinical handover must be performed by a Registrar' : 'Book Appointment'}
+                                                >
+                                                    Book
+                                                </button>
                                                 <button onClick={() => openEditModal(p)} style={{ padding: '8px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#475569' }} title="Edit Details"><Edit size={16} /></button>
                                                 <button onClick={() => confirmDelete(p)} style={{ padding: '8px', background: '#fef2f2', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#dc2626' }} title="Delete Record"><Trash2 size={16} /></button>
                                             </div>
@@ -699,7 +728,6 @@ const RegistrarPatients = () => {
                     .animate-spin { animation: spin 2s linear infinite; }
                     .hover-row:hover { background-color: #f8fafc !important; }
                 `}</style>
-            </main>
         </div>
     );
 };

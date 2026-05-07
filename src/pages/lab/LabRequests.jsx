@@ -5,7 +5,6 @@
 //          Uses schema-compliant queries (appointment-based enrichment).
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { ClipboardList, Search, Filter, AlertTriangle, Clock, CheckCircle, RefreshCw, ChevronDown, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,9 +58,9 @@ export default function LabRequests() {
             // 3. Fetch technicians manually
             const { data: techData } = await supabase
                 .from('lab_technician')
-                .select('labid, labname');
+                .select('labid, labname, user_id');
             const techMap = (techData || []).reduce((acc, t) => {
-                acc[t.labid] = t.labname;
+                acc[t.user_id || t.labid] = t.labname;
                 return acc;
             }, {});
 
@@ -90,7 +89,7 @@ export default function LabRequests() {
 
     const fetchTechnicians = useCallback(async () => {
         try {
-            const { data, error } = await supabase.from('lab_technician').select('labid, labname, labemail');
+            const { data, error } = await supabase.from('lab_technician').select('labid, labname, labemail, user_id');
             if (error) throw error;
             setTechnicians(data || []);
             // Try to find the tech record matching the current user's email if possible
@@ -110,7 +109,7 @@ export default function LabRequests() {
         try {
             const techId = selectedTechs[id];
             const updateData = { status: newStatus };
-            if (techId) updateData.technician_id = techId; // Corrected column name
+            if (techId) updateData.technician_id = techId; // UUID-safe
 
             const { error } = await supabase.from('lab_requests').update(updateData).eq('id', id);
             if (error) throw error;
@@ -129,10 +128,8 @@ export default function LabRequests() {
     });
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="l" />
-            {toast && <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#10b981', color: 'white', padding: '12px 24px', borderRadius: 12, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{toast.msg}</div>}
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+                {toast && <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#10b981', color: 'white', padding: '12px 24px', borderRadius: 12, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>{toast.msg}</div>}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -160,7 +157,7 @@ export default function LabRequests() {
                 </div>
 
                 {/* Table */}
-                <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -219,23 +216,23 @@ export default function LabRequests() {
                                      <td style={{ padding: '20px 24px' }}>
                                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                              {req.status === 'pending' && (
-                                                 <>
-                                                     <select 
-                                                         value={selectedTechs[req.id] || ''} 
-                                                         onChange={e => setSelectedTechs({...selectedTechs, [req.id]: e.target.value})}
-                                                         style={{ padding: '6px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.75rem' }}
-                                                     >
-                                                         <option value="">Assign Tech...</option>
-                                                         {technicians.map(t => <option key={t.labid} value={t.labid}>{t.labname}</option>)}
-                                                     </select>
-                                                     <button onClick={() => handleUpdateStatus(req.id, 'sample_collected')}
-                                                         style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
-                                                         Mark Collected
-                                                     </button>
-                                                 </>
+                                                  <>
+                                                      <select 
+                                                          value={selectedTechs[req.id] || ''} 
+                                                          onChange={e => setSelectedTechs({...selectedTechs, [req.id]: e.target.value})}
+                                                          style={{ padding: '6px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.75rem' }}
+                                                      >
+                                                          <option value="">Assign Tech...</option>
+                                                          {technicians.map(t => <option key={t.labid} value={t.user_id || t.labid}>{t.labname}</option>)}
+                                                      </select>
+                                                      <button onClick={() => handleUpdateStatus(req.id, 'sample_collected')}
+                                                          style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#3b82f6', color: 'white', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+                                                          Mark Collected
+                                                      </button>
+                                                  </>
                                              )}
                                              {req.status === 'sample_collected' && (
-                                                 <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.8rem' }}>Ready for Analysis</span>
+                                                  <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.8rem' }}>Ready for Analysis</span>
                                              )}
                                          </div>
                                      </td>
@@ -248,7 +245,6 @@ export default function LabRequests() {
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                     .animate-spin { animation: spin 1s linear infinite; }
                 `}</style>
-            </main>
         </div>
     );
 }

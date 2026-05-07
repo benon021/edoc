@@ -4,15 +4,12 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React from 'react';
-import Sidebar from '../../components/Sidebar';
 import StaffSettings from '../../components/StaffSettings';
 import { Settings } from 'lucide-react';
 
 const LabSettings = () => {
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="l" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
                     <h1 style={{ fontSize: '1.875rem', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <Settings size={32} color="var(--primary)" /> Account Settings
@@ -21,7 +18,6 @@ const LabSettings = () => {
                 </header>
 
                 <StaffSettings userType="l" />
-            </main>
         </div>
     );
 };

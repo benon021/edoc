@@ -5,12 +5,11 @@
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
 import {
     Save, AlertTriangle, Pill, FlaskConical, Clock, ChevronLeft,
     Plus, Trash2, Clipboard, Activity, FileText, User,
     Stethoscope, Thermometer, Heart, Wind, UserCheck,
-    LogOut, Calendar, Info, ShieldCheck, MapPin, Search, PlusCircle, X, Scissors, Camera, BookOpen, Droplets, ClipboardCheck
+    LogOut, Calendar, Info, ShieldCheck, MapPin, Search, PlusCircle, X, Scissors, Camera, BookOpen, Droplets, ClipboardCheck, Send
 } from 'lucide-react';
 import ClinicalModal from '../../components/shared/ClinicalModal';
 import { searchIcd10, searchMedicines, getLabCatalog } from '../../lib/api';
@@ -23,7 +22,9 @@ const ConsultationModule = () => {
     const navigate = useNavigate();
     const { profile } = useAuth();
     const [loading, setLoading] = useState(true);
+    const [currentTime, setCurrentTime] = useState(new Date());
     const [patient, setPatient] = useState(null);
+    const [appointment, setAppointment] = useState(null);
     const [history, setHistory] = useState([]);
     const [activeTab, setActiveTab] = useState('subjective');
     const [startTime] = useState(new Date());
@@ -101,6 +102,7 @@ const ConsultationModule = () => {
     const [showSymptomDropdown, setShowSymptomDropdown] = useState(false);
 
     useEffect(() => {
+
         if (!symptomSearch) {
             setSymptomResults([]);
             setShowSymptomDropdown(false);
@@ -117,7 +119,7 @@ const ConsultationModule = () => {
     // Objective
     const [vitals, setVitals] = useState({
         temp: '', bp: '', heart_rate: '', spo2: '', weight: '', height: '',
-        respiratory_rate: '',
+        respiratory_rate: '', hb: '',
         bmi: '',
     });
     const [physicalExam, setPhysicalExam] = useState({
@@ -174,6 +176,8 @@ const ConsultationModule = () => {
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [showLabResultsModal, setShowLabResultsModal] = useState(false);
     const [selectedLabResult, setSelectedLabResult] = useState(null);
+    const [isSendingLab, setIsSendingLab] = useState(false);
+    const [isReadOnly, setIsReadOnly] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
     const showToast = (message, type = 'success') => {
@@ -230,12 +234,18 @@ const ConsultationModule = () => {
                 if (draft.patientEducation) setPatientEducation(draft.patientEducation);
                 if (draft.sickLeave) setSickLeave(draft.sickLeave);
 
-                showToast("Previous draft recovered successfully.", "info");
+                // showToast("Previous draft recovered successfully.", "info");
             } catch (e) {
                 console.error("Failed to recover draft", e);
             }
         }
     }, [appoid]);
+
+    // Timer for "Time Waiting"
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+        return () => clearInterval(timer);
+    }, []);
 
     // 2. Auto-Save Effect
     useEffect(() => {
@@ -404,8 +414,8 @@ const ConsultationModule = () => {
             if (error) throw error;
             setCatalog(data || []);
             console.log('[Consultation] Loaded', data?.length || 0, 'lab tests');
-        } catch (e) { 
-            console.error("Catalog fetch failed:", e); 
+        } catch (e) {
+            console.error("Catalog fetch failed:", e);
             showToast('Lab catalog unavailable. Check Supabase RLS.', 'error');
         }
     }, [getLabCatalog]);
@@ -420,11 +430,11 @@ const ConsultationModule = () => {
 
     const fetchTechnicians = useCallback(async () => {
         try {
-            const { data, error } = await supabase.from('lab_technician').select('labid, labname');
+            const { data, error } = await supabase.from('lab_technician').select('labid, labname, user_id');
             if (error) throw error;
             setTechnicians(data || []);
             if (data?.length === 1) {
-                setSelectedTech(data[0].labid);
+                setSelectedTech(data[0].user_id || data[0].labid);
             }
         } catch (e) { console.error("Techs fetch failed", e); }
     }, []);
@@ -480,11 +490,24 @@ const ConsultationModule = () => {
 
             if (apptError) throw apptError;
             const appointment = apptData?.[0];
-            
+
             if (appointment && appointment.patient) {
                 const patientData = appointment.patient;
                 setPatient(patientData);
-                
+                setAppointment(appointment);
+
+                // ENFORCE INTERFERENCE LOCK:
+                // If status is 'in_consultation' and current user is Admin, block edits.
+                // If status is 'Completed' or 'final', block edits for everyone.
+                const userIsAdmin = profile?.role === 'a';
+                if (appointment.status === 'in_consultation' && userIsAdmin) {
+                    setIsReadOnly(true);
+                } else if (appointment.status === 'Completed' || appointment.status === 'final') {
+                    setIsReadOnly(true);
+                } else {
+                    setIsReadOnly(false);
+                }
+
                 // Pre-fill vitals from nursing if available
                 setVitals({
                     temp: patientData.ptemp || '',
@@ -505,7 +528,7 @@ const ConsultationModule = () => {
                     .in('status', ['final', 'completed'])
                     .order('consultation_date', { ascending: false })
                     .range(0, 4);
-                
+
                 setHistory(historyData || []);
 
                 // Get Existing Draft
@@ -553,11 +576,11 @@ const ConsultationModule = () => {
                     });
                     setManagementPlan(d.management_plan || '');
                     if (d.disposition) {
-                       try { setDisposition(JSON.parse(d.disposition)); } catch(e) {}
+                        try { setDisposition(JSON.parse(d.disposition)); } catch (e) { }
                     }
 
                     // Fetch related draft data
-                    const [ { data: draftPrescriptions }, { data: draftLabs } ] = await Promise.all([
+                    const [{ data: draftPrescriptions }, { data: draftLabs }] = await Promise.all([
                         supabase.from('prescriptions').select('id, drug_name, dosage, frequency, duration').eq('consultation_id', d.id),
                         supabase.from('lab_requests').select('id, test_name, status').eq('consultation_id', d.id)
                     ]);
@@ -578,17 +601,17 @@ const ConsultationModule = () => {
                     .from('lab_requests')
                     .select('id, test_name, status, created_at, appointment_id')
                     .eq('appointment_id', appoid);
-                    
+
                 if (activeLabs && activeLabs.length > 0) {
                     setLabTracker(activeLabs);
-                    
+
                     // Fetch reports separately
                     const requestIds = activeLabs.map(l => l.id);
                     const { data: reportsData } = await supabase
                         .from('lab_reports')
                         .select('id, request_id, test_name, results, created_at')
                         .in('request_id', requestIds);
-                    
+
                     setLabReports(reportsData || []);
                 }
             }
@@ -713,7 +736,7 @@ const ConsultationModule = () => {
         }
         try {
             console.log('[saveToSupabase] Starting save for status:', status, 'appoid:', appoid);
-            
+
             // Build payload using only columns confirmed to exist in the consultations table.
             // Consolidate fields that don't have dedicated columns into the notes/hpi/clinical_impression fields.
             const chiefComplaints = [
@@ -724,7 +747,7 @@ const ConsultationModule = () => {
             const consultationPayload = {
                 appointment_id: Number(appoid), // Ensure integer
                 pid: Number(patient.pid),       // Ensure integer
-                docid: Number(profile.id),      // Ensure integer
+                docid: profile?.docid ? parseInt(profile.docid) : (appointment?.docid ? parseInt(appointment.docid) : null),
                 consultation_date: new Date().toISOString(),
                 status: status,
                 consultation_type: subjective.consultation_type || 'Initial',
@@ -757,47 +780,29 @@ const ConsultationModule = () => {
                 disposition: JSON.stringify(disposition || {})
             };
 
-            // Check for existing consultation - using plain select to avoid ':1' bug
-            const { data: existingDrafts, error: draftError } = await supabase
+            // 2. SAVE CONSULTATION (Upsert for reliability)
+            const { data: savedConsults, error: upsertError } = await supabase
                 .from('consultations')
-                .select('id')
-                .eq('appointment_id', appoid);
+                .upsert(consultationPayload, { onConflict: 'appointment_id' })
+                .select('id');
 
-            if (draftError) {
-                console.error('[saveToSupabase] Lookup error:', draftError);
-                throw new Error(`Consultation lookup failed: ${draftError.message}`);
+            if (upsertError) {
+                console.error('[saveToSupabase] Upsert error:', upsertError);
+                throw upsertError;
             }
-
-            const existingDraft = existingDrafts && existingDrafts.length > 0 ? existingDrafts[0] : null;
-            let consultId;
-            if (existingDraft) {
-                const { error: updateError } = await supabase
-                    .from('consultations')
-                    .update(consultationPayload)
-                    .eq('id', existingDraft.id);
-                if (updateError) throw updateError;
-                consultId = existingDraft.id;
-            } else {
-                const { data: newConsults, error: insertError } = await supabase
-                    .from('consultations')
-                    .insert([consultationPayload])
-                    .select('id');
-                
-                if (insertError) throw insertError;
-                consultId = newConsults?.[0]?.id;
-                if (!consultId) throw new Error('Failed to retrieve consultation ID after insert');
-            }
-            console.log('[saveToSupabase] Consultation ID confirmed:', consultId);
+            const consultId = savedConsults?.[0]?.id;
+            if (!consultId) throw new Error('Upsert successful but no ID returned');
+            console.log('[saveToSupabase] Consultation synced with ID:', consultId);
 
             // Prescriptions
             const { error: presDeleteError } = await supabase.from('prescriptions').delete().eq('consultation_id', consultId);
             if (presDeleteError) console.warn('Prescriptions cleanup warning:', presDeleteError.message);
-            
+
             if (prescriptions.length > 0) {
                 const rxPayload = prescriptions.map(p => ({
                     consultation_id: Number(consultId),
                     pid: Number(patient.pid),
-                    docid: Number(profile.id),
+                    docid: profile?.docid ? parseInt(profile.docid) : (appointment?.docid ? parseInt(appointment.docid) : null),
                     appointment_id: Number(appoid),
                     drug_name: p.drug_name,
                     dosage: p.dosage,
@@ -816,34 +821,28 @@ const ConsultationModule = () => {
             }
 
             // Lab Requests - Only sync items that haven't been "sent" yet
-            // We differentiate by checking if they are in our local 'labRequests' list
             if (labsToSync.length > 0) {
-                // Only inserting NEW lab orders from the shopping cart.
-                // We no longer delete pending ones, so multiple orders can be placed over time.
-
                 const labPayload = labsToSync.map(l => ({
-                    consultation_id: Number(consultId),
-                    appointment_id: Number(appoid),
+                    consultation_id: consultId,
+                    appointment_id: appoid,
                     test_name: l.test_name,
                     status: 'pending',
-                    technician_id: selectedTech ? Number(selectedTech) : null,
+                    technician_id: selectedTech || null,
                     urgency: l.urgency || 'Routine',
                     clinical_indication: l.clinical_indication || '',
                     specimen_type: l.specimen_type || '',
                     order_notes: l.order_notes || ''
                 }));
-                console.log('[saveToSupabase] Inserting lab payload:', labPayload);
                 const { error: labError } = await supabase.from('lab_requests').insert(labPayload);
-                if (labError) {
-                    console.error('Lab requests insert failed:', labError);
-                    if (labError.message.includes('RLS') || labError.message.includes('policy')) {
-                        showToast('🚨 Lab orders blocked - Check Supabase RLS policies for lab_requests (doctor role)', 'error');
-                    } else {
-                        showToast(`Lab orders failed: ${labError.message.substring(0,100)}`, 'error');
-                    }
-                } else {
+                if (!labError) {
                     console.log('[save] Sent', labsToSync.length, 'lab requests');
-                    showToast(`✅ Sent ${labsToSync.length} lab order(s) successfully! Check DoctorLabs page.`, 'success');
+                    showToast(`✅ Sent ${labsToSync.length} lab order(s) successfully!`, 'success');
+                    // Update appointment status to 'Doctor' as requested
+                    await supabase.from('appointment').update({ status: 'Doctor' }).eq('appoid', appoid);
+                } else {
+                    console.error('Lab requests insert failed:', labError);
+                    showToast(`Lab orders failed: ${labError.message.substring(0, 100)}`, 'error');
+                    return false;
                 }
             }
 
@@ -865,7 +864,7 @@ const ConsultationModule = () => {
             await supabase.from('vitals_records').insert(vitalsPayload);
 
             if (status === 'final') {
-                await supabase.from('appointment').update({status: 'Completed'}).eq('appoid', appoid);
+                await supabase.from('appointment').update({ status: 'Completed' }).eq('appoid', appoid);
             }
             return true;
         } catch (e) {
@@ -903,15 +902,15 @@ const ConsultationModule = () => {
     };
 
     const instantSendLab = async (testItem = null) => {
-        if (!patient || !profile) return;
-        
         // If it's a specific test from the modal
-        if (testItem) {
+        if (testItem && testItem.test_name) {
             // Explicitly build the list to avoid React state race conditions
             const updatedList = [...labRequests, { ...testItem, id: Date.now() }];
             setLabRequests(updatedList);
-            
+
+            setIsSendingLab(true);
             const success = await saveToSupabase('draft', { labOverride: updatedList });
+            setIsSendingLab(false);
             if (success) {
                 setLabRequests([]); // Clear after sending
                 setShowLabModal(false);
@@ -919,7 +918,9 @@ const ConsultationModule = () => {
             }
         } else if (labRequests.length > 0) {
             // Sending all currently added but unsent tests
+            setIsSendingLab(true);
             const success = await saveToSupabase('draft');
+            setIsSendingLab(false);
             if (success) {
                 setLabRequests([]);
                 refreshData();
@@ -972,22 +973,16 @@ const ConsultationModule = () => {
     };
 
     if (loading) return (
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#f1f5f9' }}>
-            <Sidebar userType="d" />
-            <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ textAlign: 'center' }}>
-                    <Activity size={48} className="animate-pulse" style={{ color: '#2563eb', marginBottom: '16px' }} />
-                    <p>Opening Clinical Case File...</p>
-                </div>
-            </main>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f1f5f9' }}>
+            <div style={{ textAlign: 'center' }}>
+                <Activity size={48} className="animate-pulse" style={{ color: '#2563eb', marginBottom: '16px' }} />
+                <p>Opening Clinical Case File...</p>
+            </div>
         </div>
     );
 
     return (
-        <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#f1f5f9' }}>
-            <Sidebar userType="d" />
-
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#f1f5f9' }}>
                 {/* Modern Clinical Header */}
                 <header style={{
                     padding: '16px 32px',
@@ -1044,22 +1039,44 @@ const ConsultationModule = () => {
                                 </div>
                             </>
                         )}
-                        <button onClick={saveProgress} disabled={!patient} style={{
-                            background: 'white', border: '1px solid #e2e8f0', padding: '12px 20px',
-                            borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px',
-                            fontWeight: '600', color: '#64748b', cursor: patient ? 'pointer' : 'not-allowed'
-                        }}>
+                        <button 
+                            onClick={saveProgress} 
+                            disabled={!patient || isReadOnly} 
+                            style={{
+                                background: 'white', border: '1px solid #e2e8f0', padding: '12px 20px',
+                                borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px',
+                                fontWeight: '600', color: isReadOnly ? '#cbd5e1' : '#64748b', 
+                                cursor: (patient && !isReadOnly) ? 'pointer' : 'not-allowed'
+                            }}
+                        >
                             <Clipboard size={18} /> Save Draft
                         </button>
-                        <button onClick={handleSave} disabled={!patient} className="btn-primary" style={{
-                            background: patient ? '#0f172a' : '#94a3b8', border: 'none', padding: '12px 24px',
-                            borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px',
-                            fontWeight: '600', color: 'white', cursor: patient ? 'pointer' : 'not-allowed'
-                        }}>
+                        <button 
+                            onClick={handleSave} 
+                            disabled={!patient || isReadOnly} 
+                            className="btn-primary" 
+                            style={{
+                                background: (patient && !isReadOnly) ? '#0f172a' : '#94a3b8', 
+                                border: 'none', padding: '12px 24px',
+                                borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px',
+                                fontWeight: '600', color: 'white', 
+                                cursor: (patient && !isReadOnly) ? 'pointer' : 'not-allowed',
+                                opacity: isReadOnly ? 0.6 : 1
+                            }}
+                        >
                             <Save size={18} /> Finalize Encounter
                         </button>
                     </div>
                 </header>
+
+                {isReadOnly && (
+                    <div style={{ background: '#fef2f2', borderBottom: '1px solid #fee2e2', padding: '10px 32px', display: 'flex', alignItems: 'center', gap: '12px', color: '#b91c1c' }}>
+                        <AlertTriangle size={18} />
+                        <div style={{ fontSize: '0.9rem', fontWeight: '700' }}>
+                            VIEW ONLY MODE: This session was started by a Doctor. Admin interference is disabled to prevent data loss.
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                     {/* Sidebar: Patient Summary & Quick Access */}
@@ -1133,62 +1150,6 @@ const ConsultationModule = () => {
 
                     {/* Main Workspace: Clinical Tabs */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        {/* Navigation - Quick Jump Menu */}
-                        <div style={{
-                            display: 'flex',
-                            background: 'white',
-                            borderBottom: '1px solid #e2e8f0',
-                            padding: '8px 24px',
-                            position: 'relative',
-                            gap: '4px',
-                            alignItems: 'center',
-                            boxShadow: '0 4px 6px -4px rgba(0,0,0,0.05)',
-                            zIndex: 10
-                        }}>
-                            {[
-                                { id: 'subjective', label: 'History (S)', icon: User },
-                                { id: 'objective', label: 'Examination (O)', icon: Stethoscope },
-                                { id: 'assessment', label: 'Diagnosis (A)', icon: Clipboard },
-                                { id: 'investigations', label: 'Investigations (I)', icon: FlaskConical },
-                                { id: 'plan', label: 'Plan (P)', icon: Pill },
-                                { id: 'disposition', label: 'Finalize', icon: LogOut },
-                            ].map(tab => {
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => {
-                                            const element = document.getElementById(tab.id);
-                                            if (element) {
-                                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                            }
-                                        }}
-                                        disabled={!patient}
-                                        style={{
-                                            padding: '10px 18px',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            cursor: patient ? 'pointer' : 'not-allowed',
-                                            color: '#64748b',
-                                            opacity: patient ? 1 : 0.5,
-                                            fontWeight: '700',
-                                            borderRadius: '10px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
-                                            transition: 'all 0.25s',
-                                            fontSize: '0.85rem',
-                                            minWidth: '150px',
-                                            justifyContent: 'center'
-                                        }}
-                                        onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                    >
-                                        <tab.icon size={18} />
-                                        {tab.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
 
                         {/* Scrollable Content Area */}
                         <div style={{ flex: 1, overflowY: 'auto', padding: '32px', background: '#f8fafc', position: 'relative' }}>
@@ -1381,13 +1342,52 @@ const ConsultationModule = () => {
                                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                         <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={18} color="#2563eb" /> Vital Signs & Biometrics</h3>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-                                            <div><label className="label">Temp (°C)</label><input type="number" className="input-field" value={vitals.temp} onChange={e => setVitals({ ...vitals, temp: e.target.value })} /></div>
-                                            <div><label className="label">BP (mmHg)</label><input className="input-field" value={vitals.bp} onChange={e => setVitals({ ...vitals, bp: e.target.value })} /></div>
-                                            <div><label className="label">HR (bpm)</label><input type="number" className="input-field" value={vitals.heart_rate} onChange={e => setVitals({ ...vitals, heart_rate: e.target.value })} /></div>
-                                            <div><label className="label">SpO2 (%)</label><input type="number" className="input-field" value={vitals.spo2} onChange={e => setVitals({ ...vitals, spo2: e.target.value })} /></div>
-                                            <div><label className="label">Resp Rate (/min)</label><input type="number" className="input-field" value={vitals.respiratory_rate} onChange={e => setVitals({ ...vitals, respiratory_rate: e.target.value })} /></div>
-                                            <div><label className="label">Weight (kg)</label><input type="number" className="input-field" value={vitals.weight} onChange={e => setVitals({ ...vitals, weight: e.target.value })} /></div>
-                                            <div><label className="label">Height (cm)</label><input type="number" className="input-field" value={vitals.height} onChange={e => setVitals({ ...vitals, height: e.target.value })} /></div>
+                                            <div>
+                                                <label className="label">Temp (°C)</label>
+                                                <input
+                                                    type="number"
+                                                    className="input-field"
+                                                    value={vitals.temp}
+                                                    onChange={e => setVitals({ ...vitals, temp: e.target.value })}
+                                                    placeholder="36.5"
+                                                    style={{
+                                                        color: vitals.temp ? (parseFloat(vitals.temp) > 37.5 ? '#ef4444' : parseFloat(vitals.temp) < 36.0 ? '#3b82f6' : '#1e293b') : '#1e293b',
+                                                        fontWeight: vitals.temp && (parseFloat(vitals.temp) > 37.5 || parseFloat(vitals.temp) < 36.0) ? '800' : '500'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="label">BP (mmHg)</label>
+                                                <input className="input-field" value={vitals.bp} onChange={e => setVitals({ ...vitals, bp: e.target.value })} placeholder="120/80" />
+                                            </div>
+                                            <div>
+                                                <label className="label">HR (bpm)</label>
+                                                <input type="number" className="input-field" value={vitals.heart_rate} onChange={e => setVitals({ ...vitals, heart_rate: e.target.value })} placeholder="72" />
+                                            </div>
+                                            <div>
+                                                <label className="label">SpO2 (%)</label>
+                                                <input type="number" className="input-field" value={vitals.spo2} onChange={e => setVitals({ ...vitals, spo2: e.target.value })} placeholder="98" />
+                                            </div>
+                                            <div>
+                                                <label className="label">Resp Rate (/min)</label>
+                                                <input type="number" className="input-field" value={vitals.respiratory_rate} onChange={e => setVitals({ ...vitals, respiratory_rate: e.target.value })} placeholder="16" />
+                                            </div>
+                                            <div>
+                                                <label className="label">Hb (g/dL)</label>
+                                                <input
+                                                    type="number"
+                                                    className="input-field"
+                                                    value={vitals.hb}
+                                                    onChange={e => setVitals({ ...vitals, hb: e.target.value })}
+                                                    placeholder="13.5"
+                                                    style={{
+                                                        color: vitals.hb ? (parseFloat(vitals.hb) < 11.0 ? '#ef4444' : parseFloat(vitals.hb) > 18.0 ? '#ef4444' : '#1e293b') : '#1e293b',
+                                                        fontWeight: vitals.hb && (parseFloat(vitals.hb) < 11.0 || parseFloat(vitals.hb) > 18.0) ? '800' : '500'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div><label className="label">Weight (kg)</label><input type="number" className="input-field" value={vitals.weight} onChange={e => setVitals({ ...vitals, weight: e.target.value })} placeholder="70" /></div>
+                                            <div><label className="label">Height (cm)</label><input type="number" className="input-field" value={vitals.height} onChange={e => setVitals({ ...vitals, height: e.target.value })} placeholder="170" /></div>
                                         </div>
                                     </div>
 
@@ -1413,6 +1413,44 @@ const ConsultationModule = () => {
                                     </div>
 
                                 </section>
+
+                                {/* Clinical Action: Laboratory (Primary Action before Assessment) */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <button
+                                        onClick={() => {
+                                            if (labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) {
+                                                setNewLab({ test_name: '', urgency: 'Urgent', clinical_indication: 'ADDITIONAL/FOLLOW-UP TEST: Required based on preliminary findings.', specimen_type: '', order_notes: '' });
+                                            }
+                                            setShowLabModal(true);
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '16px',
+                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.2), 0 4px 6px -2px rgba(16, 185, 129, 0.1)',
+                                            fontSize: '1.1rem',
+                                            letterSpacing: '0.5px'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.01)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(16, 185, 129, 0.3)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(16, 185, 129, 0.2)'; }}
+                                    >
+                                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px', borderRadius: '14px' }}>
+                                            <FlaskConical size={28} />
+                                        </div>
+                                        <span>{(labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) ? 'ORDER ADDITIONAL LAB TEST' : 'ORDER LABORATORY INVESTIGATIONS'}</span>
+                                    </button>
+                                </div>
+
                                 <section id="assessment" style={{ scrollMarginTop: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                     {/* SOAP Guidance */}
                                     <div style={{ background: '#f5f3ff', padding: '16px', borderRadius: '8px', border: '1px solid #ede9fe', display: 'flex', gap: '12px' }}>
@@ -1531,7 +1569,7 @@ const ConsultationModule = () => {
                                                 let resultsObj = {};
                                                 try {
                                                     resultsObj = typeof report.results === 'string' ? JSON.parse(report.results) : (report.results || {});
-                                                } catch(e) {}
+                                                } catch (e) { }
                                                 return (
                                                     <div key={i} style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                                                         <div style={{ background: '#f8fafc', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1610,7 +1648,12 @@ const ConsultationModule = () => {
                                                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px 16px', borderRadius: '10px', border: '1px solid #dcfce7' }}>
                                                         <div>
                                                             <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.9rem' }}>{lab.test_name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Ordered at {new Date(lab.created_at).toLocaleTimeString()}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '8px' }}>
+                                                                <span>Ordered at {new Date(lab.created_at).toLocaleTimeString()}</span>
+                                                                <span style={{ color: '#ef4444', fontWeight: '700' }}>
+                                                                    ({Math.floor((currentTime - new Date(lab.created_at)) / 60000)} mins waiting)
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0891b2', fontSize: '0.75rem', fontWeight: '700' }}>
                                                             <div className="pulse" style={{ width: '8px', height: '8px', background: '#0891b2', borderRadius: '50%' }}></div>
@@ -1635,7 +1678,7 @@ const ConsultationModule = () => {
                                                         <div>
                                                             <div style={{ fontWeight: '700', color: '#1e293b' }}>{l.test_name}</div>
                                                             <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                                                                {l.urgency} • {l.specimen_type} • {l.clinical_indication?.substring(0,60)}...
+                                                                {l.urgency} • {l.specimen_type} • {l.clinical_indication?.substring(0, 60)}...
                                                             </div>
                                                         </div>
                                                         <button onClick={() => setLabRequests(labRequests.filter((_, idx) => idx !== i))} style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }} title="Remove">
@@ -1646,6 +1689,7 @@ const ConsultationModule = () => {
                                             </div>
                                             <button
                                                 onClick={() => {
+                                                    if (isSendingLab) return;
                                                     if (technicians.length > 1 && !selectedTech) {
                                                         showToast("Please select a technician in the Lab Modal before sending.", "error");
                                                         setShowLabModal(true);
@@ -1653,147 +1697,131 @@ const ConsultationModule = () => {
                                                     }
                                                     instantSendLab();
                                                 }}
-                                                style={{ 
-                                                    width: '100%', 
-                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
-                                                    color: 'white', 
-                                                    padding: '16px', 
-                                                    borderRadius: '12px', 
-                                                    border: 'none', 
-                                                    fontWeight: '800', 
-                                                    fontSize: '1rem', 
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-                                                    transition: 'all 0.2s'
+                                                disabled={isSendingLab}
+                                                style={{
+                                                    width: '100%',
+                                                    background: isSendingLab ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                    color: 'white',
+                                                    padding: '16px',
+                                                    borderRadius: '12px',
+                                                    border: 'none',
+                                                    fontWeight: '800',
+                                                    fontSize: '1rem',
+                                                    cursor: isSendingLab ? 'not-allowed' : 'pointer',
+                                                    boxShadow: isSendingLab ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.4)',
+                                                    transition: 'all 0.2s',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '12px'
                                                 }}
-                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                                onMouseEnter={e => { if (!isSendingLab) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                onMouseLeave={e => { if (!isSendingLab) e.currentTarget.style.transform = 'translateY(0)'; }}
                                             >
-                                                🚀 AUTHORIZE & SEND {labRequests.length} ORDER(S) TO LAB NOW
+                                                {isSendingLab ? (
+                                                    <>
+                                                        <div className="animate-spin" style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }}></div>
+                                                        Sending...
+                                                    </>
+                                                ) : (
+                                                    <>Send to lab</>
+                                                )}
                                             </button>
                                         </div>
                                     )}
                                 </section>
 
                                 <section id="plan" style={{ scrollMarginTop: '20px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative' }}>
-                                    {/* Clinical Gate: Test-Before-Treat Logic */}
+                                    {/* Clinical Gate: Test-Before-Treat Logic (Downsized to small centered div) */}
                                     {labTracker.some(l => l.status === 'pending') && !ignoreLabGate && (
                                         <div style={{
-                                            position: 'absolute', inset: 0, background: 'rgba(255, 255, 255, 0.85)',
-                                            backdropFilter: 'blur(8px)', zIndex: 100, borderRadius: '24px',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px',
-                                            textAlign: 'center', border: '2px solid #e2e8f0', minHeight: '400px'
+                                            position: 'absolute', inset: 0, background: 'rgba(255, 255, 255, 0.6)',
+                                            backdropFilter: 'blur(4px)', zIndex: 100, borderRadius: '24px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
                                         }}>
-                                            <div style={{ maxWidth: '400px' }}>
-                                                <div style={{ background: '#fef3c7', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', border: '1px solid #fbbf24' }}>
-                                                    <Clock size={32} color="#92400e" className="animate-pulse" />
+                                            <div style={{
+                                                maxWidth: '440px', background: 'white', padding: '32px',
+                                                borderRadius: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+                                                border: '1px solid #e2e8f0', textAlign: 'center'
+                                            }}>
+                                                <div style={{ background: '#fffbeb', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', border: '1px solid #fef3c7' }}>
+                                                    <Clock size={28} color="#d97706" className="animate-pulse" />
                                                 </div>
-                                                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e293b', marginBottom: '12px' }}>Investigations in Progress</h3>
-                                                <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '24px' }}>
-                                                    The laboratory has not yet returned results for the requested tests.
-                                                    <strong> Medical best practice</strong> recommends waiting for results before finalizing the treatment plan.
+                                                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>Investigations in Progress</h3>
+
+                                                {labTracker.some(l => l.status === 'completed') && (
+                                                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '12px', marginBottom: '16px', textAlign: 'left' }}>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#166534', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <div style={{ width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' }}></div>
+                                                            Partial Results Available
+                                                        </div>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                            {labTracker.filter(l => l.status === 'completed').map((l, idx) => (
+                                                                <span key={idx} style={{ background: 'white', color: '#166534', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #dcfce7' }}>
+                                                                    {l.test_name} ✓
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5', marginBottom: '24px' }}>
+                                                    The laboratory is still processing {labTracker.filter(l => l.status !== 'completed').length} test(s).
+                                                    {labTracker.filter(l => l.status === 'pending').length > 0 && (
+                                                        <span style={{ display: 'block', color: '#ef4444', fontWeight: '700', marginTop: '4px' }}>
+                                                            Longest wait: {Math.max(...labTracker.filter(l => l.status === 'pending').map(l => Math.floor((currentTime - new Date(l.created_at)) / 60000)))} minutes
+                                                        </span>
+                                                    )}
+                                                    <br />
+                                                    Best practice recommends waiting before finalizing treatment.
                                                 </p>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                <div style={{ display: 'flex', gap: '12px' }}>
                                                     <button
                                                         onClick={() => document.getElementById('lab-tracker').scrollIntoView({ behavior: 'smooth' })}
-                                                        style={{ background: '#0f172a', color: 'white', padding: '14px', borderRadius: '12px', fontWeight: '700', border: 'none', cursor: 'pointer' }}
+                                                        style={{ flex: 1, background: '#0f172a', color: 'white', padding: '12px', borderRadius: '10px', fontWeight: '700', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
                                                     >
-                                                        Check Live Tracker
+                                                        Track Labs
                                                     </button>
                                                     <button
                                                         onClick={() => setIgnoreLabGate(true)}
-                                                        style={{ background: 'transparent', color: '#64748b', padding: '10px', borderRadius: '8px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
+                                                        style={{ flex: 1.2, background: '#f1f5f9', color: '#475569', padding: '12px', borderRadius: '10px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
                                                     >
-                                                        Proceed with Empirical Treatment Anyway
+                                                        Proceed Anyway
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Results Ready Notification */}
-                                    {labTracker.some(l => l.status === 'completed') && (
-                                        <div style={{
-                                            background: '#ecfdf5', padding: '16px 24px', borderRadius: '16px',
-                                            border: '1px solid #10b981', marginBottom: '0px',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <div style={{ background: '#10b981', padding: '8px', borderRadius: '10px' }}>
-                                                    <FlaskConical color="white" size={20} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: '800', color: '#064e3b' }}>RESULTS ARE READY</div>
-                                                    <div style={{ fontSize: '0.85rem', color: '#059669' }}>The laboratory has uploaded new results for this encounter.</div>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => document.getElementById('lab-tracker').scrollIntoView({ behavior: 'smooth' })}
-                                                style={{ background: '#064e3b', color: 'white', padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
-                                            >
-                                                VIEW RESULTS
-                                            </button>
-                                        </div>
-                                    )}
-                                    {/* Clinical Protocols (Bundles) */}
-                                    <div style={{ background: '#f0f9ff', padding: '24px', borderRadius: '16px', border: '1px solid #bae6fd' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                                            <Activity size={20} color="#0284c7" />
-                                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#0369a1' }}>Apply Clinical Protocols</h4>
-                                        </div>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                            {bundles.map(b => (
-                                                <button
-                                                    key={b.id}
-                                                    onClick={() => applyProtocol(b)}
-                                                    style={{
-                                                        padding: '10px 16px', background: 'white', border: '1px solid #bae6fd',
-                                                        borderRadius: '10px', fontSize: '0.8rem', fontWeight: '700', color: '#0369a1',
-                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: '0.2s'
-                                                    }}
-                                                    onMouseEnter={e => e.currentTarget.style.background = '#e0f2fe'}
-                                                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                                                >
-                                                    <Plus size={14} /> {b.name}
-                                                </button>
-                                            ))}
-                                            {bundles.length === 0 && <span style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic' }}>No protocols defined by Admin.</span>}
-                                        </div>
-                                    </div>
-
-                                    {/* Clinical Action Buttons */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    {/* Clinical Action: Medication (Secondary Action after Lab results/Assessment) */}
+                                    <div style={{ marginBottom: '8px' }}>
                                         <button
                                             onClick={() => setShowPrescriptionModal(true)}
                                             style={{
-                                                background: 'white', padding: '32px', borderRadius: '16px', border: '2px dashed #2563eb',
-                                                color: '#2563eb', fontWeight: '800', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                                                alignItems: 'center', gap: '12px', transition: 'all 0.2s'
+                                                width: '100%',
+                                                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                                padding: '24px',
+                                                borderRadius: '20px',
+                                                border: 'none',
+                                                color: 'white',
+                                                fontWeight: '800',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '16px',
+                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.2), 0 4px 6px -2px rgba(37, 99, 235, 0.1)',
+                                                fontSize: '1.1rem',
+                                                letterSpacing: '0.5px'
                                             }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = '#f0f9ff'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.01)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(37, 99, 235, 0.3)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(37, 99, 235, 0.2)'; }}
                                         >
-                                            <Pill size={32} />
-                                            <span>WRITE PRESCRIPTION (RX)</span>
-                                        </button>
-
-                                        <button
-                                            onClick={() => {
-                                                if (labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) {
-                                                    setNewLab({ test_name: '', urgency: 'Urgent', clinical_indication: 'ADDITIONAL/FOLLOW-UP TEST: Required based on preliminary findings.', specimen_type: '', order_notes: '' });
-                                                }
-                                                setShowLabModal(true);
-                                            }}
-                                            style={{
-                                                background: 'white', padding: '32px', borderRadius: '16px', border: '2px dashed #10b981',
-                                                color: '#10b981', fontWeight: '800', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                                                alignItems: 'center', gap: '12px', transition: 'all 0.2s'
-                                            }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                                        >
-                                            <FlaskConical size={32} />
-                                            <span>{(labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) ? 'ORDER ADDITIONAL TEST' : 'ORDER LAB TESTS'}</span>
+                                            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px', borderRadius: '14px' }}>
+                                                <Pill size={28} />
+                                            </div>
+                                            <span>PRESCRIBE MEDICATIONS / ADD DRUGS</span>
                                         </button>
                                     </div>
 
@@ -1877,15 +1905,14 @@ const ConsultationModule = () => {
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '40px' }}>
                                         <button onClick={handleSave} className="btn-primary" style={{ background: '#10b981', color: 'white', padding: '16px 48px', borderRadius: '12px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1.1rem' }}>
-                                            <Save size={24} /> FINALIZE CLINICAL RECORD
+                                            <Save size={24} />Save file
                                         </button>
                                     </div>
                                 </section>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </main>
 
             <style dangerouslySetInnerHTML={{
                 __html: `
@@ -2129,7 +2156,7 @@ const ConsultationModule = () => {
 
             {showLabModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div style={{ background: 'white', width: '100%', maxWidth: '600px', borderRadius: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '950px', borderRadius: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
                         {/* Header: Patient & Encounter info */}
                         <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -2142,204 +2169,206 @@ const ConsultationModule = () => {
                             </button>
                         </div>
 
-                        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* Searchable Select for Test */}
-                            <div style={{ position: 'relative' }}>
-                                <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <FlaskConical size={14} color="#10b981" /> Select Investigation
-                                </label>
-                                <div style={{ position: 'relative' }}>
-                                    <Search size={18} style={{ position: 'absolute', left: '16px', top: '14px', color: '#94a3b8' }} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search for test (e.g. Malaria, CBC...)"
-                                        className="input-field"
-                                        style={{ paddingLeft: '48px', height: '48px' }}
-                                        value={newLab.test_name}
-                                        onChange={e => {
-                                            const val = e.target.value;
-                                            setNewLab({ ...newLab, test_name: val });
-                                            // Auto-calc specimen if exact match found
-                                            const match = catalog.find(t => (t.test_name || '').toLowerCase() === val.toLowerCase());
-                                            if (match) {
-                                                setNewLab({ ...newLab, test_name: match.test_name, specimen_type: match.required_sample || '' });
-                                            }
-                                        }}
-                                    />
-                                    {catalog.length > 0 && newLab.test_name && (
-                                        <div style={{ position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', marginTop: '4px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', maxHeight: '200px', overflowY: 'auto' }}>
-                                            {catalog
-                                                .filter(t => (t.test_name || '').toLowerCase().includes((newLab.test_name || '').toLowerCase()) && t.is_enabled)
-                                                .slice(0,10)
-                                                .map(t => (
-                                                    <div
-                                                        key={t.id}
-                                                        onClick={() => setNewLab({ 
-                                                            ...newLab, 
-                                                            test_name: t.test_name, 
-                                                            specimen_type: t.required_sample || 'Blood',
-                                                            clinical_indication: `Test: ${t.test_name} (${t.category})`
-                                                        })}
-                                                        style={{ 
-                                                            padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f8fafc', 
-                                                            fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between',
-                                                            background: newLab.test_name === t.test_name ? '#eff6ff' : 'white'
-                                                        }}
-                                                        title={t.description || ''}
-                                                    >
-                                                        <span style={{ fontWeight: '600', color: '#1e293b' }}>{t.test_name}</span>
-                                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                                            {t.required_sample} • {t.category}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            {catalog.filter(t => (t.test_name || '').toLowerCase().includes((newLab.test_name || '').toLowerCase())).length === 0 && (
-                                                <div style={{ padding: '12px 16px', color: '#94a3b8', fontStyle: 'italic' }}>
-                                                    No matching tests found
+                        <div style={{ display: 'flex', minHeight: '500px' }}>
+                            {/* LEFT SIDE: Order Form */}
+                            <div style={{ flex: '1.2', padding: '32px', borderRight: '1px solid #f1f5f9', overflowY: 'auto', maxHeight: '70vh' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <label className="label" style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <FlaskConical size={16} /> SELECT INVESTIGATION
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                            <input
+                                                type="text"
+                                                className="input-field"
+                                                style={{ paddingLeft: '48px', height: '56px', border: '1.5px solid #e2e8f0' }}
+                                                placeholder="Search test name (e.g. FBC, Malaria...)"
+                                                value={newLab.test_name}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setNewLab({ ...newLab, test_name: val });
+                                                    const match = catalog.find(t => (t.test_name || '').toLowerCase() === val.toLowerCase());
+                                                    if (match) {
+                                                        setNewLab({ ...newLab, test_name: match.test_name, specimen_type: match.required_sample || '' });
+                                                    }
+                                                }}
+                                            />
+                                            {catalog.length > 0 && newLab.test_name && (
+                                                <div style={{ position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', marginTop: '4px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', maxHeight: '200px', overflowY: 'auto' }}>
+                                                    {newLab.test_name && catalog
+                                                        .filter(t => (t.test_name || '').toLowerCase().includes((newLab.test_name || '').toLowerCase()) && t.is_enabled && t.test_name !== newLab.test_name)
+                                                        .slice(0, 10)
+                                                        .map(t => (
+                                                            <div
+                                                                key={t.id}
+                                                                onClick={() => {
+                                                                    setNewLab({
+                                                                        ...newLab,
+                                                                        test_name: t.test_name,
+                                                                        specimen_type: t.required_sample || 'Blood',
+                                                                        clinical_indication: `Test: ${t.test_name} (${t.category})`
+                                                                    });
+                                                                    document.activeElement.blur();
+                                                                }}
+                                                                style={{
+                                                                    padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f8fafc',
+                                                                    fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between',
+                                                                    background: newLab.test_name === t.test_name ? '#eff6ff' : 'white'
+                                                                }}
+                                                            >
+                                                                <span style={{ fontWeight: '600' }}>{t.test_name}</span>
+                                                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.required_sample} • {t.category}</span>
+                                                            </div>
+                                                        ))}
                                                 </div>
                                             )}
                                         </div>
-                                    ) || (catalog.length === 0 && (
-                                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, padding: '12px 16px', background: '#fee2e2', color: '#991b1b', fontSize: '0.8rem' }}>
-                                            Lab catalog loading... (Check console for RLS errors)
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div>
+                                            <label className="label">Urgency</label>
+                                            <select className="input-field" value={newLab.urgency} onChange={e => setNewLab({ ...newLab, urgency: e.target.value })}>
+                                                <option value="Routine">Routine</option>
+                                                <option value="Urgent (STAT)">Urgent (STAT)</option>
+                                                <option value="Pre-Op">Pre-Op</option>
+                                            </select>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
+                                        <div>
+                                            <label className="label">Specimen</label>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b', fontWeight: '600' }}>
+                                                <Droplets size={16} color="#ef4444" /> {newLab.specimen_type || 'Specify test first'}
+                                            </div>
+                                        </div>
+                                    </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '20px' }}>
-                                {/* Urgency */}
-                                <div>
-                                    <label className="label">Urgency Level</label>
-                                    <select
-                                        className="input-field"
-                                        style={{ height: '48px' }}
-                                        value={newLab.urgency}
-                                        onChange={e => setNewLab({ ...newLab, urgency: e.target.value })}
-                                    >
-                                        <option>Routine</option>
-                                        <option>Urgent (STAT)</option>
-                                        <option>Pre-Op</option>
-                                    </select>
-                                </div>
+                                    <div>
+                                        <label className="label">CLINICAL NOTES / ICD-10 INDICATIONS</label>
+                                        <textarea
+                                            className="input-field"
+                                            style={{ height: '80px', paddingTop: '12px', resize: 'none' }}
+                                            placeholder="Reason for investigation..."
+                                            value={newLab.clinical_indication}
+                                            onChange={e => setNewLab({ ...newLab, clinical_indication: e.target.value })}
+                                        />
+                                    </div>
 
-                                {/* Specimen Details (Auto-calculated) */}
-                                <div>
-                                    <label className="label">Specimen Requirements</label>
-                                    <div style={{
-                                        height: '48px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px',
-                                        display: 'flex', alignItems: 'center', padding: '0 16px', color: '#0f172a', fontWeight: '700'
-                                    }}>
-                                        <Droplets size={16} color="#ef4444" style={{ marginRight: '10px' }} />
-                                        {newLab.specimen_type || 'Select a test...'}
+                                    <div>
+                                        <label className="label">MESSAGE TO LAB (ORDER NOTES)</label>
+                                        <textarea
+                                            className="input-field"
+                                            style={{ height: '80px', paddingTop: '12px', resize: 'none' }}
+                                            placeholder="Any specific instructions or message for the lab technician..."
+                                            value={newLab.order_notes || ''}
+                                            onChange={e => setNewLab({ ...newLab, order_notes: e.target.value })}
+                                        />
+                                    </div>
+
+                                    {technicians.length > 1 && (
+                                        <div>
+                                            <label className="label" style={{ color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <UserCheck size={16} /> Assign to Lab Technician
+                                            </label>
+                                            <select
+                                                className="input-field"
+                                                style={{ height: '48px', border: '1px solid #0369a1' }}
+                                                value={selectedTech || ''}
+                                                onChange={e => setSelectedTech(e.target.value)}
+                                            >
+                                                <option value="">-- Choose Account --</option>
+                                                {technicians.map(t => (
+                                                    <option key={t.labid} value={t.user_id || t.labid}>{t.labname}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginTop: '10px' }}>
+                                        <button
+                                            onClick={() => {
+                                                if (newLab.test_name) {
+                                                    setLabRequests([...labRequests, { ...newLab, id: Date.now() }]);
+                                                    setNewLab({ test_name: '', urgency: 'Routine', clinical_indication: '', specimen_type: '', order_notes: '' });
+                                                    showToast(`Added ${newLab.test_name} to visit plan.`, "success");
+                                                } else {
+                                                    showToast("Please select a test first.", "warning");
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                                color: 'white', padding: '16px', borderRadius: '16px',
+                                                border: 'none', fontWeight: '800', cursor: 'pointer', transition: '0.2s',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                        >
+                                            <Plus size={20} /> ADD TO LAB REQUESTS
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                setNewLab({ test_name: '', urgency: 'Routine', clinical_indication: '', specimen_type: '', order_notes: '' });
+                                                setShowLabModal(false);
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                background: 'transparent', color: '#64748b', padding: '12px', borderRadius: '12px',
+                                                border: '1.5px solid #e2e8f0', fontWeight: '700', cursor: 'pointer', transition: '0.2s',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                marginTop: '12px'
+                                            }}
+                                        >
+                                            DONE / CLOSE
+                                        </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="label">Clinical Notes / ICD-10 Indications</label>
-                                <textarea
-                                    className="input-field"
-                                    rows="3"
-                                    placeholder="Brief clinical reason for test..."
-                                    value={newLab.clinical_indication}
-                                    onChange={e => setNewLab({ ...newLab, clinical_indication: e.target.value })}
-                                />
+                            {/* RIGHT SIDE: Selected Items / Summary */}
+                            <div style={{ flex: '0.8', background: '#f8fafc', padding: '32px', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                                    <div style={{ width: '10px', height: '10px', background: '#3b82f6', borderRadius: '50%' }}></div>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SELECTED FOR THIS VISIT ({labRequests.length})</h4>
+                                </div>
+
+                                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {labRequests.length === 0 ? (
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5, textAlign: 'center', padding: '20px' }}>
+                                            <div style={{ padding: '20px', background: 'white', borderRadius: '50%', marginBottom: '16px' }}>
+                                                <FlaskConical size={32} color="#94a3b8" />
+                                            </div>
+                                            <p style={{ margin: 0, fontWeight: '600', color: '#64748b', fontSize: '0.9rem' }}>No investigations selected yet.</p>
+                                            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>Search and add tests on the left.</p>
+                                        </div>
+                                    ) : (
+                                        labRequests.map((l, i) => (
+                                            <div key={i} style={{ background: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', position: 'relative', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.95rem' }}>{l.test_name}</div>
+                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                            <span style={{ fontSize: '0.7rem', background: l.urgency === 'Routine' ? '#eff6ff' : '#fee2e2', color: l.urgency === 'Routine' ? '#2563eb' : '#ef4444', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>
+                                                                {l.urgency.toUpperCase()}
+                                                            </span>
+                                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600' }}>{l.specimen_type}</span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setLabRequests(labRequests.filter((_, idx) => idx !== i))}
+                                                        style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-
-                            {/* Technician Selection */}
-                            {technicians.length > 1 && (
-                                <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
-                                    <label className="label" style={{ color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <UserCheck size={16} /> Assign to Lab Technician
-                                    </label>
-                                    <select 
-                                        className="input-field" 
-                                        style={{ height: '48px', border: '1px solid #0369a1' }}
-                                        value={selectedTech || ''}
-                                        onChange={e => setSelectedTech(e.target.value)}
-                                    >
-                                        <option value="">-- Choose Account --</option>
-                                        {technicians.map(t => (
-                                            <option key={t.labid} value={t.labid}>{t.labname}</option>
-                                        ))}
-                                    </select>
-                                    <p style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '6px' }}>Selecting an account ensures the correct lab receives this order.</p>
-                                </div>
-                            )}
-                            {technicians.length === 1 && (
-                                <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>
-                                    Target Lab: <span style={{ fontWeight: 700, color: '#10b981' }}>{technicians[0].labname}</span> (Auto-assigned)
-                                </div>
-                            )}
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <button
-                                    onClick={() => {
-                                        if (newLab.test_name) {
-                                            setLabRequests([...labRequests, { ...newLab, id: Date.now() }]);
-                                            setNewLab({ test_name: '', urgency: 'Routine', clinical_indication: '', specimen_type: '', order_notes: '' });
-                                            showToast(`Added ${newLab.test_name} to visit plan.`, "success");
-                                        }
-                                    }}
-                                    style={{
-                                        background: '#f1f5f9', color: '#475569', padding: '16px', borderRadius: '16px',
-                                        border: '1px solid #e2e8f0', fontWeight: '800', cursor: 'pointer', transition: '0.2s',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
-                                    }}
-                                >
-                                    <Plus size={20} /> ADD TO PLAN
-                                </button>
-
-                                <button
-                                    onClick={() => {
-                                        if (newLab.test_name) {
-                                            instantSendLab(newLab);
-                                        }
-                                    }}
-                                    style={{
-                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', padding: '16px', borderRadius: '16px',
-                                        border: 'none', fontWeight: '800', cursor: 'pointer', transition: '0.2s',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
-                                    }}
-                                >
-                                    <Send size={20} /> AUTHORIZE & SEND NOW
-                                </button>
-                            </div>
-
-                            <button
-                                onClick={() => {
-                                    if (newLab.test_name) {
-                                        setLabRequests([...labRequests, { ...newLab, id: Date.now() }]);
-                                        setNewLab({ test_name: '', urgency: 'Routine', clinical_indication: '', specimen_type: '', order_notes: '' });
-                                    }
-                                    setShowLabModal(false);
-                                }}
-                                style={{
-                                    background: '#0f172a', color: 'white', padding: '14px', borderRadius: '16px',
-                                    border: 'none', fontWeight: '700', cursor: 'pointer', transition: '0.2s',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                                    marginTop: '8px', opacity: 0.8
-                                }}
-                            >
-                                CLOSE MODAL
-                            </button>
-
-                            {labRequests.length > 0 ? (
-                                <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: '12px', border: '1px solid #bae6fd', marginTop: '16px' }}>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#0369a1', marginBottom: '8px', textTransform: 'uppercase' }}>Queued for Sending ({labRequests.length})</div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {labRequests.map((l, i) => (
-                                            <span key={i} style={{ background: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', color: '#1e293b', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                {l.test_name}
-                                                <X size={12} style={{ cursor: 'pointer' }} onClick={() => setLabRequests(labRequests.filter((_, idx) => idx !== i))} />
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : null}
-
                         </div>
                     </div>
                 </div>
@@ -2449,6 +2478,22 @@ const ConsultationModule = () => {
                 confirmText="Proceed Anyway"
                 cancelText="Cancel"
             />
+
+            {/* Toast Notification */}
+            {toast.show && (
+                <div style={{
+                    position: 'fixed', bottom: '30px', right: '30px', zIndex: 9999,
+                    background: toast.type === 'success' ? '#10b981' : '#ef4444',
+                    color: 'white', padding: '16px 24px', borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    animation: 'slideIn 0.3s ease-out', fontWeight: '700'
+                }}>
+                    {toast.type === 'success' ? <ClipboardCheck size={20} /> : <AlertTriangle size={20} />}
+                    {toast.message}
+                    <button onClick={() => setToast({ ...toast, show: false })} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '10px' }}><X size={16} /></button>
+                </div>
+            )}
         </div>
     );
 };

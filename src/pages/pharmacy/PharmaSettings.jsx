@@ -4,24 +4,20 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React from 'react';
-import Sidebar from '../../components/Sidebar';
 import StaffSettings from '../../components/StaffSettings';
 import { Settings } from 'lucide-react';
 
 const PharmaSettings = () => {
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="ph" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
                     <h1 style={{ fontSize: '1.875rem', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Settings size={32} color="var(--primary)" /> Pharmacy Settings
+                        <Settings size={32} color="#007bff" /> Pharmacy Settings
                     </h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Manage your pharmacist profile and account security.</p>
+                    <p style={{ color: '#64748b' }}>Manage your pharmacist profile and account security.</p>
                 </header>
 
                 <StaffSettings userType="ph" />
-            </main>
         </div>
     );
 };

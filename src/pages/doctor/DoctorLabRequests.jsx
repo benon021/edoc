@@ -4,8 +4,7 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
-import { FlaskConical, Search, Clock, CheckCircle, RefreshCw, ChevronRight, User, ExternalLink } from 'lucide-react';
+import { FlaskConical, Search, Clock, RefreshCw, ChevronRight, User, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,9 +18,15 @@ export default function DoctorLabRequests() {
     const navigate = useNavigate();
 
     const fetchOrders = useCallback(async () => {
-        if (!profile?.id) return;
+        if (!profile?.docid) return;
         setLoading(true);
         try {
+            const docIdInt = parseInt(profile?.docid);
+            if (isNaN(docIdInt)) {
+                setLoading(false);
+                return;
+            }
+
             // 1. Fetch appointments for this doctor to get a list of valid IDs (exclude completed)
             const { data: appts, error: apptError } = await supabase
                 .from('appointment')
@@ -29,7 +34,7 @@ export default function DoctorLabRequests() {
                     appoid,
                     patient:pid(pid, pname)
                 `)
-                .eq('docid', profile.id)
+                .eq('docid', docIdInt)
                 .neq('status', 'Completed');
 
             if (apptError) throw apptError;
@@ -75,24 +80,19 @@ export default function DoctorLabRequests() {
             }
         } catch (e) { 
             console.error("[DoctorLabRequests] Fetch Error:", e);
-            if (e.message.includes('policy') || e.message.includes('RLS')) {
-                console.error('Likely RLS issue - doctor cannot read lab_requests');
-            }
         }
         setLoading(false);
-    }, [profile]);
+    }, [profile?.docid]);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
     const filtered = orders.filter(o => 
-        o.pname?.toLowerCase().includes(search.toLowerCase()) || 
-        o.test_type?.toLowerCase().includes(search.toLowerCase())
+        (o.pname || '').toLowerCase().includes(search.toLowerCase()) || 
+        (o.test_type || '').toLowerCase().includes(search.toLowerCase())
     );
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="d" />
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -188,11 +188,10 @@ export default function DoctorLabRequests() {
                         </tbody>
                     </table>
                 </div>
-                <style>{`
+            <style>{`
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                     .animate-spin { animation: spin 1s linear infinite; }
-                `}</style>
-            </main>
+            `}</style>
         </div>
     );
 }

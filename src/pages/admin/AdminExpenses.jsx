@@ -4,9 +4,8 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { getAdminExpenses, createExpense } from '../../lib/api';
-import { CreditCard, Plus, Receipt, Trash2, Calendar, Filter, X } from 'lucide-react';
+import { Plus, Calendar, X } from 'lucide-react';
 
 const AdminExpenses = () => {
     const [expenses, setExpenses] = useState([]);
@@ -33,22 +32,20 @@ const AdminExpenses = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '2.25rem', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '8px' }}>Operational Expenses</h1>
-                        <p style={{ color: 'var(--text-muted)' }}>Track hospital OPEX, salaries, and utility overheads.</p>
+                        <p style={{ color: '#64748b' }}>Track hospital OPEX, salaries, and utility overheads.</p>
                     </div>
-                    <button onClick={() => setShowModal(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={() => setShowModal(true)} style={{ padding: '12px 24px', background: '#007bff', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Plus size={18} /> Log New Expense
                     </button>
                 </header>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
                     {expenses.map(e => (
-                        <div key={e.id} style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                        <div key={e.id} style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                                 <div style={{ padding: '8px 12px', background: '#fef2f2', color: '#ef4444', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '800' }}>
                                     {(e.category || 'General').toUpperCase()}
@@ -73,7 +70,7 @@ const AdminExpenses = () => {
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Expense Category</label>
-                                    <select className="input-field" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                                    <select style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                                         <option>Utilities (Power/Water)</option>
                                         <option>Staff Salaries</option>
                                         <option>Facility Rent</option>
@@ -84,18 +81,17 @@ const AdminExpenses = () => {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Amount (KSh)</label>
-                                    <input type="number" className="input-field" required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                                    <input type="number" style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }} required value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Description / Memo</label>
-                                    <textarea className="input-field" style={{ height: '100px', padding: '12px' }} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                                    <textarea style={{ width: '100%', height: '100px', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', resize: 'none' }} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                                 </div>
-                                <button type="submit" className="btn-primary" style={{ padding: '16px', marginTop: '12px' }}>Record Expense</button>
+                                <button type="submit" style={{ padding: '16px', background: '#007bff', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', marginTop: '12px' }}>Record Expense</button>
                             </form>
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 };

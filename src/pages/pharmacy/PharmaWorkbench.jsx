@@ -3,15 +3,13 @@
 // PURPOSE: React component / entry point for the eDoc Hospital
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
-import React, { useState, useEffect, useRef } from 'react';
-import Sidebar from '../../components/Sidebar';
+import React, { useState, useEffect } from 'react';
 import NotificationCenter from '../../components/NotificationCenter';
 import EntityDetailModal from '../../components/pharmacy/EntityDetailModal';
 import ReceiptModal from '../../components/pharmacy/ReceiptModal';
 import { 
-    ShoppingCart, FileText, User, Search, Plus, Minus, Trash2, CheckCircle, 
-    CreditCard, Banknote, Smartphone, AlertCircle, ShieldAlert, FileUp, 
-    Eye, QrCode, Loader2, Info, Sparkles, Filter, Calendar
+    ShoppingCart, User, Search, Plus, Minus, Trash2, 
+    Eye, QrCode
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../components/NotificationContext';
@@ -30,14 +28,11 @@ const PharmaWorkbench = () => {
     const [selectedPresc, setSelectedPresc] = useState(null);
     
     // Advanced states
-    const [mpesaStep, setMpesaStep] = useState('idle');
     const [intelModal, setIntelModal] = useState({ open: false, data: null });
     const [receiptModal, setReceiptModal] = useState({ open: false, data: null });
     const [barcodeBuffer, setBarcodeBuffer] = useState("");
     const [lastCharTime, setLastCharTime] = useState(0);
     const [queueSearch, setQueueSearch] = useState('');
-
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     useEffect(() => {
         fetchData();
@@ -63,7 +58,7 @@ const PharmaWorkbench = () => {
         try {
             setLoading(true);
             const [invRes, prescRes] = await Promise.all([
-                supabase.from('medicine').select('id, med_name, generic_name, stock_qty, selling_price, expiry_date, batch_no, med_type, unit, is_taxable, prescription_required'),
+                supabase.from('medicine').select('*, suppliers:supplier_id(name)').eq('is_active', true),
                 supabase.from('prescriptions')
                     .select(`
                         id,
@@ -96,42 +91,8 @@ const PharmaWorkbench = () => {
             const invData = invRes.data || [];
             const prescData = prescRes.data || [];
             
-            // Group prescriptions by appointment_id
-            const groupedMap = {};
-            (prescData || []).forEach(p => {
-                if (!p) return;
-                const aid = p.appointment_id || 'unlinked';
-                if (!groupedMap[aid]) {
-                    groupedMap[aid] = {
-                        id: p.id,
-                        appointment_id: aid,
-                        pid: p.appointment?.patient?.pid,
-                        pname: p.appointment?.patient?.pname || 'Unknown',
-                        ptel: p.appointment?.patient?.ptel || '',
-                        pnic: p.appointment?.patient?.patient_display_id || '',
-                        docname: p.appointment?.schedule?.doctor?.docname || 'Unknown',
-                        consultation_date: p.appointment?.appodate,
-                        drug_count: 0,
-                        drug_list_items: [],
-                        created_at: p.created_at
-                    };
-                }
-                groupedMap[aid].drug_count += 1;
-                const drugStr = [
-                    p.drug_name, p.dosage, p.total_quantity, p.instructions,
-                    p.frequency || '', p.route || '', p.duration || '',
-                    p.refills_count || '0', p.dispensing_instructions || ''
-                ].join('::');
-                groupedMap[p.appointment_id].drug_list_items.push(drugStr);
-            });
-            
-            const groupedArray = Object.values(groupedMap).map(g => ({
-                ...g,
-                drug_list: g.drug_list_items.join('|||')
-            })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            
-            setPrescriptions(groupedArray);
-            setInventory(invData || []);
+            setInventory(invData);
+            setPrescriptions(fetchPrescriptions(prescData));
         } catch (err) {
             console.error("Fetch error:", err);
         } finally {
@@ -139,11 +100,45 @@ const PharmaWorkbench = () => {
         }
     };
 
+    // Helper to group prescriptions
+    const fetchPrescriptions = (data) => {
+        const groupedMap = {};
+        (data || []).forEach(p => {
+            const aid = p.appointment_id || 'unlinked';
+            if (!groupedMap[aid]) {
+                groupedMap[aid] = {
+                    id: p.id,
+                    appointment_id: aid,
+                    pid: p.appointment?.patient?.pid,
+                    pname: p.appointment?.patient?.pname || 'Unknown',
+                    ptel: p.appointment?.patient?.ptel || '',
+                    docname: p.appointment?.schedule?.doctor?.docname || 'Unknown',
+                    consultation_date: p.appointment?.appodate,
+                    drug_count: 0,
+                    drug_list_items: [],
+                    created_at: p.created_at
+                };
+            }
+            groupedMap[aid].drug_count += 1;
+            const drugStr = [
+                p.drug_name, p.dosage, p.total_quantity, p.instructions,
+                p.frequency || '', p.route || '', p.duration || '',
+                p.refills_count || '0', p.dispensing_instructions || ''
+            ].join('::');
+            groupedMap[aid].drug_list_items.push(drugStr);
+        });
+        
+        return Object.values(groupedMap).map(g => ({
+            ...g,
+            drug_list: g.drug_list_items.join('|||')
+        })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    };
+
     const handleBarcode = (code) => {
         const item = inventory.find(i => i.barcode === code || i.batch_no === code);
         if (item) {
             addToCart(item);
-            showNotification(`Scanned: ${item.name}`, 'success');
+            showNotification(`Scanned: ${item.med_name}`, 'success');
         }
     };
 
@@ -153,12 +148,18 @@ const PharmaWorkbench = () => {
         const name = item.med_name || 'Medicine';
 
         if (isExpired) {
-            showNotification(`CLINICAL BLOCK: ${name} is EXPIRED (Exp: ${item.expiry_date})! You cannot dispense expired medication for patient safety.`, 'error');
+            showNotification(`CLINICAL BLOCK: ${name} is EXPIRED! Disposal/Recall required.`, 'error');
             return;
         }
 
         if (stock <= 0) {
-            showNotification(`STOCK BLOCK: ${name} is OUT OF STOCK. Please restock before dispensing.`, 'error');
+            showNotification(`STOCK BLOCK: ${name} is OUT OF STOCK.`, 'error');
+            return;
+        }
+
+        // Prescription Gating: If required, must have a selected prescription (Doctor ID linked via appointment)
+        if (item.prescription_required && !selectedPresc) {
+            showNotification(`SAFETY BLOCK: ${name} requires a valid prescription. Please select a patient from the clinical queue first.`, 'error');
             return;
         }
 
@@ -166,7 +167,7 @@ const PharmaWorkbench = () => {
         const existing = cart.find(c => c.id === mid);
         if (existing) {
             if (existing.qty >= stock) {
-                showNotification(`QUANTITY LIMIT: You cannot add more ${name} than available in stock (${stock}).`, 'warning');
+                showNotification(`QUANTITY LIMIT: Max stock reached (${stock}).`, 'warning');
                 return;
             }
             setCart(cart.map(c => c.id === mid ? { ...c, qty: c.qty + 1 } : c));
@@ -177,7 +178,7 @@ const PharmaWorkbench = () => {
                 name: name,
                 qty: 1, 
                 price: item.selling_price || 0, 
-                is_taxable: item.is_taxable, 
+                tax_rate: item.tax_rate || 0,
                 prescription_required: item.prescription_required 
             }]);
         }
@@ -206,38 +207,24 @@ const PharmaWorkbench = () => {
                     newItems.push({ 
                         ...bestMatch, 
                         id: bestMatch.id,
+                        name: bestMatch.med_name,
                         qty: drug.qty, 
                         price: bestMatch.selling_price || 0, 
-                        is_taxable: bestMatch.is_taxable, 
+                        tax_rate: bestMatch.tax_rate || 0,
                         prescription_required: bestMatch.prescription_required 
                     });
                 } else {
                     hasBlockingError = true;
-                     if (allCandidates.length === 0) {
-                        errors[drug.name.toLowerCase()] = { type: 'stock', message: 'Item not found in current inventory catalog.' };
-                    } else {
-                        const isExpired = allCandidates.every(i => new Date(i.expiry_date) < new Date());
-                        const isOutOfStock = allCandidates.every(i => (i.stock_qty || 0) <= 0);
-                        
-                        if (isExpired) {
-                            errors[drug.name.toLowerCase()] = { type: 'expiry', message: 'All available batches of this medicine have EXPIRED.' };
-                        } else if (isOutOfStock) {
-                            errors[drug.name.toLowerCase()] = { type: 'stock', message: 'This item is currently OUT OF STOCK.' };
-                        } else {
-                            errors[drug.name.toLowerCase()] = { type: 'safety', message: 'No safe/valid batches available for dispensing.' };
-                        }
-                    }
+                    errors[drug.name.toLowerCase()] = { type: 'stock', message: 'Item unavailable or expired.' };
                 }
             });
 
-            // "Balance all of them": Add valid items to cart immediately
             setCart(newItems);
-
             if (hasBlockingError) {
                 setIntelModal({ open: true, data: { ...p, errors, type: 'prescription' } });
-                showNotification(`Partial fulfillment: ${newItems.length} items added, but some safety alerts detected.`, 'warning');
+                showNotification(`Partial fulfillment: Some items were unavailable.`, 'warning');
             } else {
-                showNotification(`Full verification: All ${newItems.length} items added successfully.`, 'success');
+                showNotification(`Success: All ${newItems.length} items added.`, 'success');
             }
         }
     };
@@ -258,7 +245,7 @@ const PharmaWorkbench = () => {
     };
 
     const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-    const taxAmount = cart.filter(i => i.is_taxable).reduce((acc, item) => acc + (item.price * item.qty * 0.16), 0);
+    const taxAmount = cart.reduce((acc, item) => acc + (item.price * item.qty * (item.tax_rate / 100)), 0);
     const total = subtotal + taxAmount;
 
     const handleReview = () => {
@@ -295,9 +282,9 @@ const PharmaWorkbench = () => {
                 receipt_no: receiptNo
             };
             
-            // Only attach pharmacist_id if safely available to avoid Foreign Key crashes
-            if (profile?.phid || user?.phid) {
-                salePayload.pharmacist_id = profile?.phid || user?.phid;
+            // Attach pharmacist_id from profile if available
+            if (profile?.phid) {
+                salePayload.pharmacist_id = profile.phid;
             }
             
             const { data: saleData, error: saleError } = await supabase.from('pharmacy_sale').insert(salePayload).select('id').single();
@@ -322,7 +309,7 @@ const PharmaWorkbench = () => {
                 unit_price: item.price,
                 selling_price: item.price,
                 subtotal: item.price * item.qty,
-                tax_amount: item.is_taxable ? (item.price * item.qty * 0.16) : 0
+                tax_amount: item.price * item.qty * (item.tax_rate / 100)
             }));
             
             const { error: itemsError } = await supabase.from('pharmacy_sale_item').insert(saleItems);
@@ -369,10 +356,7 @@ const PharmaWorkbench = () => {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#ffffff' }}>
-            <Sidebar userType="ph" />
-            <main className="pharma-workbench-main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                
+        <div style={{ padding: '0px', maxWidth: '100%', margin: '0', background: '#ffffff', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
                 {/* Edoc Style Header */}
                 <header style={{ 
                     padding: '20px 30px', 
@@ -396,7 +380,7 @@ const PharmaWorkbench = () => {
                     </div>
                 </header>
 
-                <div className="pharma-workbench-grid" style={{ flex: 1 }}>
+                <div className="pharma-workbench-grid" style={{ flex: 1, padding: '24px 40px' }}>
                     
                     {/* Catalog Section */}
                     <section style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -595,7 +579,7 @@ const PharmaWorkbench = () => {
                                     <span style={{ fontWeight: '700' }}>KSh {subtotal.toLocaleString()}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6c757d' }}>
-                                    <span>VAT (16%)</span>
+                                    <span>Cumulative VAT</span>
                                     <span style={{ fontWeight: '700' }}>+ KSh {taxAmount.toLocaleString()}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #dee2e6', fontSize: '1.25rem', fontWeight: '700', color: '#007bff' }}>
@@ -642,7 +626,7 @@ const PharmaWorkbench = () => {
                     data={intelModal.data} 
                     type={intelModal.data?.type || 'drug'}
                 />
-            </main>
+                
             <ReceiptModal 
                 isOpen={receiptModal.open} 
                 onClose={() => setReceiptModal({ open: false, data: null })} 

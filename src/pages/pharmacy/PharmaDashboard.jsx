@@ -4,24 +4,23 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import {
-    Search, Calendar, UserPlus, Users, Bookmark, Layout, CloudSun, Pill, Shield, FlaskConical
+    Calendar, Users, Layout, CloudSun, Pill, Shield, FlaskConical
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const PharmaDashboard = () => {
     const [stats, setStats] = useState({
         pendingPrescriptions: 1,
         todaySalesCount: 2,
         todayRevenue: 0,
-        lowStock: 0
+        lowStock: 0,
+        pendingLabs: 0
     });
 
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-
+    const { profile } = useAuth();
     const [prescriptions, setPrescriptions] = useState([]);
-    const [inventory, setInventory] = useState([]);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -72,7 +71,6 @@ const PharmaDashboard = () => {
                     pname: p.appointment?.patient?.pname || 'Unknown',
                     docname: p.appointment?.schedule?.doctor?.docname || 'Unknown'
                 })));
-                setInventory(inv);
 
             } catch (err) {
                 console.error("Dashboard data fetch error:", err);
@@ -108,57 +106,54 @@ const PharmaDashboard = () => {
     ];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#ffffff' }}>
-            <Sidebar userType="ph" />
-            <main style={{ flex: 1, padding: '24px 30px' }}>
-
-
+        <div style={{ padding: '32px 48px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 {/* Modern Dynamic Welcome Hero */}
                 <div style={{
-                    backgroundImage: 'linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(/img/b8.jpg)',
+                    backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/img/b8.jpg')`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                    borderRadius: '16px',
-                    padding: '30px 40px',
-                    marginBottom: '30px',
+                    borderRadius: '24px',
+                    padding: '40px',
+                    marginBottom: '40px',
                     color: 'white',
-                    minHeight: '220px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                    flexWrap: 'wrap',
-                    gap: '20px'
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
                     <div style={{ flex: 1 }}>
-                        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '8px', letterSpacing: '-0.5px' }}>
+                        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '12px' }}>
                             {getGreeting()},<br />
-                            <span style={{ color: '#60a5fa' }}>{user.phname || 'Pharmacist'}</span>
+                            <span style={{ color: '#60a5fa' }}>{profile?.phname || 'Pharmacist Executive'}</span>
                         </h2>
-                        <p style={{ fontSize: '1.1rem', opacity: 0.9, marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            Ready to make today productive!
+                        <p style={{ fontSize: '1.1rem', opacity: 1, fontWeight: '600', marginBottom: '32px', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                            Monitoring <span style={{ color: '#60a5fa', fontWeight: '800' }}>{stats.pendingPrescriptions}</span> pending prescriptions and <span style={{ color: '#f87171', fontWeight: '800' }}>{stats.lowStock}</span> low-stock items today. 💊
                         </p>
-
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                            <span style={{ fontSize: '4rem', fontWeight: '800', lineHeight: 1 }}>{timeParts[0]}</span>
-                            <span style={{ fontSize: '1.5rem', fontWeight: '600', opacity: 0.8 }}>{timeParts[1]}</span>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button onClick={() => navigate('/pharmacy/workbench')} style={{ padding: '12px 24px', background: '#3b82f6', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+                                <Layout size={18} /> Open Workbench
+                            </button>
+                            <button onClick={() => navigate('/pharmacy/inventory')} style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Pill size={18} /> Inventory Hub
+                            </button>
                         </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '15px' }}>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '20px' }}>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '3.5rem', fontWeight: '800', lineHeight: 1 }}>23°C</div>
-                                <div style={{ fontSize: '1.1rem', opacity: 0.9, fontWeight: '500' }}>Partly cloudy</div>
+                                <div style={{ fontSize: '3rem', fontWeight: '800', lineHeight: 1 }}>24°C</div>
+                                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Partly Cloudy</div>
                             </div>
-                            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '15px', borderRadius: '50%', backdropFilter: 'blur(10px)' }}>
-                                <CloudSun size={40} />
+                            <div style={{ background: 'rgba(255,255,255,0.15)', padding: '16px', borderRadius: '50%', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                <CloudSun size={48} />
                             </div>
                         </div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: '600', opacity: 0.9 }}>Nairobi</div>
-                        <div style={{ fontSize: '1rem', opacity: 0.8 }}>{todayDate}</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '600', opacity: 0.9 }}>Pharmacy Dispensary HQ</div>
                     </div>
-                </div>
+                </div>>
 
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#343a40', marginBottom: '25px' }}>Status</h2>
 
@@ -235,7 +230,6 @@ const PharmaDashboard = () => {
                     </div>
 
                 </div>
-            </main>
         </div>
     );
 };

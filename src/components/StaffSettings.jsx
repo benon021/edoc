@@ -1,4 +1,4 @@
-﻿// =============================================================
+// =============================================================
 // FILE: StaffSettings.jsx
 // PURPOSE: React component for staff profile updates using Supabase.
 // =============================================================
@@ -32,15 +32,15 @@ const StaffSettings = () => {
         if (!profile) return;
 
         setFormData({
-            name: profile.docname || profile.regname || profile.labname || profile.phname || '',
-            email: profile.docemail || profile.regemail || profile.labemail || profile.phemail || '',
-            phone: profile.doctel || profile.regtel || profile.labtel || profile.phtel || '',
+            name: profile.full_name || profile.docname || profile.regname || profile.labname || profile.phname || '',
+            email: profile.email || profile.docemail || profile.regemail || profile.labemail || profile.phemail || '',
+            phone: profile.tel || profile.doctel || profile.regtel || profile.labtel || profile.phtel || '',
             altPhone: profile.docaltphone || profile.regaltphone || profile.labaltphone || profile.phaltphone || '',
             address: profile.docaddress || profile.regaddress || profile.labaddress || profile.phaddress || '',
-            gender: profile.docgender || profile.reggender || profile.labgender || profile.phgender || '',
-            dob: profile.docdob || profile.regdob || profile.labdob || profile.phdob || '',
-            photo: profile.docphoto || profile.regphoto || profile.labphoto || profile.phphoto || '',
-            staffId: profile.docid || profile.regid || profile.labid || profile.phid || '',
+            gender: profile.gender || profile.docgender || profile.reggender || profile.labgender || profile.phgender || '',
+            dob: profile.dob || profile.docdob || profile.regdob || profile.labdob || profile.phdob || '',
+            photo: profile.photo || profile.docphoto || profile.regphoto || profile.labphoto || profile.phphoto || '',
+            staffId: profile.docid || profile.regid || profile.labid || profile.phid || 'ADMIN',
             currentPassword: '',
             newPassword: '',
             confirmPassword: ''
@@ -102,6 +102,17 @@ const StaffSettings = () => {
         }
 
         const updateMap = {
+            a: {
+                table: 'profiles',
+                emailCol: 'email',
+                fields: {
+                    full_name: formData.name,
+                    tel: formData.phone,
+                    gender: formData.gender,
+                    dob: formData.dob,
+                    photo: formData.photo
+                }
+            },
             d: {
                 table: 'doctor',
                 emailCol: 'docemail',
@@ -162,14 +173,29 @@ const StaffSettings = () => {
             return;
         }
 
-        const { error } = await supabase
+        // Update the specific role table (doctor, registrar, etc.)
+        const { error: legacyError } = await supabase
             .from(mapping.table)
             .update(mapping.fields)
             .eq(mapping.emailCol, profile[mapping.emailCol]);
 
-        if (error) {
-            showNotification(error.message || 'Unable to update profile.', 'error');
+        if (legacyError) {
+            showNotification(legacyError.message || 'Unable to update specific profile.', 'error');
             return;
+        }
+
+        // Also update the 'profiles' table for all staff (to keep things in sync)
+        if (userType !== 'a') {
+            await supabase
+                .from('profiles')
+                .update({
+                    full_name: formData.name,
+                    tel: formData.phone,
+                    gender: formData.gender,
+                    dob: formData.dob,
+                    photo: formData.photo
+                })
+                .eq('email', profile.email || profile.docemail || profile.regemail || profile.labemail || profile.phemail);
         }
 
         showNotification('Profile updated successfully!', 'success');

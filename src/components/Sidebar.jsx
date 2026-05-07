@@ -12,7 +12,7 @@ import {
     Home, Users, Settings, UserCircle, Pill, FlaskConical, FileText,
     CheckCircle, ChevronRight, Globe, Menu, ChevronLeft, UserPlus, ListOrdered,
     Printer, CalendarRange, Stethoscope, LayoutDashboard, Package, Activity,
-    DollarSign, Microscope, Tag, ShoppingCart, Truck, ShoppingBag, LogOut
+    DollarSign, Microscope, Tag, ShoppingCart, Truck, ShoppingBag, LogOut, BarChart3, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -26,11 +26,40 @@ const Sidebar = ({ userType }) => {
 
     // Hospital branding fetched from Supabase system_config
     const [hospitalConfig, setHospitalConfig] = React.useState({ name: 'eDoc Hospital', logo: '' });
-    const [expandedMenu, setExpandedMenu] = React.useState(null);
-    const [isCollapsed, setIsCollapsed] = React.useState(window.innerWidth < 1200);
+    // Persist sidebar state across page loads to avoid "resetting" feel
+    const [isCollapsed, setIsCollapsed] = React.useState(() => {
+        const saved = localStorage.getItem('sidebar_collapsed');
+        return saved !== null ? JSON.parse(saved) : (window.innerWidth < 1200);
+    });
+    const [expandedMenu, setExpandedMenu] = React.useState(() => {
+        return localStorage.getItem('sidebar_expanded_menu') || null;
+    });
     const [showMobile, setShowMobile] = React.useState(false);
 
     const sidebarRef = React.useRef(null);
+    const navRef = React.useRef(null);
+
+    React.useEffect(() => {
+        localStorage.setItem('sidebar_collapsed', JSON.stringify(isCollapsed));
+    }, [isCollapsed]);
+
+    React.useEffect(() => {
+        localStorage.setItem('sidebar_expanded_menu', expandedMenu || '');
+    }, [expandedMenu]);
+
+    // Restore scroll position
+    React.useEffect(() => {
+        if (navRef.current) {
+            const savedScroll = localStorage.getItem('sidebar_scroll_pos');
+            if (savedScroll) {
+                navRef.current.scrollTop = parseInt(savedScroll);
+            }
+        }
+    }, []);
+
+    const handleScroll = (e) => {
+        localStorage.setItem('sidebar_scroll_pos', e.target.scrollTop.toString());
+    };
 
     React.useEffect(() => {
         // Fetch hospital name and logo from system_config table
@@ -50,7 +79,7 @@ const Sidebar = ({ userType }) => {
         // Close submenus when clicking outside
         const handleClickOutside = (event) => {
             if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-                setExpandedMenu(null);
+                // Only close on click outside if not a subitem click
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -81,7 +110,9 @@ const Sidebar = ({ userType }) => {
             { name: 'Patient Registration',icon: UserPlus,     path: '/registrar/new-patient' },
             { name: 'Patient Directory',   icon: Users,        path: '/registrar/patients' },
             { name: 'Patient History',     icon: ListOrdered,  path: '/registrar/history' },
+            { name: 'Billing Desk',        icon: CreditCard,   path: '/registrar/billing' },
             { name: 'Printing',            icon: Printer,      path: '/registrar/print' },
+            { name: 'Reports',             icon: BarChart3,    path: '/registrar/reports' },
             { name: 'Settings',            icon: Settings,     path: '/registrar/settings' },
         ],
         d: [
@@ -98,16 +129,53 @@ const Sidebar = ({ userType }) => {
                     { name: 'Ready Results',   path: '/doctor/labs?status=ready' }
                 ]
             },
-            { name: 'Reports',             icon: FileText,     path: '/doctor/reports' },
+            { name: 'Reports',             icon: BarChart3,    path: '/doctor/reports' },
             { name: 'Settings',            icon: Settings,     path: '/doctor/settings' },
         ],
         a: [
+            { name: 'Administration',      type: 'header' },
             { name: 'Dashboard',           icon: LayoutDashboard, path: '/admin' },
             { name: 'Staff Management',    icon: Users,           path: '/admin/staff' },
-            { name: 'Master Catalog',      icon: Package,         path: '/admin/master-catalog' },
-            { name: 'Treatment Bundles',   icon: Activity,        path: '/admin/bundles' },
             { name: 'Financial Logs',      icon: DollarSign,      path: '/admin/financials' },
+            { name: 'Reports',             icon: BarChart3,       path: '/admin/reports' },
             { name: 'System Settings',     icon: Settings,        path: '/admin/settings' },
+
+            { name: 'Reception & Registration', type: 'header' },
+            { name: 'Registrar Home',      icon: Home,            path: '/registrar' },
+            { name: 'New Registration',    icon: UserPlus,        path: '/registrar/new-patient' },
+            { name: 'Patient Directory',   icon: Users,           path: '/registrar/patients' },
+            { name: 'Patient History',     icon: ListOrdered,     path: '/registrar/history' },
+            { name: 'Billing Desk',        icon: CreditCard,      path: '/registrar/billing' },
+            { name: 'Printing Hub',        icon: Printer,         path: '/registrar/print' },
+
+            { name: 'Clinical Consultation', type: 'header' },
+            { name: 'Doctor Home',         icon: Home,            path: '/doctor' },
+            { name: 'Clinical Queue',      icon: CalendarRange,   path: '/doctor/appointments' },
+            { name: 'Patient Files',       icon: Users,           path: '/doctor/patients' },
+            { name: 'Start Consultation',  icon: Stethoscope,     path: '/doctor/consultation' },
+            {
+                name: 'Clinical Labs',
+                icon: FlaskConical,
+                path: '/doctor/labs',
+                subItems: [
+                    { name: 'Pending Labs',    path: '/doctor/labs?status=pending' },
+                    { name: 'Ready Results',   path: '/doctor/labs?status=ready' }
+                ]
+            },
+
+            { name: 'Laboratory Services', type: 'header' },
+            { name: 'Lab Home',            icon: Home,            path: '/lab' },
+            { name: 'Lab Workbench',       icon: Microscope,      path: '/lab/workbench' },
+            { name: 'Completed Results',   icon: CheckCircle,     path: '/lab/results' },
+            { name: 'Test Catalog',        icon: Tag,             path: '/lab/catalog' },
+            { name: 'Lab Inventory',       icon: Package,         path: '/lab/inventory' },
+
+            { name: 'Pharmacy Operations', type: 'header' },
+            { name: 'Pharmacy Home',       icon: Home,            path: '/pharmacy' },
+            { name: 'Pharma Workbench',    icon: ShoppingCart,    path: '/pharmacy/workbench' },
+            { name: 'Drug Inventory',      icon: Package,         path: '/pharmacy/inventory' },
+            { name: 'Drug Status',         icon: Activity,        path: '/pharmacy/status' },
+            { name: 'Procurement',         icon: Truck,           path: '/pharmacy/procurement' },
         ],
         l: [
             { name: 'Dashboard',           icon: Home,         path: '/lab' },
@@ -115,6 +183,7 @@ const Sidebar = ({ userType }) => {
             { name: 'Completed Results',   icon: CheckCircle,  path: '/lab/results' },
             { name: 'Test Catalog',        icon: Tag,          path: '/lab/catalog' },
             { name: 'Inventory',           icon: Package,      path: '/lab/inventory' },
+            { name: 'Reports',             icon: BarChart3,    path: '/lab/analytics' },
             { name: 'Settings',            icon: Settings,     path: '/lab/settings' },
         ],
         ph: [
@@ -123,13 +192,14 @@ const Sidebar = ({ userType }) => {
             { name: 'Inventory',           icon: Package,      path: '/pharmacy/inventory' },
             { name: 'Medicine Status',     icon: Activity,     path: '/pharmacy/status' },
             { name: 'Procurement',         icon: Truck,        path: '/pharmacy/procurement' },
-            { name: 'Suppliers',           icon: Users,        path: '/pharmacy/suppliers' },
-            { name: 'Sales Log',           icon: ShoppingBag,  path: '/pharmacy/sales' },
+            { name: 'Reports',             icon: BarChart3,    path: '/pharmacy/reports' },
             { name: 'Settings',            icon: Settings,     path: '/pharmacy/settings' },
         ]
     };
 
-    const items = navItems[userType] || [];
+    // If logged in user is admin ('a'), always show admin items even on other role pages
+    const effectiveUserType = (profile?.role === 'a') ? 'a' : userType;
+    const items = navItems[effectiveUserType] || [];
 
     const toggleSidebar = () => setIsCollapsed(!isCollapsed);
     const toggleMobile = () => setShowMobile(!showMobile);
@@ -245,26 +315,52 @@ const Sidebar = ({ userType }) => {
                 )}
 
                 {/* Logout — calls Supabase signOut via AuthContext */}
-                <button
-                    id="sidebar-logout-btn"
-                    onClick={handleLogout}
-                    style={{
-                        width: '100%', padding: isCollapsed ? '10px 0' : '10px',
-                        background: '#f1f5f9', color: '#1e293b',
-                        border: '1px solid #e2e8f0', borderRadius: '10px',
-                        fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isCollapsed ? '0' : '8px',
-                        transition: '0.2s'
-                    }}
-                    title={isCollapsed ? "Log out" : ""}
-                >
-                    <LogOut size={16} /> {!isCollapsed && "Log out"}
-                </button>
+                <div style={{ marginTop: '32px' }}>
+                    <button
+                        id="sidebar-logout-btn"
+                        onClick={handleLogout}
+                        style={{
+                            width: '100%', padding: isCollapsed ? '10px 0' : '12px',
+                            background: '#f8fafc', color: '#475569',
+                            border: '1px solid #e2e8f0', borderRadius: '12px',
+                            fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isCollapsed ? '0' : '10px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#475569'; }}
+                        title={isCollapsed ? "Log out" : ""}
+                    >
+                        <LogOut size={16} /> {!isCollapsed && "Sign Out Account"}
+                    </button>
+                </div>
             </div>
 
             {/* Navigation List */}
-            <nav style={{ padding: '20px 0', flex: 1, overflowY: 'auto' }}>
-                {items.map((item) => {
+            <nav 
+                ref={navRef}
+                onScroll={handleScroll}
+                style={{ padding: '20px 0', flex: 1, overflowY: 'auto' }}
+            >
+                {items.map((item, idx) => {
+                    // 1. Handle Separator/Header
+                    if (item.type === 'header') {
+                        return !isCollapsed && (
+                            <div key={`header-${idx}`} style={{ 
+                                padding: '24px 30px 8px', 
+                                fontSize: '0.65rem', 
+                                fontWeight: '800', 
+                                color: '#94a3b8', 
+                                textTransform: 'uppercase', 
+                                letterSpacing: '0.1em' 
+                            }}>
+                                {item.name}
+                            </div>
+                        );
+                    }
+
+                    // 2. Handle Regular Items
                     const isActive = location.pathname === item.path ||
                         (item.subItems && item.subItems.some(sub => location.pathname + location.search === sub.path));
                     const hasSubItems = item.subItems && item.subItems.length > 0;
@@ -272,32 +368,44 @@ const Sidebar = ({ userType }) => {
 
                     return (
                         <div key={item.name}>
-                            <div
-                                onClick={() => {
-                                    if (hasSubItems) {
-                                        setExpandedMenu(isExpanded ? null : item.name);
-                                    } else {
-                                        navigate(item.path);
-                                    }
-                                }}
-                                style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '15px 30px', cursor: 'pointer',
-                                    color: isActive ? '#007bff' : '#6c757d',
-                                    background: isActive && !hasSubItems ? '#f8f9fa' : 'transparent',
-                                    borderRight: isActive && !hasSubItems ? '4px solid #007bff' : '4px solid transparent',
-                                    fontWeight: isActive ? '700' : '500',
-                                    fontSize: '0.9rem', transition: '0.2s'
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            {hasSubItems ? (
+                                <div
+                                    onClick={() => setExpandedMenu(isExpanded ? null : item.name)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '15px 30px', cursor: 'pointer',
+                                        color: isActive ? '#007bff' : '#6c757d',
+                                        background: isActive ? '#f8fafc' : 'transparent',
+                                        borderRight: isActive ? '4px solid #007bff' : '4px solid transparent',
+                                        fontWeight: isActive ? '700' : '500',
+                                        fontSize: '0.9rem', transition: '0.2s'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <item.icon size={20} style={{ minWidth: '20px' }} />
+                                        {!isCollapsed && <span>{item.name}</span>}
+                                    </div>
+                                    {!isCollapsed && (
+                                        <ChevronRight size={16} style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: '0.3s' }} />
+                                    )}
+                                </div>
+                            ) : (
+                                <Link
+                                    to={item.path}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '15px',
+                                        padding: '15px 30px', cursor: 'pointer', textDecoration: 'none',
+                                        color: isActive ? '#007bff' : '#6c757d',
+                                        background: isActive ? '#f8fafc' : 'transparent',
+                                        borderRight: isActive ? '4px solid #007bff' : '4px solid transparent',
+                                        fontWeight: isActive ? '700' : '500',
+                                        fontSize: '0.9rem', transition: '0.2s'
+                                    }}
+                                >
                                     <item.icon size={20} style={{ minWidth: '20px' }} />
                                     {!isCollapsed && <span>{item.name}</span>}
-                                </div>
-                                {hasSubItems && !isCollapsed && (
-                                    <ChevronRight size={16} style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: '0.3s' }} />
-                                )}
-                            </div>
+                                </Link>
+                            )}
 
                             {hasSubItems && isExpanded && (
                                 <div style={{ background: '#f8fafc', padding: '5px 0' }}>
@@ -307,7 +415,6 @@ const Sidebar = ({ userType }) => {
                                             <Link
                                                 key={sub.name}
                                                 to={sub.path}
-                                                onClick={() => setExpandedMenu(null)}
                                                 style={{
                                                     display: 'flex', alignItems: 'center',
                                                     padding: '12px 30px 12px 65px',

@@ -1,15 +1,10 @@
-// =============================================================
-// FILE: DoctorDashboard.jsx
-// PURPOSE: React component / entry point for the eDoc Hospital
-//          frontend. Part of the Vite + React SPA.
-// =============================================================
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
 import ClinicalModal from '../../components/shared/ClinicalModal';
 import {
     Calendar, Users, Clock, CheckCircle, TrendingUp, AlertCircle,
-    ArrowRight, UserPlus, Bell, Search, Activity, Bookmark, Layout, CloudSun, User, Trash2
+    ArrowRight, UserPlus, Bell, Search, Activity, Bookmark, Layout, CloudSun, User, Trash2, RefreshCw,
+    Stethoscope, FileText, Microscope, Pill, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -21,27 +16,41 @@ const DoctorDashboard = () => {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [confirmDelete, setConfirmDelete] = useState({ open: false, appo: null });
+    const [hospitalConfig, setHospitalConfig] = useState({ name: 'eDoc Hospital', logo: '' });
     
     const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        
+        supabase
+            .from('system_config')
+            .select('key, value')
+            .in('key', ['hospital_name', 'hospital_logo'])
+            .then(({ data }) => {
+                if (!data) return;
+                const config = Object.fromEntries(data.map(r => [r.key, r.value]));
+                setHospitalConfig({
+                    name: config.hospital_name || 'eDoc Hospital',
+                    logo: config.hospital_logo || '',
+                });
+            });
+
         return () => clearInterval(timer);
     }, []);
 
     useEffect(() => {
-        if (profile?.docid) {
+        if (profile) {
             fetchTodayQueue();
         }
-    }, [profile]);
+    }, [profile?.id, profile?.docid]);
 
     const fetchTodayQueue = async () => {
-        // Ensure docid is a valid integer before querying to avoid 400 errors
         const docIdInt = parseInt(profile?.docid);
+        const isStaff = profile?.role === 'a' || profile?.role === 'r';
         
-        if (isNaN(docIdInt)) {
-            console.warn('[DoctorDashboard] No valid integer docid found yet:', profile?.docid);
+        if (!isStaff && isNaN(docIdInt)) {
             setLoading(false);
             return;
         }
@@ -50,28 +59,31 @@ const DoctorDashboard = () => {
         try {
             const today = new Date().toISOString().split('T')[0];
             
-            const { data, error } = await supabase
+            let query = supabase
                 .from('appointment')
                 .select(`
                     appoid, status, created_at,
                     patient:pid (pid, pname, patient_display_id, pgender)
                 `)
-                .eq('docid', docIdInt)
-                .eq('appodate', today)
-                .order('created_at', { ascending: true });
+                .eq('appodate', today);
+
+            if (profile?.role !== 'a' && profile?.role !== 'r') {
+                query = query.eq('docid', docIdInt);
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: true });
                 
             if (error) throw error;
             
-            // Fetch all-time appointments for this doctor to calculate unique total patients
-            const { data: allApps } = await supabase
-                .from('appointment')
-                .select('pid')
-                .eq('docid', docIdInt);
+            let statsQuery = supabase.from('appointment').select('pid');
+            if (profile?.role !== 'a' && profile?.role !== 'r') {
+                statsQuery = statsQuery.eq('docid', docIdInt);
+            }
+            const { data: allApps } = await statsQuery;
                 
             const uniquePatientsCount = allApps ? new Set(allApps.map(a => a.pid)).size : 0;
             
             if (data) {
-                // Flatten the patient data
                 const formattedQueue = data.map(appo => ({
                     appoid: appo.appoid,
                     status: appo.status,
@@ -84,8 +96,7 @@ const DoctorDashboard = () => {
                 
                 setAppointments(formattedQueue);
                 
-                // Calculate stats
-                const waiting = formattedQueue.filter(a => a.status === 'waiting').length;
+                const waiting = formattedQueue.filter(a => a.status === 'waiting' || a.status === 'Consultation' || a.status === 'at_lab' || a.status === 'results_ready').length;
                 const completed = formattedQueue.filter(a => a.status?.toLowerCase() === 'completed').length;
                 setStats({ total: formattedQueue.length, waiting, completed, totalPatients: uniquePatientsCount });
             }
@@ -110,242 +121,230 @@ const DoctorDashboard = () => {
             setConfirmDelete({ open: false, appo: null });
         } catch (err) {
             console.error(err);
-            alert("Failed to delete appointment: " + err.message);
         }
     };
 
     const getGreeting = () => {
         const hour = currentTime.getHours();
         if (hour < 12) return 'Good morning';
-        if (hour < 17) return 'Nice afternoon';
+        if (hour < 17) return 'Good afternoon';
         return 'Good evening';
     };
 
-    const formattedTime = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    const timeParts = formattedTime.split(' ');
+    const formattedTime = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     const metrics = [
-        { label: 'Today Queue', count: stats.total, icon: Calendar, path: '/doctor/appointments', color: '#3b82f6' },
-        { label: 'Waiting', count: stats.waiting, icon: Clock, path: '/doctor/appointments', color: '#f59e0b' },
-        { label: 'Completed', count: stats.completed, icon: CheckCircle, path: '/doctor/appointments', color: '#10b981' },
-        { label: 'Total Patients', count: stats.totalPatients, icon: Users, path: '/doctor/patients', color: '#8b5cf6' },
+        { label: 'Active Queue', count: stats.waiting, icon: Clock, path: '/doctor/appointments', color: '#3b82f6', bg: '#eff6ff' },
+        { label: 'Today Total', count: stats.total, icon: Calendar, path: '/doctor/appointments', color: '#8b5cf6', bg: '#f5f3ff' },
+        { label: 'Completed', count: stats.completed, icon: CheckCircle, path: '/doctor/appointments', color: '#10b981', bg: '#f0fdf4' },
+        { label: 'Patient Base', count: stats.totalPatients, icon: Users, path: '/doctor/patients', color: '#f59e0b', bg: '#fffbeb' },
     ];
 
+    if (loading) return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', background: '#f8fafc' }}>
+            <div style={{ width: '64px', height: '64px', border: '6px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            <h2 style={{ marginTop: '32px', fontWeight: '900', color: '#1e293b' }}>Syncing Clinical Hub...</h2>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="d" />
-            <main className="doctor-dashboard-main" style={{ flex: 1, padding: '32px 48px', maxWidth: '1400px', margin: '0 auto', width: '100%', overflowX: 'auto' }}>
-                <div className="doctor-dashboard-inner">
-                
-                <ClinicalModal 
-                    isOpen={confirmDelete.open}
-                    onClose={() => setConfirmDelete({ open: false, appo: null })}
-                    type="danger"
-                    title="Remove Appointment"
-                    message={`Are you sure you want to PERMANENTLY remove the appointment for ${confirmDelete.appo?.pname}? This action will remove them from your clinical queue.`}
-                    confirmText="Yes, Remove"
-                    onConfirm={handleDelete}
-                />
+        <div style={{ padding: '40px 60px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
+            <ClinicalModal 
+                isOpen={confirmDelete.open}
+                onClose={() => setConfirmDelete({ open: false, appo: null })}
+                type="danger"
+                title="Remove Appointment"
+                message={`Are you sure you want to remove ${confirmDelete.appo?.pname} from the clinical queue?`}
+                confirmText="Confirm Removal"
+                onConfirm={handleDelete}
+            />
 
-                {/* Header Section */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                    <div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1e293b' }}>Clinical Overview</h2>
-                        <p style={{ color: '#64748b' }}>Manage your patient queue and daily consultations.</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontWeight: '700', color: '#1e293b' }}>{timeParts[0]} {timeParts[1]}</div>
-                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>{todayDate}</div>
-                        </div>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'white', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                            <Bell size={20} />
-                        </div>
-                    </div>
+            {/* Premium Header */}
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
+                <div>
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.04em', color: '#0f172a', marginBottom: '4px' }}>
+                        {getGreeting()}, <span style={{ color: '#3b82f6' }}>Dr. {profile?.docname || 'Practitioner'}</span>
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '1.1rem', fontWeight: '500' }}>Your clinical workspace is ready for today's sessions.</p>
                 </div>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{formattedTime}</div>
+                    <div style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '600' }}>{todayDate}</div>
+                </div>
+            </header>
 
-                {/* Modern Dynamic Welcome Hero */}
-                <div style={{
-                    backgroundImage: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-                    borderRadius: '24px',
-                    padding: '28px 32px',
-                    marginBottom: '32px',
-                    color: 'white',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-                    width: '100%',
-                    maxWidth: '1160px',
-                    margin: '0 auto'
-                }}>
-                    <div>
-                        <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '10px' }}>
-                            {getGreeting()},<br />
-                            <span style={{ color: '#60a5fa' }}>Dr. {profile?.docname || 'Staff'}</span>
-                        </h2>
-                        <p style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '24px' }}>
-                            You have {stats.waiting} patients waiting in your queue today.
-                        </p>
-                        <button onClick={() => navigate('/doctor/appointments')} style={{ padding: '10px 20px', background: '#3b82f6', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            View Patient Queue <ArrowRight size={18} />
+            {/* Hero Banner */}
+            <div style={{
+                backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/img/b8.jpg')`,
+                backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '32px', padding: '48px',
+                marginBottom: '40px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ flex: 1 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(255,255,255,0.2)', borderRadius: '100px', marginBottom: '24px', backdropFilter: 'blur(10px)', fontSize: '0.85rem', fontWeight: '800' }}>
+                        <Activity size={14} /> LIVE CLINICAL STATUS
+                    </div>
+                    <h3 style={{ fontSize: '2.25rem', fontWeight: '800', marginBottom: '16px', lineHeight: 1.2 }}>
+                        {stats.waiting > 0 ? `You have ${stats.waiting} patients waiting in the queue.` : "Your clinical queue is currently clear."}
+                    </h3>
+                    <p style={{ fontSize: '1.1rem', opacity: 0.9, fontWeight: '500', maxWidth: '600px', marginBottom: '32px' }}>
+                        Access patient histories, authorize laboratory investigations, and dispense electronic prescriptions directly from your dashboard.
+                    </p>
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                        <button onClick={() => navigate('/doctor/appointments')} style={{ padding: '16px 32px', background: 'white', color: '#0f172a', border: 'none', borderRadius: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.2)' }}>
+                            <Layout size={20} /> Enter Workflow
+                        </button>
+                        <button onClick={fetchTodayQueue} style={{ padding: '16px 24px', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '16px', color: 'white', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <RefreshCw size={20} /> Sync Queue
                         </button>
                     </div>
-
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '15px' }}>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '2.5rem', fontWeight: '800', lineHeight: 1 }}>24°C</div>
-                                <div style={{ fontSize: '0.95rem', opacity: 0.7, fontWeight: '500' }}>Sunny Interval</div>
-                            </div>
-                            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '16px', borderRadius: '18px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <CloudSun size={36} />
-                            </div>
-                        </div>
-                        <div style={{ fontSize: '1rem', fontWeight: '600', opacity: 0.9 }}>Local Medical Center</div>
+                </div>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.15)', padding: '32px', borderRadius: '24px', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center' }}>
+                        <div style={{ fontSize: '3.5rem', fontWeight: '900', lineHeight: 1, marginBottom: '8px' }}>{stats.waiting}</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: '800', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Patients Waiting</div>
                     </div>
                 </div>
+            </div>
 
-                {/* Metrics Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '40px' }}>
-                    {metrics.map((stat, idx) => (
-                        <div key={idx}
-                            onClick={() => navigate(stat.path)}
-                            style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                        >
-                            <div>
-                                <div style={{ fontSize: '1.875rem', fontWeight: '800', color: '#1e293b' }}>{stat.count}</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#64748b' }}>{stat.label}</div>
-                            </div>
-                            <div style={{ padding: '12px', background: `${stat.color}15`, borderRadius: '14px', color: stat.color }}>
-                                <stat.icon size={24} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Main Content: Patient Queue */}
-                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                    <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Metrics Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '48px' }}>
+                {metrics.map((stat, idx) => (
+                    <div key={idx} onClick={() => navigate(stat.path)}
+                        style={{ background: 'white', padding: '32px', borderRadius: '28px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.05)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.02)'; }}
+                    >
                         <div>
-                            <h3 style={{ fontSize: '1.125rem', fontWeight: '800', color: '#1e293b' }}>Live Patient Queue</h3>
-                            <p style={{ fontSize: '0.875rem', color: '#64748b' }}>Real-time updates from the Registrar desk.</p>
+                            <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#0f172a', lineHeight: 1, marginBottom: '8px' }}>{stat.count}</div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#64748b' }}>{stat.label}</div>
                         </div>
-                        <button onClick={fetchTodayQueue} style={{ padding: '8px 16px', background: '#f1f5f9', border: 'none', borderRadius: '10px', color: '#475569', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
-                        </button>
+                        <div style={{ padding: '16px', background: stat.bg, borderRadius: '20px', color: stat.color }}><stat.icon size={28} /></div>
                     </div>
+                ))}
+            </div>
 
-                    <div style={{ padding: '0' }}>
+            {/* Workspace Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '40px' }}>
+                {/* Active Queue Section */}
+                <section style={{ background: 'white', borderRadius: '32px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+                    <div style={{ padding: '32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff' }}>
+                        <div>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em' }}>Live Patient Queue</h3>
+                            <p style={{ color: '#64748b', fontSize: '0.95rem', fontWeight: '500' }}>Active consultations synchronized with Registrar.</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                <div style={{ width: '10px', height: '10px', background: '#10b981', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
+                                <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#475569' }}>SYSTEM LIVE</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style={{ padding: '0px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead style={{ background: '#f8fafc' }}>
+                            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                                 <tr>
-                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>No.</th>
-                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Patient</th>
-                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Arrival Time</th>
-                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Status</th>
-                                    <th style={{ textAlign: 'right', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Action</th>
+                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Patient Details</th>
+                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Time In</th>
+                                    <th style={{ textAlign: 'left', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status</th>
+                                    <th style={{ textAlign: 'right', padding: '16px 32px', fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {loading ? (
-                                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '48px', color: '#64748b' }}>Loading your queue...</td></tr>
-                                ) : appointments.length > 0 ? (
-                                    appointments.map((appo, idx) => (
-                                        <tr key={appo.appoid} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '20px 32px', fontWeight: '700', color: '#64748b' }}>#{idx + 1}</td>
-                                            <td style={{ padding: '20px 32px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div style={{ width: '40px', height: '40px', background: '#f1f5f9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-                                                        <User size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <div style={{ fontWeight: '700', color: '#1e293b' }}>{appo.pname}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{appo.patient_display_id} • {appo.pgender}</div>
-                                                    </div>
+                                {appointments.filter(a => a.status?.toLowerCase() !== 'completed').map((appo, idx) => (
+                                    <tr key={appo.appoid} style={{ borderBottom: '1px solid #f1f5f9', transition: '0.2s' }}>
+                                        <td style={{ padding: '20px 32px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <div style={{ width: '48px', height: '48px', background: '#eff6ff', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', fontWeight: '900' }}>{appo.pname.charAt(0)}</div>
+                                                <div>
+                                                    <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '1.05rem' }}>{appo.pname}</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>PID: {appo.patient_display_id} • {appo.pgender === 'm' ? 'Male' : 'Female'}</div>
                                                 </div>
-                                            </td>
-                                            <td style={{ padding: '20px 32px', fontSize: '0.85rem', color: '#64748b' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <Clock size={14} color="#3b82f6" /> 
-                                                    <span style={{ fontWeight: '700', color: '#1e293b' }}>
-                                                        {appo.created_at ? new Date(appo.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                                    </span>
-                                                </div>
-                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginLeft: '20px' }}>Checked-in Today</div>
-                                            </td>
-                                            <td style={{ padding: '20px 32px' }}>
-                                                <span style={{ 
-                                                    padding: '6px 12px', 
-                                                    borderRadius: '8px', 
-                                                    fontSize: '0.75rem', 
-                                                    fontWeight: '700', 
-                                                    textTransform: 'uppercase',
-                                                    background: appo.status === 'waiting' ? '#fffbeb' : 
-                                                               appo.status === 'at_lab' ? '#e0f2fe' :
-                                                               appo.status === 'results_ready' ? '#f0fdf4' : '#ecfdf5',
-                                                    color: appo.status === 'waiting' ? '#9a3412' : 
-                                                           appo.status === 'at_lab' ? '#0369a1' :
-                                                           appo.status === 'results_ready' ? '#166534' : '#047857'
-                                                }}>
-                                                    {appo.status === 'at_lab' ? '🧪 AT LAB' : 
-                                                     appo.status === 'results_ready' ? '✅ RESULTS READY' : appo.status}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '20px 32px', textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                                    <button 
-                                                        onClick={() => setConfirmDelete({ open: true, appo })}
-                                                        style={{ padding: '8px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                        title="Delete Appointment"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                    <button onClick={() => navigate(`/doctor/consultation?appoid=${appo.appoid}`)} style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>Start Session</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="5" style={{ textAlign: 'center', padding: '64px' }}>
-                                            <Activity size={48} color="#e2e8f0" style={{ marginBottom: '16px' }} />
-                                            <p style={{ color: '#94a3b8', fontWeight: '500' }}>Your queue is currently empty.</p>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '20px 32px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: '700' }}>
+                                                <Clock size={16} color="#3b82f6" /> {new Date(appo.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '20px 32px' }}>
+                                            <span style={{ 
+                                                padding: '6px 12px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase',
+                                                background: appo.status === 'at_lab' ? '#fff7ed' : appo.status === 'results_ready' ? '#f0fdf4' : '#eff6ff',
+                                                color: appo.status === 'at_lab' ? '#c2410c' : appo.status === 'results_ready' ? '#15803d' : '#1d4ed8'
+                                            }}>
+                                                {appo.status === 'at_lab' ? '🧪 At Laboratory' : appo.status === 'results_ready' ? '✅ Results Ready' : appo.status}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '20px 32px', textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                                <button onClick={() => setConfirmDelete({ open: true, appo })} style={{ padding: '10px', background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '12px', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                                                <button onClick={() => navigate(`/doctor/consultation?appoid=${appo.appoid}`)} style={{ padding: '10px 20px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    Session <ArrowRight size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
+                                ))}
+                                {appointments.filter(a => a.status?.toLowerCase() !== 'completed').length === 0 && (
+                                    <tr><td colSpan="4" style={{ padding: '64px', textAlign: 'center', color: '#94a3b8', fontWeight: '600' }}>Your clinical queue is currently empty.</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
-                    
-                    <div style={{ padding: '24px 32px', background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
-                        <button onClick={() => navigate('/doctor/appointments')} style={{ width: '100%', padding: '12px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', color: '#1e293b', fontWeight: '700', cursor: 'pointer' }}>View Detailed Appointment Log</button>
-                    </div>
-                </div>
+                </section>
 
+                {/* Quick Actions & Recent */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                    <section style={{ background: 'white', borderRadius: '32px', border: '1px solid #e2e8f0', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)' }}>
+                        <h4 style={{ fontSize: '1.25rem', fontWeight: '900', color: '#0f172a', marginBottom: '24px', letterSpacing: '-0.02em' }}>Clinical Toolbox</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                            <ToolButton icon={Users} label="Patient Directory" onClick={() => navigate('/doctor/patients')} color="#3b82f6" />
+                            <ToolButton icon={FileText} label="Clinical Templates" onClick={() => {}} color="#8b5cf6" />
+                            <ToolButton icon={Microscope} label="Investigation Log" onClick={() => {}} color="#10b981" />
+                            <ToolButton icon={Pill} label="Drug Formulary" onClick={() => {}} color="#f59e0b" />
+                        </div>
+                    </section>
+
+                    <section style={{ background: '#0f172a', borderRadius: '32px', padding: '32px', color: 'white', boxShadow: '0 20px 25px -5px rgba(15, 23, 42, 0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ padding: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}><Bookmark size={20} /></div>
+                            <h4 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Recent Completions</h4>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {appointments.filter(a => a.status?.toLowerCase() === 'completed').slice(0, 3).map((appo, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <div style={{ fontWeight: '700' }}>{appo.pname}</div>
+                                    <button onClick={() => navigate(`/doctor/patient/${appo.pid}`)} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontWeight: '800', fontSize: '0.85rem' }}>View Log</button>
+                                </div>
+                            ))}
+                            {appointments.filter(a => a.status?.toLowerCase() === 'completed').length === 0 && (
+                                <p style={{ fontSize: '0.85rem', opacity: 0.6, textAlign: 'center' }}>No sessions completed today yet.</p>
+                            )}
+                        </div>
+                    </section>
                 </div>
-                <style>{`
-                    @media (max-width: 1024px) {
-                        .doctor-dashboard-main { 
-                            padding: 16px !important; 
-                        }
-                        .doctor-dashboard-inner { 
-                            min-width: 1000px; 
-                            zoom: calc(100vw / 1050); 
-                        }
-                    }
-                    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                    .animate-spin { animation: spin 1s linear infinite; }
-                `}</style>
-            </main>
+            </div>
+
+            <style>{`
+                @keyframes spin { to { transform: rotate(360deg); } }
+                @keyframes pulse { 0% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.4; transform: scale(1); } }
+            `}</style>
         </div>
     );
 };
 
-const RefreshCw = ({ size, className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+const ToolButton = ({ icon: Icon, label, onClick, color }) => (
+    <button onClick={onClick} style={{ width: '100%', padding: '16px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: '0.2s' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = color; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+    >
+        <div style={{ color: color }}><Icon size={20} /></div>
+        <span style={{ fontWeight: '800', color: '#1e293b', flex: 1, textAlign: 'left', fontSize: '0.95rem' }}>{label}</span>
+        <ChevronRight size={18} color="#94a3b8" />
+    </button>
 );
 
 export default DoctorDashboard;

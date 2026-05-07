@@ -4,8 +4,7 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
-import { CheckCircle, Search, Download, Eye, X, FileText, Calendar, User, Microscope } from 'lucide-react';
+import { CheckCircle, Search, Download, Eye, X, FileText, Calendar, User, Microscope, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function LabResults() {
@@ -123,9 +122,7 @@ export default function LabResults() {
     const parseResults = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="l" />
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
                 <div style={{ marginBottom: 32 }}>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
                         <CheckCircle size={28} color="#10b981" /> Completed Results
@@ -142,7 +139,7 @@ export default function LabResults() {
                 </div>
 
                 {/* Table */}
-                <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -212,67 +209,153 @@ export default function LabResults() {
                     )}
                 </div>
 
-                {/* Result Detail Modal */}
+                {/* Result Detail Modal - Professional Medical Report Style */}
                 {selected && (
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                        <div style={{ background: 'white', borderRadius: 20, width: 580, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
-                            <div style={{ padding: '24px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', borderRadius: '20px 20px 0 0', color: 'white' }}>
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
+                        <div style={{ 
+                            background: 'white', borderRadius: 24, width: 640, maxHeight: '90vh', overflowY: 'auto', 
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid #e2e8f0',
+                            position: 'relative', display: 'flex', flexDirection: 'column'
+                        }}>
+                            {/* Colorful Header Accent */}
+                            <div style={{ height: 8, background: 'linear-gradient(90deg, #3b82f6, #10b981)', borderRadius: '24px 24px 0 0' }}></div>
+                            
+                            <div style={{ padding: '32px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
-                                    <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{selected.test_name}</div>
-                                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 2 }}>{selected.pname} · {new Date(selected.created_at).toLocaleString()}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                        <div style={{ background: '#eff6ff', padding: 8, borderRadius: 12 }}>
+                                            <Microscope size={24} color="#3b82f6" />
+                                        </div>
+                                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900, color: '#1e293b', letterSpacing: '-0.5px' }}>MEDICAL REPORT</h2>
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <FileText size={14} /> Official Laboratory Result · Case #{selected.id?.toString().padStart(6, '0')}
+                                    </div>
                                 </div>
-                                <button onClick={() => setSelected(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', color: 'white' }}><X size={16} /></button>
+                                <button onClick={() => setSelected(null)} style={{ background: '#f1f5f9', border: 'none', padding: 8, borderRadius: 12, cursor: 'pointer', color: '#64748b', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}><X size={20} /></button>
                             </div>
-                            <div style={{ padding: 28 }}>
-                                {/* Patient Info */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: '#f8fafc', padding: 16, borderRadius: 12, marginBottom: 24 }}>
-                                    {[['Patient', selected.pname], ['Gender', selected.pgender], ['Patient ID', selected.patient_display_id || '—'], ['Technician', selected.technician_name || '—']].map(([l, v]) => (
-                                        <div key={l}><div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>{l}</div><div style={{ fontWeight: 700 }}>{v}</div></div>
-                                    ))}
+
+                            <div style={{ padding: '0 40px 40px' }}>
+                                {/* Receipt-style Patient Header */}
+                                <div style={{ 
+                                    background: '#f8fafc', padding: 24, borderRadius: 20, marginBottom: 32,
+                                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px',
+                                    border: '1px solid #f1f5f9'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 4, letterSpacing: '0.5px' }}>PATIENT NAME</div>
+                                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b' }}>{selected.pname}</div>
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{selected.pgender} · ID: {selected.patient_display_id || '—'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 4, letterSpacing: '0.5px' }}>ORDER DETAILS</div>
+                                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1e293b' }}>{selected.test_name}</div>
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>Authorized by {selected.technician_name || 'Lab Staff'}</div>
+                                    </div>
+                                    <div style={{ gridColumn: 'span 2', paddingTop: 16, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 2 }}>DATE SAMPLED</div>
+                                            <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{new Date(selected.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 2 }}>STATUS</div>
+                                            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#10b981' }}>✓ VALIDATED</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                {/* Results */}
-                                <h4 style={{ fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Microscope size={16} /> Test Findings</h4>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
-                                    <thead><tr style={{ background: '#f8fafc' }}><th style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.75rem', color: '#64748b' }}>Parameter</th><th style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.75rem', color: '#64748b' }}>Value</th></tr></thead>
-                                    <tbody>
-                                        {Object.entries(parseResults(selected.results)).map(([k, v], i) => (
-                                            <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ padding: '10px 14px', fontSize: '0.875rem', color: '#64748b' }}>{k}</td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#1e293b' }}>
-                                                    {typeof v === 'object' && v !== null ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            {v.value} <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{v.unit || ''}</span>
-                                                            {v.status && v.status !== 'Normal' && (
-                                                                <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: '0.65rem', background: '#fef2f2', color: '#ef4444' }}>
-                                                                    {v.status}
-                                                                </span>
+
+                                {/* Results Section */}
+                                <div style={{ marginBottom: 32 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                                        <div style={{ flex: 1, height: 1, background: '#f1f5f9' }}></div>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Clinical Findings</span>
+                                        <div style={{ flex: 1, height: 1, background: '#f1f5f9' }}></div>
+                                    </div>
+
+                                    <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #f1f5f9' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead style={{ background: '#f8fafc' }}>
+                                                <tr>
+                                                    <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Parameter</th>
+                                                    <th style={{ textAlign: 'right', padding: '12px 20px', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Value / Flag</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {Object.entries(parseResults(selected.results)).map(([k, v], i) => (
+                                                    <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                        <td style={{ padding: '16px 20px', fontSize: '0.9rem', fontWeight: 600, color: '#475569' }}>{k}</td>
+                                                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                                                            {typeof v === 'object' && v !== null ? (
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                                                                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: v.status && v.status !== 'Normal' ? '#ef4444' : '#1e293b' }}>
+                                                                        {v.value}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>{v.unit || ''}</span>
+                                                                    {v.status && v.status !== 'Normal' && (
+                                                                        <span style={{ 
+                                                                            padding: '4px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 800,
+                                                                            background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2'
+                                                                        }}>
+                                                                            {v.status}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span style={{ fontWeight: 800, color: '#1e293b' }}>{String(v)}</span>
                                                             )}
-                                                        </div>
-                                                    ) : (
-                                                        String(v)
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
                                 {selected.notes && (
-                                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 16px' }}>
-                                        <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#b45309', marginBottom: 6 }}>Technician Notes</div>
-                                        <div style={{ fontSize: '0.875rem', color: '#78350f' }}>{selected.notes}</div>
+                                    <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 16, padding: '20px', marginBottom: 32 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.8rem', color: '#92400e', marginBottom: 8, textTransform: 'uppercase' }}>
+                                            <AlertCircle size={14} /> Technician Comments
+                                        </div>
+                                        <div style={{ fontSize: '0.9rem', color: '#78350f', lineHeight: 1.6 }}>{selected.notes}</div>
                                     </div>
                                 )}
-                                <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                                    <button onClick={() => handlePrint(selected)} style={{ flex: 1, padding: 12, borderRadius: 10, background: '#0f172a', color: 'white', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                        <Download size={16} /> Print Report
+
+                                <div style={{ display: 'flex', gap: 12 }}>
+                                    <button 
+                                        onClick={() => handlePrint(selected)} 
+                                        style={{ 
+                                            flex: 2, padding: '16px', borderRadius: 16, 
+                                            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', 
+                                            color: 'white', border: 'none', fontWeight: 800, cursor: 'pointer', 
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                            boxShadow: '0 10px 15px -3px rgba(15, 23, 42, 0.2)'
+                                        }}
+                                    >
+                                        <Download size={20} /> DOWNLOAD OFFICIAL REPORT
                                     </button>
-                                    <button onClick={() => setSelected(null)} style={{ padding: '12px 20px', borderRadius: 10, background: '#f1f5f9', color: '#475569', border: 'none', fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                                    <button 
+                                        onClick={() => setSelected(null)} 
+                                        style={{ 
+                                            flex: 1, padding: '16px', borderRadius: 16, 
+                                            background: '#f1f5f9', color: '#475569', 
+                                            border: 'none', fontWeight: 700, cursor: 'pointer',
+                                            transition: '0.2s'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                                        onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+                                    >
+                                        CLOSE
+                                    </button>
                                 </div>
+                            </div>
+                            
+                            {/* Footer Accent */}
+                            <div style={{ padding: '12px', textAlign: 'center', borderTop: '1px solid #f1f5f9', background: '#f8fafc', borderRadius: '0 0 24px 24px', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
+                                This is a computer-generated report and remains valid without a physical signature.
                             </div>
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 }

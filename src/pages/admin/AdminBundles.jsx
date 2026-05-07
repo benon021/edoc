@@ -4,11 +4,10 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { getTreatmentBundles, getLabCatalog, getPharmacyInventory, createTreatmentBundle, deleteTreatmentBundle } from '../../lib/api';
 import { 
-    Activity, Plus, Search, X, Pill, Microscope, 
-    Save, Trash2, Edit2, ChevronRight, Package, ClipboardCheck
+    Plus, Search, X, Pill, Microscope, 
+    Save, Trash2, Package
 } from 'lucide-react';
 
 const AdminBundles = () => {
@@ -18,7 +17,6 @@ const AdminBundles = () => {
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({ name: '', description: '', category: 'General', items: [] });
     const [searchItem, setSearchItem] = useState('');
-    const [toast, setToast] = useState(null);
 
     const fetchData = async () => {
         setLoading(true);
@@ -55,10 +53,8 @@ const AdminBundles = () => {
                 setShowModal(false);
                 fetchData();
                 setFormData({ name: '', description: '', category: 'General', items: [] });
-                setToast({ msg: 'Treatment Protocol Saved', type: 'success' });
             }
-        } catch (err) { setToast({ msg: 'Error saving bundle', type: 'error' }); }
-        setTimeout(() => setToast(null), 3000);
+        } catch (err) { console.error(err); }
     };
 
     const handleDelete = async (id) => {
@@ -70,15 +66,13 @@ const AdminBundles = () => {
     const filteredCatalog = items.filter(i => (i.name || '').toLowerCase().includes((searchItem || '').toLowerCase())).slice(0, 5);
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.04em' }}>Treatment Protocols</h1>
                         <p style={{ color: '#64748b', fontSize: '1.1rem' }}>Create standardized clinical bundles for rapid ordering.</p>
                     </div>
-                    <button onClick={() => setShowModal(true)} style={{ padding: '14px 28px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '14px', fontWeight: '800', display: 'flex', gap: '10px', cursor: 'pointer' }}>
+                    <button onClick={() => setShowModal(true)} style={{ padding: '14px 28px', background: '#007bff', color: 'white', border: 'none', borderRadius: '14px', fontWeight: '800', display: 'flex', gap: '10px', cursor: 'pointer' }}>
                         <Plus size={20} /> Create New Protocol
                     </button>
                 </header>
@@ -195,7 +189,6 @@ const AdminBundles = () => {
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 };

@@ -5,8 +5,7 @@
 //          Uses schema-compliant queries (appointment-based filtering).
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/Sidebar';
-import { FlaskConical, Search, Clock, CheckCircle, RefreshCw, ChevronRight, User, ExternalLink, Stethoscope, AlertTriangle } from 'lucide-react';
+import { FlaskConical, Search, Clock, RefreshCw, User, Stethoscope, AlertTriangle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +16,6 @@ const DoctorLabs = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [debugInfo, setDebugInfo] = useState({});
     const [search, setSearch] = useState('');
     const navigate = useNavigate();
     const location = useLocation();
@@ -25,28 +23,21 @@ const DoctorLabs = () => {
     const statusFilter = query.get('status');
 
     const fetchOrders = useCallback(async () => {
-        if (!profile?.email) return;
+        if (!profile?.docid) return;
         setLoading(true);
         setError(null);
         try {
-            // 1. Get the numeric docid for this doctor
-            const { data: docData } = await supabase
-                .from('doctor')
-                .select('docid')
-                .eq('docemail', profile.email);
-            
-            const numericDocId = docData?.[0]?.docid;
-            if (!numericDocId) {
-                setOrders([]);
+            const docIdInt = parseInt(profile?.docid);
+            if (isNaN(docIdInt)) {
                 setLoading(false);
                 return;
             }
 
-            // 2. Fetch all appointments for this doctor with patient names (exclude completed)
+            // 1. Fetch all appointments for this doctor with patient names (exclude completed)
             const { data: appointments, error: appError } = await supabase
                 .from('appointment')
                 .select('appoid, patient:pid(pid, pname)')
-                .eq('docid', numericDocId)
+                .eq('docid', docIdInt)
                 .neq('status', 'Completed');
 
             if (appError) throw appError;
@@ -58,7 +49,7 @@ const DoctorLabs = () => {
                 return;
             }
 
-            // 3. Fetch lab requests for these appointments (Schema compliant)
+            // 2. Fetch lab requests for these appointments (Schema compliant)
             const { data: labData, error: labError } = await supabase
                 .from('lab_requests')
                 .select('id, test_name, status, created_at, appointment_id')
@@ -67,7 +58,7 @@ const DoctorLabs = () => {
 
             if (labError) throw labError;
 
-            // 4. Combine and format
+            // 3. Combine and format
             const formatted = (labData || []).map(req => {
                 const appo = appointments.find(a => a.appoid === req.appointment_id);
                 const patient = appo?.patient;
@@ -83,20 +74,19 @@ const DoctorLabs = () => {
             });
 
             setOrders(formatted);
-            setDebugInfo({ count: formatted.length, apps: appoids.length });
         } catch (e) { 
             console.error('[DoctorLabs] Fetch error:', e);
             setError(`Fetch failed: ${e.message}`);
         }
         setLoading(false);
-    }, [profile?.email]);
+    }, [profile?.docid]);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
     const filtered = orders.filter(o => {
         const matchesSearch = (
-            o.pname?.toLowerCase().includes(search.toLowerCase()) || 
-            o.test_name?.toLowerCase().includes(search.toLowerCase())
+            (o.pname || '').toLowerCase().includes(search.toLowerCase()) || 
+            (o.test_name || '').toLowerCase().includes(search.toLowerCase())
         );
         if (!statusFilter) return matchesSearch;
         const matchesStatus = statusFilter === 'ready' ? o.status === 'completed' : o.status !== 'completed';
@@ -104,9 +94,7 @@ const DoctorLabs = () => {
     });
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
-            <Sidebar userType="d" />
-            <main style={{ flex: 1, padding: '40px 56px', overflowY: 'auto' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -201,11 +189,10 @@ const DoctorLabs = () => {
                         </tbody>
                     </table>
                 </div>
-                <style>{`
+            <style>{`
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                     .animate-spin { animation: spin 1s linear infinite; }
-                `}</style>
-            </main>
+            `}</style>
         </div>
     );
 };

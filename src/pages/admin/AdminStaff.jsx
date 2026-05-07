@@ -4,7 +4,6 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { getAllStaff, createStaffAccount, updateStaffStatus, deleteStaffAccount } from '../../lib/api';
 import { UserPlus, Search, Shield, Stethoscope, Pill, FlaskConical, UserCheck, MoreVertical, X, Phone, Mail, Key } from 'lucide-react';
 import { useNotification } from '../../components/NotificationContext';
@@ -59,9 +58,7 @@ const AdminStaff = () => {
     );
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="a" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '48px 64px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px' }}>Staff Management</h1>
@@ -202,7 +199,6 @@ const AdminStaff = () => {
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 };

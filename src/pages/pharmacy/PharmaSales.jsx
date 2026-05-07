@@ -4,14 +4,11 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
-import { ShoppingBag, Search, Calendar, CreditCard, Banknote, Smartphone, User, Eye, FileText } from 'lucide-react';
+import { ShoppingBag, Search, CreditCard, Banknote, Smartphone, User, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useNotification } from '../../components/NotificationContext';
 import ReceiptModal from '../../components/pharmacy/ReceiptModal';
 
 const PharmaSales = () => {
-    const { showNotification } = useNotification();
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -76,7 +73,6 @@ const PharmaSales = () => {
     };
 
     const handleViewReceipt = async (sale) => {
-        console.log("[PharmaSales] Opening receipt for sale:", sale.sale_id);
         setPreviewLoading(true);
         try {
             // Fetch items for this sale
@@ -125,31 +121,28 @@ const PharmaSales = () => {
     );
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
-            <Sidebar userType="ph" />
-            <main style={{ flex: 1, padding: '48px 64px' }}>
+        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
                 <header style={{ marginBottom: '48px' }}>
                     <h1 style={{ fontSize: '1.875rem', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <ShoppingBag size={32} color="var(--primary)" /> Sales History
+                        <ShoppingBag size={32} color="#007bff" /> Sales History
                     </h1>
-                    <p style={{ color: 'var(--text-muted)' }}>Review and manage completed pharmacy transactions.</p>
+                    <p style={{ color: '#64748b' }}>Review and manage completed pharmacy transactions.</p>
                 </header>
 
                 <div style={{ marginBottom: '24px', position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)' }} />
+                    <Search size={18} style={{ position: 'absolute', left: '16px', top: '14px', color: '#64748b' }} />
                     <input 
                         type="text" 
                         placeholder="Search by customer name or payment method..." 
-                        className="input-field" 
-                        style={{ paddingLeft: '44px' }} 
+                        style={{ width: '100%', padding: '12px 16px 12px 44px', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '1rem', background: 'white' }} 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                        <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '0.875rem', fontWeight: '600', color: '#64748b' }}>TRANSACTION ID</th>
                                 <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '0.875rem', fontWeight: '600', color: '#64748b' }}>CUSTOMER / PATIENT</th>
@@ -161,12 +154,12 @@ const PharmaSales = () => {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="5" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>Loading sales history...</td></tr>
+                                <tr><td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>Loading sales history...</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan="5" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No transactions found.</td></tr>
+                                <tr><td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No transactions found.</td></tr>
                             ) : filtered.map(sale => (
-                                <tr key={sale.sale_id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                    <td style={{ padding: '16px 24px', fontWeight: '700', color: 'var(--primary)' }}>
+                                <tr key={sale.sale_id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                    <td style={{ padding: '16px 24px', fontWeight: '700', color: '#007bff' }}>
                                         <div style={{ fontSize: '0.875rem' }}>#SALE-{String(sale.sale_id).padStart(4, '0')}</div>
                                         <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{sale.receipt_no || 'N/A'}</div>
                                     </td>
@@ -191,6 +184,7 @@ const PharmaSales = () => {
                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                         <button 
                                             onClick={() => handleViewReceipt(sale)}
+                                            disabled={previewLoading}
                                             style={{ 
                                                 padding: '8px 12px', 
                                                 background: '#e7f2ff', 
@@ -219,7 +213,6 @@ const PharmaSales = () => {
                     onClose={() => setReceiptModal({ open: false, data: null })} 
                     saleData={receiptModal.data} 
                 />
-            </main>
         </div>
     );
 };

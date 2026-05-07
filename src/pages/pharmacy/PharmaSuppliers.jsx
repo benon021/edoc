@@ -4,13 +4,13 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
 import { 
-    Users, Plus, Search, Mail, Phone, MapPin, X, 
-    TrendingUp, Activity, Calendar, ShieldCheck, Truck, Edit2, Trash2, ShieldOff, Check
+    Users, Plus, Search, X, 
+    Activity, Calendar, ShieldCheck, Truck, Edit2, Trash2, ShieldOff, Check
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNotification } from '../../components/NotificationContext';
+
 const PharmaSuppliers = () => {
     const { showNotification } = useNotification();
     const [suppliers, setSuppliers] = useState([]);
@@ -144,13 +144,13 @@ const PharmaSuppliers = () => {
     };
 
     const filteredSuppliers = suppliers.filter(s => 
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
+        (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.contact_person || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const metrics = [
         { label: 'Total Partners', count: suppliers.length, icon: Users, color: '#007bff' },
-        { label: 'Active Contracts', count: suppliers.length, icon: ShieldCheck, color: '#28a745' },
+        { label: 'Active Contracts', count: suppliers.filter(s => s.is_active).length, icon: ShieldCheck, color: '#28a745' },
         { label: 'Logistics Nodes', count: 2, icon: Truck, color: '#f59e0b' },
         { label: 'System Health', count: '100%', icon: Activity, color: '#007bff' }
     ];
@@ -158,10 +158,7 @@ const PharmaSuppliers = () => {
     const todayDate = new Date().toISOString().split('T')[0];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#ffffff' }}>
-            <Sidebar userType="ph" />
-            <main style={{ flex: 1, padding: '24px 30px' }}>
-                
+        <div style={{ padding: '24px 40px', maxWidth: '1600px', margin: '0 auto', background: '#ffffff', minHeight: '100vh' }}>
                 {/* Edoc Style Header Search & Date */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' }}>
                     <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '300px' }}>
@@ -295,13 +292,13 @@ const PharmaSuppliers = () => {
                                 <button onClick={() => setShowEditModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
                             </div>
                             <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <input type="text" placeholder="Company Name" className="input-field" required value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
-                                <input type="text" placeholder="Contact Person" className="input-field" value={editFormData.contact_person} onChange={e => setEditFormData({...editFormData, contact_person: e.target.value})} />
+                                <input type="text" placeholder="Company Name" style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }} required value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
+                                <input type="text" placeholder="Contact Person" style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }} value={editFormData.contact_person} onChange={e => setEditFormData({...editFormData, contact_person: e.target.value})} />
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <input type="email" placeholder="Email Address" className="input-field" required value={editFormData.email} onChange={e => setEditFormData({...editFormData, email: e.target.value})} />
-                                    <input type="text" placeholder="Phone Number" className="input-field" required maxLength="10" value={editFormData.phone} onChange={e => setEditFormData({...editFormData, phone: formatPhone(e.target.value)})} />
+                                    <input type="email" placeholder="Email Address" style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }} required value={editFormData.email} onChange={e => setEditFormData({...editFormData, email: e.target.value})} />
+                                    <input type="text" placeholder="Phone Number" style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }} required maxLength="10" value={editFormData.phone} onChange={e => setEditFormData({...editFormData, phone: formatPhone(e.target.value)})} />
                                 </div>
-                                <textarea placeholder="Physical Address" className="input-field" rows="3" value={editFormData.address} onChange={e => setEditFormData({...editFormData, address: e.target.value})} />
+                                <textarea placeholder="Physical Address" style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }} rows="3" value={editFormData.address} onChange={e => setEditFormData({...editFormData, address: e.target.value})} />
                                 <button type="submit" style={{ padding: '16px', background: '#007bff', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', marginTop: '10px' }}>UPDATE PARTNER</button>
                             </form>
                         </div>
@@ -317,18 +314,17 @@ const PharmaSuppliers = () => {
                                 <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#adb5bd' }}><X size={24} /></button>
                             </div>
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <input type="text" placeholder="Company Name" className="input-field" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                                <input type="text" placeholder="Contact Person" className="input-field" value={formData.contact_person} onChange={e => setFormData({...formData, contact_person: e.target.value})} />
+                                <input type="text" placeholder="Company Name" style={{ width: '100%', padding: '12px', border: '1px solid #dee2e6', borderRadius: '4px' }} required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                <input type="text" placeholder="Contact Person" style={{ width: '100%', padding: '12px', border: '1px solid #dee2e6', borderRadius: '4px' }} value={formData.contact_person} onChange={e => setFormData({...formData, contact_person: e.target.value})} />
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                                    <input type="email" placeholder="Email Address" className="input-field" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                                    <input type="text" placeholder="Phone Number" className="input-field" required maxLength="10" value={formData.phone} onChange={e => setFormData({...formData, phone: formatPhone(e.target.value)})} />
+                                    <input type="email" placeholder="Email Address" style={{ width: '100%', padding: '12px', border: '1px solid #dee2e6', borderRadius: '4px' }} required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                                    <input type="text" placeholder="Phone Number" style={{ width: '100%', padding: '12px', border: '1px solid #dee2e6', borderRadius: '4px' }} required maxLength="10" value={formData.phone} onChange={e => setFormData({...formData, phone: formatPhone(e.target.value)})} />
                                 </div>
                                 <button type="submit" style={{ padding: '15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '700', cursor: 'pointer', marginTop: '10px' }}>ADD PARTNER</button>
                             </form>
                         </div>
                     </div>
                 )}
-            </main>
         </div>
     );
 };
