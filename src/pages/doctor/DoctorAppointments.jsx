@@ -5,7 +5,7 @@
 // =============================================================
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarRange, Filter, Search } from 'lucide-react';
+import { CalendarRange, Filter, Search, Lock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
@@ -18,22 +18,41 @@ const DoctorAppointments = () => {
     useEffect(() => {
         if (profile?.docid) {
             fetchQueue();
+
+            // LIVE SYNC: Listen for appointment changes
+            const channel = supabase
+                .channel('appt-list-updates')
+                .on('postgres_changes', { event: '*', table: 'appointment' }, (payload) => {
+                    console.log("[Realtime-Appts] Update:", payload);
+                    fetchQueue(true);
+                })
+                .subscribe((status) => {
+                    console.log("[Realtime-Appts] Status:", status);
+                });
+
+            // FALLBACK: Poll every 5 seconds
+            const pollInterval = setInterval(() => fetchQueue(true), 5000);
+
+            return () => {
+                supabase.removeChannel(channel);
+                clearInterval(pollInterval);
+            };
         }
     }, [profile]);
 
-    const fetchQueue = async () => {
+    const fetchQueue = async (silent = false) => {
         const docIdInt = parseInt(profile?.docid);
         if (isNaN(docIdInt)) {
             setLoading(false);
             return;
         }
 
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('appointment')
                 .select(`
-                    appoid, apponum, appodate, status,
+                    appoid, apponum, appodate, status, consultation_fee_paid,
                     patient:pid (pname, ptel, patient_display_id),
                     schedule:scheduleid (scheduledate, scheduletime)
                 `)
@@ -48,6 +67,7 @@ const DoctorAppointments = () => {
                     appoid: appo.appoid,
                     apponum: appo.apponum,
                     status: appo.status,
+                    is_paid: appo.consultation_fee_paid,
                     pname: appo.patient?.pname || 'Unknown Patient',
                     ptel: appo.patient?.ptel || 'N/A',
                     scheduledate: appo.schedule?.scheduledate || appo.appodate,
@@ -113,21 +133,37 @@ const DoctorAppointments = () => {
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{q.ptel}</div>
                                 </td>
                                 <td style={{ padding: '16px 24px' }}>
-                                    {q.status === 'waiting' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#fffbeb', color: '#d97706', fontSize: '0.75rem', fontWeight: '600' }}>Waiting</span>}
-                                    {(q.status === 'in_consultation' || q.status === 'Consultation') && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#eff6ff', color: '#3b82f6', fontSize: '0.75rem', fontWeight: '600' }}>Consultation</span>}
-                                    {q.status === 'pending_lab' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem', fontWeight: '600' }}>At Lab</span>}
-                                    {q.status === 'results_ready' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#f0fdf4', color: '#166534', fontSize: '0.75rem', fontWeight: '600' }}>Results Ready</span>}
-                                    {q.status?.toLowerCase() === 'completed' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#ecfdf5', color: '#059669', fontSize: '0.75rem', fontWeight: '600' }}>Done</span>}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {q.status === 'waiting' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#fffbeb', color: '#d97706', fontSize: '0.75rem', fontWeight: '600' }}>Waiting</span>}
+                                        {(q.status === 'in_consultation' || q.status === 'Consultation') && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#eff6ff', color: '#3b82f6', fontSize: '0.75rem', fontWeight: '600' }}>Consultation</span>}
+                                        {q.status === 'pending_lab' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontSize: '0.75rem', fontWeight: '600' }}>At Lab</span>}
+                                        {q.status === 'results_ready' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#f0fdf4', color: '#166534', fontSize: '0.75rem', fontWeight: '600' }}>Results Ready</span>}
+                                        {q.status?.toLowerCase() === 'completed' && <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#ecfdf5', color: '#059669', fontSize: '0.75rem', fontWeight: '600' }}>Done</span>}
+                                        
+                                        {!q.is_paid && (
+                                            <span style={{ padding: '4px 8px', borderRadius: '4px', background: '#fef2f2', color: '#dc2626', fontSize: '0.7rem', fontWeight: '800', border: '1px solid #fee2e2' }}>
+                                                UNPAID
+                                            </span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td style={{ padding: '16px 24px' }}>
-                                    <button 
-                                        onClick={async () => {
-                                            await supabase.from('appointment').update({ status: 'Consultation' }).eq('appoid', q.appoid);
-                                            navigate(`/doctor/consultation?appoid=${q.appoid}`);
-                                        }} 
-                                        style={{ background: '#2563eb', border: 'none', color: 'white', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)' }}>
-                                        Start Session
-                                    </button>
+                                    {q.is_paid ? (
+                                        <button 
+                                            onClick={async () => {
+                                                await supabase.from('appointment').update({ status: 'in_consultation' }).eq('appoid', q.appoid);
+                                                navigate(`/doctor/consultation?appoid=${q.appoid}`);
+                                            }} 
+                                            style={{ background: '#2563eb', border: 'none', color: 'white', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <CheckCircle size={14} /> {q.status === 'in_consultation' ? 'Continue Session' : 'Start Session'}
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            disabled
+                                            style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#94a3b8', padding: '8px 16px', borderRadius: '8px', cursor: 'not-allowed', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Lock size={14} /> Locked
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

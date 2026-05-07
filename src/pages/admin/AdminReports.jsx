@@ -5,7 +5,7 @@ import {
     ArrowUpRight, ArrowDownRight, UserPlus, FileText,
     Clock, AlertTriangle, Briefcase, Zap, ShieldAlert,
     ChevronRight, Search, ListFilter, PieChart, Info, ShoppingCart, Eye,
-    Printer
+    Printer, X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { printDocument } from '../../utils/printDocument';
@@ -434,7 +434,7 @@ const AdminReports = () => {
                                     <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700' }}>{breakdownConfig.level === 0 ? 'Multi-Year Fiscal Overview' : breakdownConfig.level === 1 ? `Fiscal Summary for ${breakdownConfig.year}` : breakdownConfig.level === 2 ? `Daily Log for ${MONTH_NAMES[breakdownConfig.monthIdx]} ${breakdownConfig.year}` : `Transaction Ledger`}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setBreakdownConfig({ ...breakdownConfig, show: false })} style={{ width: '36px', height: '36px', borderRadius: '50%', border: 'none', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>�</button>
+                            <button onClick={() => setBreakdownConfig({ ...breakdownConfig, show: false })} style={{ width: '36px', height: '36px', borderRadius: '50%', border: 'none', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}><X size={18} /></button>
                         </div>
 
                         {/* Modal Content - Landing Page Style */}
@@ -897,7 +897,7 @@ const RevenueReport = ({ data, onShowBreakdown, selectedYear, selectedMonth, sel
                             <button onClick={(e) => { e.stopPropagation(); window.print(); }} style={{ padding: '8px 16px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: '800' }}>
                                 <Printer size={14} /> Print
                             </button>
-                        <button onClick={() => setRevenuePatient(null)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>�</button>
+                        <button onClick={() => setRevenuePatient(null)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}><X size={18} /></button>
                     </div>
                     </div>
                     <div style={{ padding: '24px', maxHeight: '75vh', overflowY: 'auto' }} className="custom-scroll">
@@ -1272,240 +1272,240 @@ const PatientAuditModal = ({ patient, raw, onClose }) => {
                         </div>
                         <div>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#0f172a' }}>{patient?.pname || 'Unknown Patient'}</h2>
-                            <p style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '700' }}>Patient ID: {patient?.pid || 'N/A'} � Registered {patient?.pdate_registered || 'Unknown'}</p>
+                            <p style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '700' }}>Patient ID: {patient?.pid || 'N/A'} • Registered {patient?.pdate_registered || 'Unknown'}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: '#fee2e2', color: '#ef4444', fontWeight: '900', cursor: 'pointer' }}>�</button>
-                </div>
+                    <button onClick={onClose} style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: '#fee2e2', color: '#ef4444', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
+                          </div>
 
-                <div style={{ padding: '12px 32px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
-                    <TabLink id="registration" label="Registration" icon={FileText} />
-                    <TabLink id="consultation" label="Consultations" icon={Activity} />
-                    <TabLink id="lab" label="Lab Reports" icon={Microscope} />
-                    <TabLink id="medicine" label="Medicine" icon={Pill} />
-                </div>
+                          <div style={{ padding: '12px 32px', background: 'white', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+                                  <TabLink id="registration" label="Registration" icon={FileText} />
+                                  <TabLink id="consultation" label="Consultations" icon={Activity} />
+                                  <TabLink id="lab" label="Lab Reports" icon={Microscope} />
+                                  <TabLink id="medicine" label="Medicine" icon={Pill} />
+                          </div>
 
-                <div style={{ padding: '40px', flex: 1, overflowY: 'auto' }} className="custom-scroll">
-                    {auditTab === 'registration' && (
-                        <div style={{ fontFamily: "'Inter', sans-serif" }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-                                <button onClick={() => printDocument('registration', null, patient)} style={{ padding: '10px 24px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}><Printer size={15} /> Print Form</button>
-                            </div>
-                            <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '20px', overflow: 'hidden' }}>
-                                {/* Letterhead */}
-                                <div style={{ background: 'linear-gradient(135deg,#0891b2,#0f172a)', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div><h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '900', margin: 0 }}>EDOC Medical Hub</h2><p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.68rem', margin: '2px 0 0', fontWeight: '600' }}>Patient Enrollment Record � Confidential</p></div>
-                                    <div style={{ textAlign: 'right' }}><div style={{ background: 'rgba(255,255,255,0.15)', padding: '6px 14px', borderRadius: '8px', color: 'white', fontWeight: '900', fontSize: '0.8rem' }}>{patient?.patient_display_id || `PT-${patient?.pid}` || 'NOT ASSIGNED'}</div><p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.68rem', marginTop: '4px' }}>Registered: {patient?.pdate_registered ? new Date(patient.pdate_registered).toLocaleDateString() : '___________'}</p></div>
-                                </div>
-                                <div style={{ padding: '20px' }}>
-                                    {/* Photo + Name */}
-                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '18px', padding: '14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                        <div style={{ width: '64px', height: '80px', borderRadius: '8px', background: '#e2e8f0', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                                            {patient?.pphoto ? <img src={patient.pphoto} alt="pt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: '#94a3b8' }}><Users size={28} /><p style={{ fontSize: '0.55rem', marginTop: '4px', fontWeight: '700' }}>PHOTO</p></div>}
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Full Legal Name</p>
-                                            <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: '#0f172a', margin: '0 0 6px', borderBottom: '2px solid #0891b2', paddingBottom: '5px' }}>{patient?.pname || '________________________________'}</h2>
-                                            <div style={{ display: 'flex', gap: '28px' }}>
-                                                {[['Gender', patient?.pgender === 'M' ? 'Male' : patient?.pgender === 'F' ? 'Female' : patient?.pgender || '____________'], ['Blood Group', patient?.pbloodgroup || '______'], ['Marital', patient?.pmarital || '____________']].map(([l,v]) => (<div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>{l}</p><p style={{ fontWeight: '800', color: v.includes('_') ? '#cbd5e1' : '#1e293b', fontSize: '0.9rem' }}>{v}</p></div>))}
-                                            </div>
-                                        </div>
-                                    </div>
+                          <div style={{ padding: '40px', flex: 1, overflowY: 'auto' }} className="custom-scroll">
+                                  {auditTab === 'registration' && (
+                                          <div style={{ fontFamily: "'Inter', sans-serif" }}>
+                                                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                                                          <button onClick={() => printDocument('registration', null, patient)} style={{ padding: '10px 24px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}><Printer size={15} /> Print Form</button>
+                                                  </div>
+                                                  <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '20px', overflow: 'hidden' }}>
+                                                          {/* Letterhead */}
+                                                          <div style={{ background: 'linear-gradient(135deg,#0891b2,#0f172a)', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                  <div><h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '900', margin: 0 }}>EDOC Medical Hub</h2><p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.68rem', margin: '2px 0 0', fontWeight: '600' }}>Patient Enrollment Record   Confidential</p></div>
+                                                                  <div style={{ textAlign: 'right' }}><div style={{ background: 'rgba(255,255,255,0.15)', padding: '6px 14px', borderRadius: '8px', color: 'white', fontWeight: '900', fontSize: '0.8rem' }}>{patient?.patient_display_id || `PT-${patient?.pid}` || 'NOT ASSIGNED'}</div><p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.68rem', marginTop: '4px' }}>Registered: {patient?.pdate_registered ? new Date(patient.pdate_registered).toLocaleDateString() : '___________'}</p></div>
+                                                          </div>
+                                                          <div style={{ padding: '20px' }}>
+                                                                  {/* Photo + Name */}
+                                                                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '18px', padding: '14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                                          <div style={{ width: '64px', height: '80px', borderRadius: '8px', background: '#e2e8f0', border: '2px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                                                                                  {patient?.pphoto ? <img src={patient.pphoto} alt="pt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: '#94a3b8' }}><Users size={28} /><p style={{ fontSize: '0.55rem', marginTop: '4px', fontWeight: '700' }}>PHOTO</p></div>}
+                                                                          </div>
+                                                                          <div style={{ flex: 1 }}>
+                                                                                  <p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Full Legal Name</p>
+                                                                                  <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: '#0f172a', margin: '0 0 6px', borderBottom: '2px solid #0891b2', paddingBottom: '5px' }}>{patient?.pname || '________________________________'}</h2>
+                                                                                  <div style={{ display: 'flex', gap: '28px' }}>
+                                                                                          {[['Gender', patient?.pgender === 'M' ? 'Male' : patient?.pgender === 'F' ? 'Female' : patient?.pgender || '____________'], ['Blood Group', patient?.pbloodgroup || '______'], ['Marital', patient?.pmarital || '____________']].map(([l,v]) => (<div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>{l}</p><p style={{ fontWeight: '800', color: v.includes('_') ? '#cbd5e1' : '#1e293b', fontSize: '0.9rem' }}>{v}</p></div>))}
+                                                                                  </div>
+                                                                          </div>
+                                                                  </div>
 
-                                    {/* Section 1: Identity */}
-                                    <div style={{ marginBottom: '18px' }}>
-                                        <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>1. Identity &amp; Residency</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                                            {[['Date of Birth', patient?.pdob || '____ / ____ / ____'],['Phone Number', patient?.ptel || '____________________'],['Alt. Phone', patient?.palttel || '____________________'],['Email', patient?.pemail || '____________________________'],['National ID', patient?.pnic || patient?.national_id || '____________________'],['City / Town', patient?.pcity || '____________________']].map(([l,v]) => (
-                                                <div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>{l}</p><div style={{ fontSize: '0.82rem', fontWeight: '700', padding: '3px 0', borderBottom: '1px solid #cbd5e1', color: v.includes('_') ? '#cbd5e1' : '#1e293b', minHeight: '22px' }}>{v}</div></div>
-                                            ))}
-                                            <div style={{ gridColumn: 'span 3' }}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '3px' }}>Physical Address</p><div style={{ fontSize: '0.88rem', fontWeight: '700', padding: '5px 0', borderBottom: '1px solid #cbd5e1', color: patient?.paddress ? '#1e293b' : '#cbd5e1', minHeight: '28px' }}>{patient?.paddress || '________________________________________________________________________________'}</div></div>
-                                        </div>
-                                    </div>
+                                                                  {/* Section 1: Identity */}
+                                                                  <div style={{ marginBottom: '18px' }}>
+                                                                          <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>1. Identity &amp; Residency</h3>
+                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                                                                                  {[['Date of Birth', patient?.pdob || '____ / ____ / ____'],['Phone Number', patient?.ptel || '____________________'],['Alt. Phone', patient?.palttel || '____________________'],['Email', patient?.pemail || '____________________________'],['National ID', patient?.pnic || patient?.national_id || '____________________'],['City / Town', patient?.pcity || '____________________']].map(([l,v]) => (
+                                                                                          <div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>{l}</p><div style={{ fontSize: '0.82rem', fontWeight: '700', padding: '3px 0', borderBottom: '1px solid #cbd5e1', color: v.includes('_') ? '#cbd5e1' : '#1e293b', minHeight: '22px' }}>{v}</div></div>
+                                                                                  ))}
+                                                                                  <div style={{ gridColumn: 'span 3' }}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '3px' }}>Physical Address</p><div style={{ fontSize: '0.88rem', fontWeight: '700', padding: '5px 0', borderBottom: '1px solid #cbd5e1', color: patient?.paddress ? '#1e293b' : '#cbd5e1', minHeight: '28px' }}>{patient?.paddress || '________________________________________________________________________________'}</div></div>
+                                                                          </div>
+                                                                  </div>
 
-                                    {/* Section 2: Vitals */}
-                                    <div style={{ marginBottom: '18px' }}>
-                                        <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #10b981', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>2. Physiological Baseline</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
-                                            {[['Temperature', patient?.ptemp ? `${patient.ptemp}�C` : '--�C'],['Blood Pressure', patient?.pbp || '--/--'],['Weight', patient?.pweight ? `${patient.pweight} kg` : '-- kg'],['Height', patient?.pheight ? `${patient.pheight} cm` : '-- cm'],['Heart Rate', patient?.pheartrate ? `${patient.pheartrate} bpm` : '-- bpm'],['Resp. Rate', patient?.prespiratory ? `${patient.prespiratory} rpm` : '-- rpm'],['SpO2', patient?.pspo2 ? `${patient.pspo2}%` : '--%'],['BMI', (patient?.pweight && patient?.pheight) ? `${(patient.pweight/((patient.pheight/100)**2)).toFixed(1)}` : '--']].map(v => (
-                                                <div key={v[0]} style={{ padding: '8px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd', textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '0.55rem', fontWeight: '900', color: '#0369a1', textTransform: 'uppercase' }}>{v[0]}</div>
-                                                    <div style={{ fontSize: '0.95rem', fontWeight: '900', color: v[1].includes('-') ? '#94a3b8' : '#0c4a6e', marginTop: '4px' }}>{v[1]}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                                                                  {/* Section 2: Vitals */}
+                                                                  <div style={{ marginBottom: '18px' }}>
+                                                                          <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #10b981', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>2. Physiological Baseline</h3>
+                                                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
+                                                                                  {[['Temperature', patient?.ptemp ? `${patient.ptemp}°C` : '--°C'],['Blood Pressure', patient?.pbp || '--/--'],['Weight', patient?.pweight ? `${patient.pweight} kg` : '-- kg'],['Height', patient?.pheight ? `${patient.pheight} cm` : '-- cm'],['Heart Rate', patient?.pheartrate ? `${patient.pheartrate} bpm` : '-- bpm'],['Resp. Rate', patient?.prespiratory ? `${patient.prespiratory} rpm` : '-- rpm'],['SpO2', patient?.pspo2 ? `${patient.pspo2}%` : '--%'],['BMI', (patient?.pweight && patient?.pheight) ? `${(patient.pweight/((patient.pheight/100)**2)).toFixed(1)}` : '--']].map(v => (
+                                                                                          <div key={v[0]} style={{ padding: '8px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd', textAlign: 'center' }}>
+                                                                                                  <div style={{ fontSize: '0.55rem', fontWeight: '900', color: '#0369a1', textTransform: 'uppercase' }}>{v[0]}</div>
+                                                                                                  <div style={{ fontSize: '0.95rem', fontWeight: '900', color: v[1].includes('-') ? '#94a3b8' : '#0c4a6e', marginTop: '4px' }}>{v[1]}</div>
+                                                                                          </div>
+                                                                                  ))}
+                                                                          </div>
+                                                                  </div>
 
-                                    {/* Section 3: Clinical */}
-                                    <div style={{ marginBottom: '18px' }}>
-                                        <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #ef4444', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>3. Clinical Summary</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', marginBottom: '12px' }}>
-                                            <div style={{ padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', textAlign: 'center' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#166534', textTransform: 'uppercase' }}>Blood Group</div><div style={{ fontSize: '1.4rem', fontWeight: '900', color: patient?.pbloodgroup ? '#14532d' : '#94a3b8', marginTop: '4px' }}>{patient?.pbloodgroup || '____'}</div></div>
-                                            <div style={{ padding: '10px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#991b1b', textTransform: 'uppercase', marginBottom: '4px' }}>Known Allergies</div><div style={{ fontSize: '0.82rem', fontWeight: '700', color: patient?.pallergies ? '#7f1d1d' : '#94a3b8' }}>{patient?.pallergies || 'None disclosed / Not recorded'}</div></div>
-                                        </div>
-                                        <div style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '8px' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Pre-existing Conditions / Chronic Diseases</div><div style={{ fontSize: '0.82rem', fontWeight: '700', color: patient?.pconditions ? '#1e293b' : '#cbd5e1', minHeight: '28px', lineHeight: '1.6' }}>{patient?.pconditions || '________________________________________________________________________'}</div></div>
-                                        <div style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Current Medications</div><div style={{ fontSize: '0.82rem', fontWeight: '700', color: patient?.pcurrent_medications || patient?.medications ? '#1e293b' : '#cbd5e1', minHeight: '28px' }}>{patient?.pcurrent_medications || patient?.medications || '________________________________________________________________________'}</div></div>
-                                    </div>
+                                                                  {/* Section 3: Clinical */}
+                                                                  <div style={{ marginBottom: '18px' }}>
+                                                                          <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #ef4444', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>3. Clinical Summary</h3>
+                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', marginBottom: '12px' }}>
+                                                                                  <div style={{ padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', textAlign: 'center' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#166534', textTransform: 'uppercase' }}>Blood Group</div><div style={{ fontSize: '1.4rem', fontWeight: '900', color: patient?.pbloodgroup ? '#14532d' : '#94a3b8', marginTop: '4px' }}>{patient?.pbloodgroup || '____'}</div></div>
+                                                                                  <div style={{ padding: '10px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#991b1b', textTransform: 'uppercase', marginBottom: '4px' }}>Known Allergies</div><div style={{ fontSize: '0.82rem', fontWeight: '700', color: patient?.pallergies ? '#7f1d1d' : '#94a3b8' }}>{patient?.pallergies || 'None disclosed / Not recorded'}</div></div>
+                                                                          </div>
+                                                                          <div style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '8px' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Pre-existing Conditions / Chronic Diseases</div><div style={{ fontSize: '0.82rem', fontWeight: '700', color: patient?.pconditions ? '#1e293b' : '#cbd5e1', minHeight: '28px', lineHeight: '1.6' }}>{patient?.pconditions || '________________________________________________________________________'}</div></div>
+                                                                          <div style={{ padding: '10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}><div style={{ fontSize: '0.58rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Current Medications</div><div style={{ fontSize: '0.82rem', fontWeight: '700', color: patient?.pcurrent_medications || patient?.medications ? '#1e293b' : '#cbd5e1', minHeight: '28px' }}>{patient?.pcurrent_medications || patient?.medications || '________________________________________________________________________'}</div></div>
+                                                                  </div>
 
-                                    {/* Section 4: Emergency */}
-                                    <div style={{ marginBottom: '18px' }}>
-                                        <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #f59e0b', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>4. Next of Kin / Emergency Contact</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '12px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a' }}>
-                                            {[['Name', patient?.pemergency_name || '____________________'],['Phone', patient?.pemergency_phone || '____________________'],['Relationship', patient?.pemergency_relation || '____________________']].map(([l,v]) => (<div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', marginBottom: '3px' }}>{l}</p><div style={{ fontSize: '0.88rem', fontWeight: '700', padding: '5px 0', borderBottom: '1px solid #fcd34d', color: v.includes('_') ? '#cbd5e1' : '#1e293b' }}>{v}</div></div>))}
-                                        </div>
-                                    </div>
+                                                                  {/* Section 4: Emergency */}
+                                                                  <div style={{ marginBottom: '18px' }}>
+                                                                          <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #f59e0b', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>4. Next of Kin / Emergency Contact</h3>
+                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '12px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a' }}>
+                                                                                  {[['Name', patient?.pemergency_name || '____________________'],['Phone', patient?.pemergency_phone || '____________________'],['Relationship', patient?.pemergency_relation || '____________________']].map(([l,v]) => (<div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#b45309', textTransform: 'uppercase', marginBottom: '3px' }}>{l}</p><div style={{ fontSize: '0.88rem', fontWeight: '700', padding: '5px 0', borderBottom: '1px solid #fcd34d', color: v.includes('_') ? '#cbd5e1' : '#1e293b' }}>{v}</div></div>))}
+                                                                          </div>
+                                                                  </div>
 
-                                    {/* Section 5: Payment */}
-                                    <div style={{ marginBottom: '18px' }}>
-                                        <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #8b5cf6', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>5. Payment &amp; Insurance Coverage</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '12px', background: '#f5f3ff', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
-                                            {[['Payment Method', patient?.ppayment || '____________________'],['Insurance Provider', patient?.pinsurance_provider || '____________________'],['Policy / Member #', patient?.pinsurance_number || '____________________']].map(([l,v]) => (<div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#5b21b6', textTransform: 'uppercase', marginBottom: '3px' }}>{l}</p><div style={{ fontSize: '0.88rem', fontWeight: '700', padding: '5px 0', borderBottom: '1px solid #c4b5fd', color: v.includes('_') ? '#cbd5e1' : '#1e293b' }}>{v}</div></div>))}
-                                        </div>
-                                    </div>
+                                                                  {/* Section 5: Payment */}
+                                                                  <div style={{ marginBottom: '18px' }}>
+                                                                          <h3 style={{ fontSize: '0.68rem', fontWeight: '900', borderBottom: '3px solid #8b5cf6', paddingBottom: '5px', marginBottom: '16px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.08em' }}>5. Payment &amp; Insurance Coverage</h3>
+                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '12px', background: '#f5f3ff', borderRadius: '10px', border: '1px solid #ddd6fe' }}>
+                                                                                  {[['Payment Method', patient?.ppayment || '____________________'],['Insurance Provider', patient?.pinsurance_provider || '____________________'],['Policy / Member #', patient?.pinsurance_number || '____________________']].map(([l,v]) => (<div key={l}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#5b21b6', textTransform: 'uppercase', marginBottom: '3px' }}>{l}</p><div style={{ fontSize: '0.88rem', fontWeight: '700', padding: '5px 0', borderBottom: '1px solid #c4b5fd', color: v.includes('_') ? '#cbd5e1' : '#1e293b' }}>{v}</div></div>))}
+                                                                          </div>
+                                                                  </div>
 
-                                    {/* Signature Footer */}
-                                    <div style={{ borderTop: '2px solid #0f172a', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginTop: '4px' }}>
-                                        <div><p style={{ fontSize: '0.72rem', fontWeight: '600', color: '#64748b', lineHeight: '1.7' }}>I certify that the information above is accurate. I consent to the collection and processing of my medical data for clinical purposes by EDOC Medical Hub.</p><div style={{ marginTop: '20px', borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Patient / Guardian Signature &amp; Date</div></div>
-                                        <div style={{ textAlign: 'right' }}><div style={{ height: '44px' }} /><div style={{ borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Registrar Signature</div><div style={{ borderTop: '1px solid #94a3b8', marginTop: '28px', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8' }}>Official Stamp</div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                                                                  {/* Signature Footer */}
+                                                                  <div style={{ borderTop: '2px solid #0f172a', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginTop: '4px' }}>
+                                                                          <div><p style={{ fontSize: '0.72rem', fontWeight: '600', color: '#64748b', lineHeight: '1.7' }}>I certify that the information above is accurate. I consent to the collection and processing of my medical data for clinical purposes by EDOC Medical Hub.</p><div style={{ marginTop: '20px', borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Patient / Guardian Signature &amp; Date</div></div>
+                                                                          <div style={{ textAlign: 'right' }}><div style={{ height: '44px' }} /><div style={{ borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Registrar Signature</div><div style={{ borderTop: '1px solid #94a3b8', marginTop: '28px', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8' }}>Official Stamp</div></div>
+                                                                  </div>
+                                                          </div>
+                                                  </div>
+                                          </div>
+                                  )}
 
-                    {auditTab === 'consultation' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {consults.length > 0 ? consults.map((c, i) => {
-                                const key = `consult-${i}`;
-                                const open = expandedDoc === key;
-                                let parsedResults = {};
-                                try { if (c.results) parsedResults = JSON.parse(c.results); } catch(e){}
-                                const F = ({label, value, span}) => (<div style={{ gridColumn: span ? `span ${span}` : undefined }}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>{label}</p><div style={{ fontSize: '0.82rem', fontWeight: '700', padding: '4px 0', borderBottom: '1px solid #e2e8f0', color: value ? '#1e293b' : '#cbd5e1', minHeight: '24px' }}>{value || '________________________________'}</div></div>);
-                                return (
-                                    <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #3b82f6' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#eff6ff' : '#f8fafc' }}>
-                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                                <div style={{ width: '36px', height: '36px', background: '#3b82f6', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}>{i+1}</div>
-                                                <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#3b82f6' }}>{c.consultation_date ? new Date(c.consultation_date).toLocaleDateString() : c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'} � {c.consultation_type || 'General'} � <span style={{ color: c.status === 'final' ? '#10b981' : '#f59e0b' }}>{c.status || 'draft'}</span></p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{c.diagnosis || c.clinical_impression || 'Clinical Consultation'}</p></div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#3b82f6' : 'white', color: open ? 'white' : '#3b82f6', border: '1px solid #3b82f6', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
-                                            </div>
-                                        </div>
-                                        {open && (
-                                            <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0' }}>
-                                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '14px', letterSpacing: '0.08em' }}>SOAP Consultation Form</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                                                    <F label="Chief Complaint" value={c.chief_complaint} />
-                                                    <F label="Symptoms" value={c.symptoms} />
-                                                    <F label="Consultation Type" value={c.consultation_type} />
-                                                    <F label="History of Present Illness" value={c.hpi} span={3} />
-                                                </div>
-                                                <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', margin: '12px 0 8px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>Past Medical History</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                                                    <F label="PMH" value={c.pmh} />
-                                                    <F label="Surgical History" value={c.surgical_history} />
-                                                    <F label="Social History" value={c.social_history} />
-                                                    <F label="Obstetric History" value={c.obstetric_history} />
-                                                    <F label="Immunization" value={c.immunization_history} />
-                                                    <F label="Review of Systems" value={c.ros} />
-                                                </div>
-                                                <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', margin: '12px 0 8px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>Physical Examination</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                                                    <F label="General Appearance" value={c.general_appearance} />
-                                                    <F label="Cardiovascular" value={c.cardiovascular} />
-                                                    <F label="Respiratory" value={c.respiratory} />
-                                                    <F label="Abdomen" value={c.abdomen} />
-                                                    <F label="Neurological" value={c.neurological} />
-                                                    <F label="Skin" value={c.skin} />
-                                                </div>
-                                                <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#10b981', textTransform: 'uppercase', margin: '12px 0 8px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>Assessment & Plan</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                                    <F label="Primary Diagnosis" value={c.diagnosis || c.primary_diagnosis_code} />
-                                                    <F label="ICD-10 Code" value={c.primary_diagnosis_code} />
-                                                    <F label="Clinical Impression" value={c.clinical_impression} span={2} />
-                                                    <F label="Management Plan" value={c.management_plan} span={2} />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            }) : <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No consultation history found.</div>}
-                        </div>
-                    )}
+                                  {auditTab === 'consultation' && (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                  {consults.length > 0 ? consults.map((c, i) => {
+                                                          const key = `consult-${i}`;
+                                                          const open = expandedDoc === key;
+                                                          let parsedResults = {};
+                                                          try { if (c.results) parsedResults = JSON.parse(c.results); } catch(e){}
+                                                          const F = ({label, value, span}) => (<div style={{ gridColumn: span ? `span ${span}` : undefined }}><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>{label}</p><div style={{ fontSize: '0.82rem', fontWeight: '700', padding: '4px 0', borderBottom: '1px solid #e2e8f0', color: value ? '#1e293b' : '#cbd5e1', minHeight: '24px' }}>{value || '________________________________'}</div></div>);
+                                                          return (
+                                                                  <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #3b82f6' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
+                                                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#eff6ff' : '#f8fafc' }}>
+                                                                                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                                                                          <div style={{ width: '36px', height: '36px', background: '#3b82f6', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}>{i+1}</div>
+                                                                                          <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#3b82f6' }}>{c.consultation_date ? new Date(c.consultation_date).toLocaleDateString() : c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'}   {c.consultation_type || 'General'}   <span style={{ color: c.status === 'final' ? '#10b981' : '#f59e0b' }}>{c.status || 'draft'}</span></p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{c.diagnosis || c.clinical_impression || 'Clinical Consultation'}</p></div>
+                                                                                  </div>
+                                                                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                          <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
+                                                                                          <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#3b82f6' : 'white', color: open ? 'white' : '#3b82f6', border: '1px solid #3b82f6', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
+                                                                                  </div>
+                                                                          </div>
+                                                                          {open && (
+                                                                                  <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0' }}>
+                                                                                          <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '14px', letterSpacing: '0.08em' }}>SOAP Consultation Form</div>
+                                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                                                                                  <F label="Chief Complaint" value={c.chief_complaint} />
+                                                                                                  <F label="Symptoms" value={c.symptoms} />
+                                                                                                  <F label="Consultation Type" value={c.consultation_type} />
+                                                                                                  <F label="History of Present Illness" value={c.hpi} span={3} />
+                                                                                          </div>
+                                                                                          <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', margin: '12px 0 8px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>Past Medical History</div>
+                                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                                                                                  <F label="PMH" value={c.pmh} />
+                                                                                                  <F label="Surgical History" value={c.surgical_history} />
+                                                                                                  <F label="Social History" value={c.social_history} />
+                                                                                                  <F label="Obstetric History" value={c.obstetric_history} />
+                                                                                                  <F label="Immunization" value={c.immunization_history} />
+                                                                                                  <F label="Review of Systems" value={c.ros} />
+                                                                                          </div>
+                                                                                          <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#475569', textTransform: 'uppercase', margin: '12px 0 8px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>Physical Examination</div>
+                                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                                                                                  <F label="General Appearance" value={c.general_appearance} />
+                                                                                                  <F label="Cardiovascular" value={c.cardiovascular} />
+                                                                                                  <F label="Respiratory" value={c.respiratory} />
+                                                                                                  <F label="Abdomen" value={c.abdomen} />
+                                                                                                  <F label="Neurological" value={c.neurological} />
+                                                                                                  <F label="Skin" value={c.skin} />
+                                                                                          </div>
+                                                                                          <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#10b981', textTransform: 'uppercase', margin: '12px 0 8px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>Assessment & Plan</div>
+                                                                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                                                                                  <F label="Primary Diagnosis" value={c.diagnosis || c.primary_diagnosis_code} />
+                                                                                                  <F label="ICD-10 Code" value={c.primary_diagnosis_code} />
+                                                                                                  <F label="Clinical Impression" value={c.clinical_impression} span={2} />
+                                                                                                  <F label="Management Plan" value={c.management_plan} span={2} />
+                                                                                          </div>
+                                                                                  </div>
+                                                                          )}
+                                                                  </div>
+                                                          );
+                                                  }) : <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No consultation history found.</div>}
+                                          </div>
+                                  )}
 
-                    {auditTab === 'lab' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {labs.length > 0 ? labs.map((l, i) => {
-                                const key = `lab-${i}`;
-                                const open = expandedDoc === key;
-                                let parsedResults = {};
-                                try { parsedResults = l.results ? JSON.parse(l.results) : {}; } catch(e){}
-                                const resultEntries = Object.entries(parsedResults);
-                                return (
-                                    <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #10b981' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#f0fdf4' : '#f8fafc' }}>
-                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                                <div style={{ width: '36px', height: '36px', background: '#10b981', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}><Microscope size={16} /></div>
-                                                <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#059669' }}>Ref #LR-{l.id || i+1} � {l.created_at ? new Date(l.created_at).toLocaleDateString() : 'N/A'}</p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{l.test_name || 'Laboratory Investigation'}</p></div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#10b981' : 'white', color: open ? 'white' : '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
-                                            </div>
-                                        </div>
-                                        {open && (
-                                            <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0' }}>
-                                                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px 18px', marginBottom: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                                                    <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Patient</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{patient?.pname || 'N/A'}</p></div>
-                                                    <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Test Name</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{l.test_name || '�'}</p></div>
-                                                    <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Date</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '�'}</p></div>
-                                                </div>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                                                    <thead><tr style={{ background: '#f1f5f9' }}>{['Parameter','Result','Normal Range','Status'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.6rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
-                                                    <tbody>
-                                                        {resultEntries.length > 0 ? resultEntries.map(([param, data], ri) => (
-                                                            <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                                <td style={{ padding: '8px 12px', fontWeight: '700', color: '#1e293b' }}>{param}</td>
-                                                                <td style={{ padding: '8px 12px', fontWeight: '900', color: data?.value ? '#0f172a' : '#94a3b8' }}>{data?.value || '�'} {data?.unit || ''}</td>
-                                                                <td style={{ padding: '8px 12px', color: '#64748b' }}>{data?.ref || '�'}</td>
-                                                                <td style={{ padding: '8px 12px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '800', background: data?.status === 'Normal' ? '#f0fdf4' : '#fef2f2', color: data?.status === 'Normal' ? '#166534' : '#dc2626' }}>{data?.status || '�'}</span></td>
-                                                            </tr>
-                                                        )) : <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No detailed results recorded</td></tr>}
-                                                    </tbody>
-                                                </table>
-                                                {l.notes && <div style={{ marginTop: '12px', padding: '12px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', fontSize: '0.82rem', color: '#92400e' }}><strong>Notes:</strong> {l.notes}</div>}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            }) : <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No laboratory results available.</div>}
-                        </div>
-                    )}
+                                  {auditTab === 'lab' && (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                  {labs.length > 0 ? labs.map((l, i) => {
+                                                          const key = `lab-${i}`;
+                                                          const open = expandedDoc === key;
+                                                          let parsedResults = {};
+                                                          try { parsedResults = l.results ? JSON.parse(l.results) : {}; } catch(e){}
+                                                          const resultEntries = Object.entries(parsedResults);
+                                                          return (
+                                                                  <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #10b981' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
+                                                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#f0fdf4' : '#f8fafc' }}>
+                                                                                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                                                                          <div style={{ width: '36px', height: '36px', background: '#10b981', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}><Microscope size={16} /></div>
+                                                                                          <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#059669' }}>Ref #LR-{l.id || i+1}   {l.created_at ? new Date(l.created_at).toLocaleDateString() : 'N/A'}</p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{l.test_name || 'Laboratory Investigation'}</p></div>
+                                                                                  </div>
+                                                                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                          <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
+                                                                                          <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#10b981' : 'white', color: open ? 'white' : '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
+                                                                                  </div>
+                                                                          </div>
+                                                                          {open && (
+                                                                                  <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0' }}>
+                                                                                          <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px 18px', marginBottom: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                                                                                  <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Patient</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{patient?.pname || 'N/A'}</p></div>
+                                                                                                  <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Test Name</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{l.test_name || '—'}</p></div>
+                                                                                                  <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Date</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</p></div>
+                                                                                          </div>
+                                                                                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                                                                                  <thead><tr style={{ background: '#f1f5f9' }}>{['Parameter','Result','Normal Range','Status'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.6rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                                                                                                  <tbody>
+                                                                                                          {resultEntries.length > 0 ? resultEntries.map(([param, data], ri) => (
+                                                                                                                  <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                                                                                          <td style={{ padding: '8px 12px', fontWeight: '700', color: '#1e293b' }}>{param}</td>
+                                                                                                                          <td style={{ padding: '8px 12px', fontWeight: '900', color: data?.value ? '#0f172a' : '#94a3b8' }}>{data?.value || '—'} {data?.unit || ''}</td>
+                                                                                                                          <td style={{ padding: '8px 12px', color: '#64748b' }}>{data?.ref || '—'}</td>
+                                                                                                                          <td style={{ padding: '8px 12px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '800', background: data?.status === 'Normal' ? '#f0fdf4' : '#fef2f2', color: data?.status === 'Normal' ? '#166534' : '#dc2626' }}>{data?.status || '—'}</span></td>
+                                                                                                                  </tr>
+                                                                                                          )) : <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No detailed results recorded</td></tr>}
+                                                                                                  </tbody>
+                                                                                          </table>
+                                                                                          {l.notes && <div style={{ marginTop: '12px', padding: '12px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', fontSize: '0.82rem', color: '#92400e' }}><strong>Notes:</strong> {l.notes}</div>}
+                                                                                  </div>
+                                                                          )}
+                                                                  </div>
+                                                          );
+                                                  }) : <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No laboratory results available.</div>}
+                                          </div>
+                                  )}
 
-                    {auditTab === 'medicine' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {meds.length > 0 ? meds.map((m, i) => {
-                                const key = `med-${i}`;
-                                const open = expandedDoc === key;
-                                return (
-                                    <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #f59e0b' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#fffbeb' : '#f8fafc' }}>
-                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                                <div style={{ width: '36px', height: '36px', background: '#f59e0b', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}><Pill size={16} /></div>
-                                                <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#b45309' }}>{m.date || (m.created_at ? new Date(m.created_at).toLocaleDateString() : 'N/A')}</p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{m.drug_name || m.medicine_name || 'Prescription'} {m.dosage ? `� ${m.dosage}` : ''}</p></div>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
-                                                <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#f59e0b' : 'white', color: open ? 'white' : '#b45309', border: '1px solid #f59e0b', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
-                                            </div>
-                                        </div>
-                                        {open && (
-                                            <div style={{ padding: '20px 24px', borderTop: '1px solid #fde68a' }}>
-                                                <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', borderRadius: '12px', padding: '16px 20px', color: 'white', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <div><p style={{ opacity: 0.65, fontSize: '0.65rem', fontWeight: '700' }}>PRESCRIPTION SLIP</p><p style={{ fontWeight: '900', fontSize: '1rem', marginTop: '2px' }}>{patient?.pname || 'Patient'}</p></div>
-                                                    <div style={{ textAlign: 'right' }}><p style={{ opacity: 0.65, fontSize: '0.65rem', fontWeight: '700' }}>DATE</p><p style={{ fontWeight: '800', fontSize: '0.85rem' }}>{m.date || (m.created_at ? new Date(m.created_at).toLocaleDateString() : '�')}</p></div>
+                                  {auditTab === 'medicine' && (
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                  {meds.length > 0 ? meds.map((m, i) => {
+                                                          const key = `med-${i}`;
+                                                          const open = expandedDoc === key;
+                                                          return (
+                                                                  <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #f59e0b' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
+                                                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#fffbeb' : '#f8fafc' }}>
+                                                                                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                                                                          <div style={{ width: '36px', height: '36px', background: '#f59e0b', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}><Pill size={16} /></div>
+                                                                                          <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#b45309' }}>{m.date || (m.created_at ? new Date(m.created_at).toLocaleDateString() : 'N/A')}</p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{m.drug_name || m.medicine_name || 'Prescription'} {m.dosage ? `  ${m.dosage}` : ''}</p></div>
+                                                                                  </div>
+                                                                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                          <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
+                                                                                          <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#f59e0b' : 'white', color: open ? 'white' : '#b45309', border: '1px solid #f59e0b', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
+                                                                                  </div>
+                                                                          </div>
+                                                                          {open && (
+                                                                                  <div style={{ padding: '20px 24px', borderTop: '1px solid #fde68a' }}>
+                                                                                          <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e3a5f)', borderRadius: '12px', padding: '16px 20px', color: 'white', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                                  <div><p style={{ opacity: 0.65, fontSize: '0.65rem', fontWeight: '700' }}>PRESCRIPTION SLIP</p><p style={{ fontWeight: '900', fontSize: '1rem', marginTop: '2px' }}>{patient?.pname || 'Patient'}</p></div>
+                                                                                                  <div style={{ textAlign: 'right' }}><p style={{ opacity: 0.65, fontSize: '0.65rem', fontWeight: '700' }}>DATE</p><p style={{ fontWeight: '800', fontSize: '0.85rem' }}>{m.date || (m.created_at ? new Date(m.created_at).toLocaleDateString() : '—')}</p></div>
                                                 </div>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                                                     {[['Drug Name', m.drug_name || m.medicine_name],['Brand Name', m.brand_name],['Drug Form', m.drug_form],['Dosage', m.dosage],['Frequency', m.frequency],['Route', m.route],['Duration', m.duration],['Quantity', m.quantity],['Refills', m.refills || '0'],['Food Relation', m.food_relation],['Instructions', m.instructions]].map(([l,v]) => (

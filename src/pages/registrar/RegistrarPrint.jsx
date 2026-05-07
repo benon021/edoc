@@ -161,119 +161,155 @@ const RegistrarPrint = () => {
                     </div>
                 )}
 
-                {/* ── PRINTABLE: PAGE 1 & 2 ── */}
+                {/* ── DOCUMENT PREVIEW MODAL ── */}
                 {selectedPatient && (
-                    <div className="print-only" style={{ display: 'none' }}>
-                        {/* PAGE 1 */}
-                        <div style={{ padding: '40px 60px', background: 'white', minHeight: '1050px', fontFamily: 'Inter,sans-serif', pageBreakAfter: 'always' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '30px', marginBottom: '40px' }}>
-                                <div style={{ width: '140px', height: '140px', borderRadius: '24px', background: 'linear-gradient(135deg,#06b6d4,#10b981)', padding: '6px', flexShrink: 0 }}>
-                                    <div style={{ width: '100%', height: '100%', borderRadius: '18px', background: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {selectedPatient.pphoto
-                                            ? <img src={selectedPatient.pphoto} alt="Patient" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            : <Users size={55} color="#94a3b8" />}
-                                    </div>
+                    <div style={{ 
+                        position: 'fixed', inset: 0, zIndex: 5000, 
+                        background: 'rgba(15, 23, 42, 0.95)', 
+                        backdropFilter: 'blur(10px)',
+                        display: 'flex', flexDirection: 'column',
+                        animation: 'fadeIn 0.3s ease'
+                    }}>
+                        {/* Preview Control Bar */}
+                        <div className="no-print" style={{ 
+                            padding: '16px 40px', background: 'white', borderBottom: '1px solid #e2e8f0', 
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#0891b2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FileText size={18} color="white" />
                                 </div>
                                 <div>
-                                    <h1 style={{ fontSize: '38px', fontWeight: '900', color: '#1e293b', margin: 0 }}>Patient Enrollment</h1>
-                                    <p style={{ color: '#64748b', margin: '4px 0' }}>Part 1 of 2 — Primary Identity &amp; Physiological Baseline</p>
-                                    <div style={{ marginTop: '10px', padding: '6px 14px', background: '#f1f5f9', borderRadius: '8px', display: 'inline-block', fontSize: '13px', fontWeight: '800', color: '#0891b2' }}>
-                                        SYSTEM ID: {selectedPatient.patient_display_id}
-                                    </div>
+                                    <h2 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>Document Preview</h2>
+                                    <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>Reviewing Dossier for {selectedPatient.pname}</p>
                                 </div>
                             </div>
-
-                            <div style={{ marginBottom: '50px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '24px', color: '#1e293b', textTransform: 'uppercase' }}>1. Basic Identity &amp; Residency</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                    <div><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>FIRST NAME</label><div style={{ fontSize: '17px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>{selectedPatient.pname?.split(' ')[0] || '____________________'}</div></div>
-                                    <div><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>LAST NAME</label><div style={{ fontSize: '17px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>{selectedPatient.pname?.split(' ').slice(1).join(' ') || '____________________'}</div></div>
-                                    <div><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>DATE OF BIRTH</label><div style={{ fontSize: '17px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>{selectedPatient.pdob || '____ / ____ / ____'}</div></div>
-                                    <div><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>GENDER</label><div style={{ fontSize: '17px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>{selectedPatient.pgender || '__________'}</div></div>
-                                    <div><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PHONE</label><div style={{ fontSize: '17px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>{selectedPatient.ptel || '__________________'}</div></div>
-                                    <div><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>EMAIL</label><div style={{ fontSize: '17px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>{selectedPatient.pemail || '__________________'}</div></div>
-                                    <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>PHYSICAL ADDRESS</label><div style={{ fontSize: '15px', fontWeight: '700', padding: '8px 0', borderBottom: '1px solid #e2e8f0', minHeight: '36px' }}>{selectedPatient.paddress || '________________________________________________________________________'}</div></div>
-                                </div>
-                            </div>
-
-                            <div style={{ marginBottom: '40px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '24px', color: '#1e293b', textTransform: 'uppercase' }}>2. Physiological Baseline (Initial Vitals)</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px' }}>
-                                    {[
-                                        { label: 'TEMPERATURE', value: selectedPatient.ptemp ? `${selectedPatient.ptemp}°C` : '--°C' },
-                                        { label: 'BLOOD PRESSURE', value: selectedPatient.pbp || '--/--' },
-                                        { label: 'WEIGHT', value: selectedPatient.pweight ? `${selectedPatient.pweight} KG` : '-- KG' },
-                                        { label: 'HEIGHT', value: selectedPatient.pheight ? `${selectedPatient.pheight} CM` : '-- CM' },
-                                    ].map(v => (
-                                        <div key={v.label} style={{ padding: '20px', background: '#f0f9ff', borderRadius: '16px', border: '1px solid #bae6fd', textAlign: 'center' }}>
-                                            <div style={{ fontSize: '9px', fontWeight: '900', color: '#0369a1' }}>{v.label}</div>
-                                            <div style={{ fontSize: '24px', fontWeight: '900', color: '#0c4a6e', marginTop: '8px' }}>{v.value}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'center', fontSize: '11px', color: '#cbd5e1', marginTop: '40px' }}>
-                                Clinical record for {selectedPatient.pname} — Page 1 of 2
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => setSelectedPatient(null)} style={{ padding: '10px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', fontWeight: '700', cursor: 'pointer', color: '#64748b' }}>Close Preview</button>
+                                <button onClick={() => window.print()} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: '#0891b2', color: 'white', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Printer size={18} /> Send to Printer
+                                </button>
                             </div>
                         </div>
 
-                        {/* PAGE 2 */}
-                        <div style={{ padding: '40px 60px', background: 'white', minHeight: '1050px', fontFamily: 'Inter,sans-serif' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '4px solid #1e293b', paddingBottom: '16px', marginBottom: '36px' }}>
-                                <div>
-                                    <h2 style={{ fontSize: '22px', fontWeight: '900', color: '#1e293b', margin: 0 }}>PART 2: CLINICAL DEPTH &amp; ADMIN</h2>
-                                    <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0' }}>REF: {selectedPatient.patient_display_id}</p>
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: '36px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '20px', color: '#1e293b', textTransform: 'uppercase' }}>3. Clinical Summary</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-                                    <div style={{ padding: '18px', background: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: '900', color: '#166534' }}>BLOOD GROUP</div>
-                                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#14532d', marginTop: '8px' }}>{selectedPatient.pbloodgroup || '____'}</div>
+                        {/* Paper Preview Area */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px' }}>
+                            {/* PAGE 1 */}
+                            <div className="printable-page" style={{ 
+                                width: '210mm', minHeight: '297mm', background: 'white', padding: '60px 80px', 
+                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', borderRadius: '2px', position: 'relative' 
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '40px', marginBottom: '60px' }}>
+                                    <div style={{ width: '160px', height: '160px', borderRadius: '24px', background: '#f8fafc', padding: '4px', border: '2px dashed #cbd5e1', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {selectedPatient.pphoto
+                                            ? <img src={selectedPatient.pphoto} alt="Patient" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '20px' }} />
+                                            : <Users size={60} color="#cbd5e1" />}
                                     </div>
-                                    <div style={{ padding: '18px', background: '#fef2f2', borderRadius: '14px', border: '1px solid #fecaca' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: '900', color: '#991b1b' }}>IDENTIFIED ALLERGIES</div>
-                                        <div style={{ fontSize: '15px', fontWeight: '700', color: '#7f1d1d', marginTop: '8px' }}>{selectedPatient.pallergies || 'NONE DISCLOSED'}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: '36px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '20px', color: '#1e293b', textTransform: 'uppercase' }}>4. History &amp; Chronic Observations</h3>
-                                <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', minHeight: '100px', fontSize: '14px', lineHeight: '1.8', color: '#1e293b' }}>
-                                    {selectedPatient.pconditions || '_________________________________________________________________________________________________________________________________________________'}
-                                </div>
-                            </div>
-                            <div style={{ marginBottom: '36px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: '900', borderBottom: '3px solid #0891b2', paddingBottom: '8px', marginBottom: '20px', color: '#1e293b', textTransform: 'uppercase' }}>5. Admin &amp; Emergency Security</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                    <div style={{ padding: '18px', background: '#f5f3ff', borderRadius: '12px', border: '1px solid #ddd6fe' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: '900', color: '#5b21b6', marginBottom: '10px' }}>PAYMENT &amp; COVERAGE</div>
-                                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>Method:</strong> {selectedPatient.ppayment || '____________'}</p>
-                                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>Provider:</strong> {selectedPatient.pinsurance_provider || '____________'}</p>
-                                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>Policy #:</strong> {selectedPatient.pinsurance_number || '____________'}</p>
-                                    </div>
-                                    <div style={{ padding: '18px', background: '#fffbeb', borderRadius: '12px', border: '1px solid #fde68a' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: '900', color: '#b45309', marginBottom: '10px' }}>NEXT OF KIN</div>
-                                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>Name:</strong> {selectedPatient.pemergency_name || '____________'}</p>
-                                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>Phone:</strong> {selectedPatient.pemergency_phone || '____________'}</p>
-                                        <p style={{ fontSize: '13px', margin: '4px 0' }}><strong>Relation:</strong> {selectedPatient.pemergency_relation || '____________'}</p>
+                                    <div>
+                                        <h1 style={{ fontSize: '42px', fontWeight: '900', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Patient Enrollment</h1>
+                                        <p style={{ color: '#64748b', margin: '8px 0', fontSize: '18px', fontWeight: '500' }}>Part 1 of 2 — Primary Identity & Physiological Baseline</p>
+                                        <div style={{ marginTop: '16px', padding: '8px 16px', background: '#f1f5f9', borderRadius: '8px', display: 'inline-block', fontSize: '14px', fontWeight: '900', color: '#0891b2', border: '1px solid #e2e8f0' }}>
+                                            SYSTEM ID: {selectedPatient.patient_display_id}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div style={{ borderTop: '4px solid #1e293b', paddingTop: '30px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '40px', marginTop: '40px' }}>
-                                <div>
-                                    <h4 style={{ fontWeight: '900', marginBottom: '10px' }}>Official Clinical Declaration</h4>
-                                    <p style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.6' }}>This electronic record constitutes an official medical document of EDOC Medical Hub. Certified accurate per clinical intake protocols.</p>
+
+                                <div style={{ marginBottom: '60px' }}>
+                                    <h3 style={{ fontSize: '14px', fontWeight: '900', borderBottom: '3px solid #0f172a', paddingBottom: '12px', marginBottom: '32px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Basic Identity & Residency</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+                                        <div><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>First Name</label><div style={{ fontSize: '18px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b' }}>{selectedPatient.pname?.split(' ')[0] || '—'}</div></div>
+                                        <div><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Last Name</label><div style={{ fontSize: '18px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b' }}>{selectedPatient.pname?.split(' ').slice(1).join(' ') || '—'}</div></div>
+                                        <div><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Date of Birth</label><div style={{ fontSize: '18px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b' }}>{selectedPatient.pdob || '—'}</div></div>
+                                        <div><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Gender</label><div style={{ fontSize: '18px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b' }}>{selectedPatient.pgender || '—'}</div></div>
+                                        <div><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Contact Phone</label><div style={{ fontSize: '18px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b' }}>{selectedPatient.ptel || '—'}</div></div>
+                                        <div><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Email Address</label><div style={{ fontSize: '18px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', color: '#1e293b' }}>{selectedPatient.pemail || '—'}</div></div>
+                                        <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Residential Physical Address</label><div style={{ fontSize: '16px', fontWeight: '700', padding: '12px 0', borderBottom: '1px solid #f1f5f9', minHeight: '44px', color: '#1e293b' }}>{selectedPatient.paddress || '—'}</div></div>
+                                    </div>
                                 </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ height: '50px' }} />
-                                    <div style={{ borderTop: '2px solid #1e293b', paddingTop: '8px', fontSize: '12px', fontWeight: '700' }}>Registrar: {profile?.regname || profile?.docname || 'ADMINISTRATOR'}</div>
-                                    <div style={{ borderTop: '1px solid #94a3b8', marginTop: '30px', paddingTop: '8px', fontSize: '12px', fontWeight: '700' }}>INSTITUTIONAL STAMP</div>
+
+                                <div style={{ marginBottom: '60px' }}>
+                                    <h3 style={{ fontSize: '14px', fontWeight: '900', borderBottom: '3px solid #0f172a', paddingBottom: '12px', marginBottom: '32px', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Physiological Baseline (Initial Vitals)</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '20px' }}>
+                                        {[
+                                            { label: 'TEMPERATURE', value: selectedPatient.ptemp ? `${selectedPatient.ptemp}°C` : '--°C' },
+                                            { label: 'BLOOD PRESSURE', value: selectedPatient.pbp || '--/--' },
+                                            { label: 'WEIGHT', value: selectedPatient.pweight ? `${selectedPatient.pweight} KG` : '-- KG' },
+                                            { label: 'HEIGHT', value: selectedPatient.pheight ? `${selectedPatient.pheight} CM` : '-- CM' },
+                                        ].map(v => (
+                                            <div key={v.label} style={{ padding: '24px 16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: '900', color: '#64748b', marginBottom: '8px' }}>{v.label}</div>
+                                                <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>{v.value}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ position: 'absolute', bottom: '60px', left: 0, right: 0, textAlign: 'center', fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>
+                                    Clinical record for {selectedPatient.pname} • Page 1 of 2 • Generated on {new Date().toLocaleDateString()}
                                 </div>
                             </div>
-                            <div style={{ textAlign: 'center', fontSize: '11px', color: '#cbd5e1', marginTop: '30px' }}>
-                                REF: {selectedPatient.patient_display_id} — Page 2 of 2
+
+                            {/* PAGE 2 */}
+                            <div className="printable-page" style={{ 
+                                width: '210mm', minHeight: '297mm', background: 'white', padding: '80px', 
+                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', borderRadius: '2px', position: 'relative' 
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '5px solid #0f172a', paddingBottom: '20px', marginBottom: '48px' }}>
+                                    <div>
+                                        <h2 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', margin: 0, textTransform: 'uppercase' }}>PART 2: CLINICAL DEPTH & ADMIN</h2>
+                                        <p style={{ fontSize: '14px', color: '#64748b', margin: '4px 0', fontWeight: '600' }}>CASE REF: {selectedPatient.patient_display_id}</p>
+                                    </div>
+                                </div>
+                                <div style={{ marginBottom: '48px' }}>
+                                    <h3 style={{ fontSize: '14px', fontWeight: '900', borderBottom: '3px solid #0f172a', paddingBottom: '12px', marginBottom: '24px', color: '#0f172a', textTransform: 'uppercase' }}>3. Clinical Summary</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+                                        <div style={{ padding: '24px', background: '#f0fdf4', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
+                                            <div style={{ fontSize: '10px', fontWeight: '900', color: '#166534', letterSpacing: '0.05em' }}>BLOOD GROUP</div>
+                                            <div style={{ fontSize: '32px', fontWeight: '900', color: '#14532d', marginTop: '12px' }}>{selectedPatient.pbloodgroup || 'N/A'}</div>
+                                        </div>
+                                        <div style={{ padding: '24px', background: '#fef2f2', borderRadius: '16px', border: '1px solid #fecaca' }}>
+                                            <div style={{ fontSize: '10px', fontWeight: '900', color: '#991b1b', letterSpacing: '0.05em' }}>IDENTIFIED ALLERGIES</div>
+                                            <div style={{ fontSize: '16px', fontWeight: '700', color: '#7f1d1d', marginTop: '12px', lineHeight: '1.5' }}>{selectedPatient.pallergies || 'NO KNOWN ALLERGIES DISCLOSED'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ marginBottom: '48px' }}>
+                                    <h3 style={{ fontSize: '14px', fontWeight: '900', borderBottom: '3px solid #0f172a', paddingBottom: '12px', marginBottom: '24px', color: '#0f172a', textTransform: 'uppercase' }}>4. History & Chronic Observations</h3>
+                                    <div style={{ padding: '30px', border: '2px solid #f1f5f9', borderRadius: '16px', minHeight: '140px', fontSize: '16px', lineHeight: '1.8', color: '#1e293b', background: '#fcfdfe' }}>
+                                        {selectedPatient.pconditions || 'No significant medical history or chronic conditions recorded at the time of intake.'}
+                                    </div>
+                                </div>
+                                <div style={{ marginBottom: '60px' }}>
+                                    <h3 style={{ fontSize: '14px', fontWeight: '900', borderBottom: '3px solid #0f172a', paddingBottom: '12px', marginBottom: '24px', color: '#0f172a', textTransform: 'uppercase' }}>5. Admin & Emergency Security</h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                                        <div style={{ padding: '24px', background: '#f5f3ff', borderRadius: '16px', border: '1px solid #ddd6fe' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: '900', color: '#5b21b6', marginBottom: '16px', textTransform: 'uppercase' }}>Payment & Coverage</div>
+                                            <p style={{ fontSize: '14px', margin: '8px 0', color: '#1e293b' }}><strong>Method:</strong> {selectedPatient.ppayment || 'Cash/Private'}</p>
+                                            <p style={{ fontSize: '14px', margin: '8px 0', color: '#1e293b' }}><strong>Provider:</strong> {selectedPatient.pinsurance_provider || 'N/A'}</p>
+                                            <p style={{ fontSize: '14px', margin: '8px 0', color: '#1e293b' }}><strong>Policy #:</strong> {selectedPatient.pinsurance_number || 'N/A'}</p>
+                                        </div>
+                                        <div style={{ padding: '24px', background: '#fffbeb', borderRadius: '16px', border: '1px solid #fde68a' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: '900', color: '#b45309', marginBottom: '16px', textTransform: 'uppercase' }}>Next of Kin</div>
+                                            <p style={{ fontSize: '14px', margin: '8px 0', color: '#1e293b' }}><strong>Name:</strong> {selectedPatient.pemergency_name || '—'}</p>
+                                            <p style={{ fontSize: '14px', margin: '8px 0', color: '#1e293b' }}><strong>Phone:</strong> {selectedPatient.pemergency_phone || '—'}</p>
+                                            <p style={{ fontSize: '14px', margin: '8px 0', color: '#1e293b' }}><strong>Relation:</strong> {selectedPatient.pemergency_relation || '—'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ borderTop: '4px solid #0f172a', paddingTop: '40px', display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '60px', marginTop: '60px' }}>
+                                    <div>
+                                        <h4 style={{ fontWeight: '900', marginBottom: '12px', fontSize: '16px' }}>Official Clinical Declaration</h4>
+                                        <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.6' }}>This electronic health record constitutes an official medical document of the institution. All data is verified per standard intake protocols and certified accurate for clinical use.</p>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ height: '60px' }} />
+                                        <div style={{ borderTop: '2px solid #0f172a', paddingTop: '10px', fontSize: '14px', fontWeight: '800' }}>Registrar: {profile?.regname || profile?.docname || 'ADMINISTRATOR'}</div>
+                                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>Authorized Digital Signature</div>
+                                        <div style={{ border: '2px solid #cbd5e1', color: '#cbd5e1', padding: '12px', marginTop: '32px', fontSize: '12px', fontWeight: '900', borderRadius: '8px', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Institutional Stamp Area</div>
+                                    </div>
+                                </div>
+                                <div style={{ position: 'absolute', bottom: '60px', left: 0, right: 0, textAlign: 'center', fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>
+                                    REF: {selectedPatient.patient_display_id} • Page 2 of 2 • Certified Document
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-﻿// =============================================================
+// =============================================================
 // FILE: api.js
 // PURPOSE: Central data-access layer — replaces all old fetch('/api/...')
 //          calls that used to go to the Express backend.
@@ -70,7 +70,7 @@ export const signUpPatient = (data) =>
 export const getPatientHistory = async (pid) => {
   const { data: patient, error: patientError } = await supabase.from('patient').select('*').eq('pid', pid);
   const { data: appointments } = await supabase.from('appointment').select(`apponum, appodate, status, doctor:doctor(docname)`).eq('pid', pid);
-  const { data: prescriptions } = await supabase.from('prescriptions').select(`prescid, date, medicine_name, docid, doctor:doctor(docname)`).eq('pid', pid);
+  const { data: prescriptions } = await supabase.from('prescriptions').select(`prescid, date, drug_name, docid, doctor:doctor(docname)`).eq('pid', pid);
   const { data: labResults } = await supabase.from('lab_reports').select('lab_res_id, test_date, test_name, pid');
   return {
     patient,
@@ -452,6 +452,15 @@ export const createTreatmentBundle = (bundle) =>
 
 export const deleteTreatmentBundle = (id) =>
   supabase.from('treatment_bundles').update({ is_active: false }).eq('id', id);
+
+export const getPricingMatrix = () =>
+  supabase.from('pricing_matrix').select('*').eq('is_active', true).order('category');
+
+export const createPricingMatrix = (data) =>
+  supabase.from('pricing_matrix').insert([data]).select();
+
+export const updatePricingMatrix = (id, data) =>
+  supabase.from('pricing_matrix').update(data).eq('id', id);
 
 // ----------------------------------------------------------------
 // MISC

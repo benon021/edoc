@@ -4,7 +4,7 @@ import ClinicalModal from '../../components/shared/ClinicalModal';
 import {
     Calendar, Users, Clock, CheckCircle, TrendingUp, AlertCircle,
     ArrowRight, UserPlus, Bell, Search, Activity, Bookmark, Layout, CloudSun, User, Trash2, RefreshCw,
-    Stethoscope, FileText, Microscope, Pill, ChevronRight
+    Stethoscope, FileText, Microscope, Pill, ChevronRight, Lock
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -43,10 +43,29 @@ const DoctorDashboard = () => {
     useEffect(() => {
         if (profile) {
             fetchTodayQueue();
+            
+            // LIVE SYNC: Listen for appointment changes (e.g. payment clearance)
+            const channel = supabase
+                .channel('doctor-updates')
+                .on('postgres_changes', { event: '*', table: 'appointment' }, (payload) => {
+                    console.log("[Realtime-Doctor] Queue Update:", payload);
+                    fetchTodayQueue(true);
+                })
+                .subscribe((status) => {
+                    console.log("[Realtime-Doctor] Subscription:", status);
+                });
+
+            // FALLBACK: Poll every 5 seconds
+            const pollInterval = setInterval(() => fetchTodayQueue(true), 5000);
+
+            return () => {
+                supabase.removeChannel(channel);
+                clearInterval(pollInterval);
+            };
         }
     }, [profile?.id, profile?.docid]);
 
-    const fetchTodayQueue = async () => {
+    const fetchTodayQueue = async (silent = false) => {
         const docIdInt = parseInt(profile?.docid);
         const isStaff = profile?.role === 'a' || profile?.role === 'r';
         
@@ -55,7 +74,7 @@ const DoctorDashboard = () => {
             return;
         }
 
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const today = new Date().toISOString().split('T')[0];
             
@@ -63,7 +82,8 @@ const DoctorDashboard = () => {
                 .from('appointment')
                 .select(`
                     appoid, status, created_at,
-                    patient:pid (pid, pname, patient_display_id, pgender)
+                    patient:pid (pid, pname, patient_display_id, pgender),
+                    consultation_fee_paid
                 `)
                 .eq('appodate', today);
 
@@ -91,12 +111,13 @@ const DoctorDashboard = () => {
                     pid: appo.patient?.pid,
                     pname: appo.patient?.pname || 'Unknown Patient',
                     patient_display_id: appo.patient?.patient_display_id || 'Unknown',
-                    pgender: appo.patient?.pgender || 'N/A'
+                    pgender: appo.patient?.pgender || 'N/A',
+                    is_paid: appo.consultation_fee_paid
                 }));
                 
                 setAppointments(formattedQueue);
                 
-                const waiting = formattedQueue.filter(a => a.status === 'waiting' || a.status === 'Consultation' || a.status === 'at_lab' || a.status === 'results_ready').length;
+                const waiting = formattedQueue.filter(a => ['waiting', 'in_consultation', 'at_lab', 'results_ready'].includes(a.status)).length;
                 const completed = formattedQueue.filter(a => a.status?.toLowerCase() === 'completed').length;
                 setStats({ total: formattedQueue.length, waiting, completed, totalPatients: uniquePatientsCount });
             }
@@ -270,19 +291,50 @@ const DoctorDashboard = () => {
                                             </div>
                                         </td>
                                         <td style={{ padding: '20px 32px' }}>
-                                            <span style={{ 
-                                                padding: '6px 12px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase',
-                                                background: appo.status === 'at_lab' ? '#fff7ed' : appo.status === 'results_ready' ? '#f0fdf4' : '#eff6ff',
-                                                color: appo.status === 'at_lab' ? '#c2410c' : appo.status === 'results_ready' ? '#15803d' : '#1d4ed8'
-                                            }}>
-                                                {appo.status === 'at_lab' ? '🧪 At Laboratory' : appo.status === 'results_ready' ? '✅ Results Ready' : appo.status}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ 
+                                                    padding: '6px 12px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase',
+                                                    background: appo.status === 'at_lab' ? '#fff7ed' : appo.status === 'results_ready' ? '#f0fdf4' : '#eff6ff',
+                                                    color: appo.status === 'at_lab' ? '#c2410c' : appo.status === 'results_ready' ? '#15803d' : '#1d4ed8'
+                                                }}>
+                                                    {appo.status === 'at_lab' ? '🧪 At Laboratory' : appo.status === 'results_ready' ? '✅ Results Ready' : appo.status}
+                                                </span>
+                                                {!appo.is_paid && (
+                                                    <span style={{ padding: '6px 12px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900', background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2' }}>
+                                                        PAYMENT PENDING
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td style={{ padding: '20px 32px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                                                 <button onClick={() => setConfirmDelete({ open: true, appo })} style={{ padding: '10px', background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '12px', cursor: 'pointer' }}><Trash2 size={18} /></button>
-                                                <button onClick={() => navigate(`/doctor/consultation?appoid=${appo.appoid}`)} style={{ padding: '10px 20px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    Session <ArrowRight size={16} />
+                                                <button 
+                                                    onClick={async () => {
+                                                        if (!appo.is_paid) return;
+                                                        await supabase.from('appointment').update({ status: 'in_consultation' }).eq('appoid', appo.appoid);
+                                                        navigate(`/doctor/consultation?appoid=${appo.appoid}`);
+                                                    }} 
+                                                    disabled={!appo.is_paid}
+                                                    style={{ 
+                                                        padding: '10px 20px', 
+                                                        background: appo.is_paid ? '#0f172a' : '#f1f5f9', 
+                                                        color: appo.is_paid ? 'white' : '#94a3b8', 
+                                                        border: appo.is_paid ? 'none' : '1px solid #e2e8f0', 
+                                                        borderRadius: '12px', 
+                                                        fontWeight: '800', 
+                                                        cursor: appo.is_paid ? 'pointer' : 'not-allowed', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '8px',
+                                                        transition: '0.2s'
+                                                    }}
+                                                >
+                                                    {appo.is_paid ? (
+                                                        <>Session <ArrowRight size={16} /></>
+                                                    ) : (
+                                                        <>Locked <Lock size={14} /></>
+                                                    )}
                                                 </button>
                                             </div>
                                         </td>

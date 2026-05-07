@@ -5,7 +5,7 @@
 // =============================================================
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Save, AlertTriangle, Thermometer, Activity, Heart, Wind, Droplets, Info, ShieldCheck, CreditCard, Camera, FileText, Search, Users, RefreshCw, FlaskConical, Stethoscope, Phone, MapPin, Fingerprint, ChevronRight, CheckCircle, Edit } from 'lucide-react';
+import { UserPlus, Save, AlertTriangle, Thermometer, Activity, Heart, Wind, Droplets, Info, ShieldCheck, CreditCard, Camera, FileText, Search, Users, RefreshCw, FlaskConical, Stethoscope, Phone, MapPin, Fingerprint, ChevronRight, CheckCircle, Edit, CalendarPlus, X } from 'lucide-react';
 import Select from 'react-select';
 import { format } from 'date-fns';
 import { addPatient } from '../../lib/api';
@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 const RegistrarRegistration = () => {
     const navigate = useNavigate();
     const { showNotification } = useNotification();
+    const rolePath = window.location.pathname.startsWith('/admin') ? '/admin' : '/registrar';
 
     const [activeTab, setActiveTab] = useState('new'); // 'new' or 'returning'
     const [searchQuery, setSearchQuery] = useState('');
@@ -26,7 +27,10 @@ const RegistrarRegistration = () => {
     const [labModal, setLabModal] = useState(false);
     const [catalog, setCatalog] = useState([]);
     const [selectedTests, setSelectedTests] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [priceMatrix, setPriceMatrix] = useState([]);
+    const [regFees, setRegFees] = useState([]);
 
     const initialFormState = {
         firstName: '', lastName: '', gender: '', dob: '', marital: '',
@@ -44,8 +48,6 @@ const RegistrarRegistration = () => {
     };
 
     const [formData, setFormData] = useState(initialFormState);
-
-    const [loading, setLoading] = useState(false);
 
     // Auto-calculate Age
     const age = useMemo(() => {
@@ -141,60 +143,6 @@ const RegistrarRegistration = () => {
         }
     };
 
-    const startEdit = () => {
-        if (!selectedPatient) return;
-        const p = selectedPatient;
-
-        setFormData({
-            ...initialFormState,
-            firstName: p.pname.split(' ')[0] || '',
-            lastName: p.pname.split(' ').slice(1).join(' ') || '',
-            gender: p.pgender || '',
-            dob: p.pdob || '',
-            marital: p.pmarital || '',
-            phone: p.ptel || '',
-            altPhone: p.palttel || '',
-            email: p.pemail || '',
-            address: p.paddress || '',
-            city: p.pcity || '',
-            patientDisplayId: p.patient_display_id,
-            nationalId: p.pnic || '',
-            insuranceId: p.pinsurance_scheme || '',
-            bloodGroup: p.pbloodgroup || '',
-            allergies: p.pallergies || '',
-            conditions: p.pconditions || '',
-            medications: p.pmedications || '',
-            disabilities: p.pdisabilities || '',
-            pregnancy: p.ppregnancy || 'N/A',
-            immunization: p.pimmunization || '',
-            emergencyName: p.pemergency_name || '',
-            emergencyPhone: p.pemergency_phone || '',
-            emergencyRelation: p.pemergency_relation || '',
-            guardianName: p.pguardian_name || '',
-            guardianPhone: p.pguardian_phone || '',
-            guardianRelation: p.pguardian_relation || '',
-            guardianEmail: p.pguardian_email || '',
-            guardianAddress: p.pguardian_address || '',
-            guardianId: p.pguardian_id || '',
-            paymentMethod: p.ppayment || '',
-            insuranceProvider: p.pinsurance_provider || '',
-            insuranceNumber: p.pinsurance_number || '',
-            notes: p.pnotes || ''
-        });
-        setIsEditMode(true);
-        setActiveTab('new');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const fetchCatalog = async () => {
-        const { data } = await supabase.from('lab_catalog').select('*').eq('is_enabled', 1);
-        setCatalog(data || []);
-    };
-
-    useEffect(() => {
-        if (labModal) fetchCatalog();
-    }, [labModal]);
-
     const handleSendToDoctor = async () => {
         if (!selectedPatient) return;
         setIsBooking(true);
@@ -208,7 +156,7 @@ const RegistrarRegistration = () => {
 
             if (error) throw error;
 
-            // Sync vitals to patient table so doctor sees them
+            // Sync vitals to patient table
             if (formData.temp || formData.bp) {
                 await supabase.from('patient').update({
                     ptemp: formData.temp || null,
@@ -248,39 +196,16 @@ const RegistrarRegistration = () => {
             const { data: appo, error: appoErr } = await supabase.from('appointment').insert({
                 pid: selectedPatient.pid,
                 appodate: format(new Date(), 'yyyy-MM-dd'),
-                status: 'lab_only',
+                status: 'pending_lab', 
                 reason: 'Walk-in Lab Order'
             }).select();
 
             if (appoErr) throw appoErr;
 
-            // Sync vitals to patient table
-            if (formData.temp || formData.bp) {
-                await supabase.from('patient').update({
-                    ptemp: formData.temp || null,
-                    pbp: formData.bp || null,
-                    pheartrate: formData.heartRate || null,
-                    prespiratory: formData.respiratory || null,
-                    pspo2: formData.spo2 || null,
-                    pweight: formData.weight || null,
-                    pheight: formData.height || null
-                }).eq('pid', selectedPatient.pid);
-
-                await supabase.from('vitals').insert({
-                    appointment_id: appo[0].appoid,
-                    temperature: formData.temp,
-                    blood_pressure: formData.bp,
-                    heart_rate: formData.heartRate,
-                    weight: formData.weight,
-                    height: formData.height,
-                    respiratory_rate: formData.respiratory,
-                    spo2: formData.spo2
-                });
-            }
-
-            const labRequests = selectedTests.map(testName => ({
+            const labRequests = selectedTests.map(test => ({
                 appointment_id: appo[0].appoid,
-                test_name: testName,
+                test_name: test.test_name,
+                price: Number(test.price || 0),
                 status: 'pending'
             }));
 
@@ -295,6 +220,30 @@ const RegistrarRegistration = () => {
             setIsBooking(false);
         }
     };
+
+    useEffect(() => {
+        const fetchPricing = async () => {
+            const { data } = await supabase.from('pricing_matrix').select('*').eq('is_active', true);
+            if (data) {
+                setPriceMatrix(data);
+                const reg = data.filter(p => p.category === 'Administration');
+                setRegFees(reg);
+            }
+        };
+        fetchPricing();
+    }, []);
+
+    useEffect(() => {
+        if (labModal) {
+            const fetchCatalog = async () => {
+                const { data } = await supabase.from('lab_catalog').select('*').eq('is_enabled', true);
+                setCatalog(data || []);
+            };
+            fetchCatalog();
+        }
+    }, [labModal]);
+
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -344,54 +293,36 @@ const RegistrarRegistration = () => {
             pheight: formData.height || null
         };
         try {
-            let res;
-            if (isEditMode && selectedPatient) {
-                res = await supabase.from('patient').update(patientData).eq('pid', selectedPatient.pid).select();
-            } else {
-                res = await supabase.from('patient').insert(patientData).select();
+            // Check for duplicate email first
+            if (formData.email) {
+                const { data: existing } = await supabase
+                    .from('patient')
+                    .select('pid, pname')
+                    .eq('pemail', formData.email.trim())
+                    .maybeSingle();
+
+                if (existing) {
+                    showNotification(`Registration failed: Email already in use by patient ${existing.pname}.`, 'error');
+                    setLoading(false);
+                    return;
+                }
             }
+
+            let res;
+            res = await supabase.from('patient').insert(patientData).select();
 
             const { data, error } = res;
 
             if (!error) {
-                // Save vitals to log if any
-                if (formData.temp || formData.bp) {
-                    const { data: appo } = await supabase.from('appointment').insert({
-                        pid: data[0].pid,
-                        appodate: format(new Date(), 'yyyy-MM-dd'),
-                        status: 'pending',
-                        reason: isEditMode ? 'Information Update' : 'Initial Registration'
-                    }).select();
-
-                    if (appo) {
-                        await supabase.from('vitals').insert({
-                            appointment_id: appo[0].appoid,
-                            temperature: formData.temp,
-                            blood_pressure: formData.bp,
-                            heart_rate: formData.heartRate,
-                            weight: formData.weight,
-                            height: formData.height,
-                            respiratory_rate: formData.respiratory,
-                            spo2: formData.spo2
-                        });
-                    }
-                }
-                showNotification(isEditMode ? 'Patient information updated!' : 'Patient successfully registered!', 'success');
-
-                if (isEditMode) {
-                    // Stay on page, switch to returning tab so they can send to doc/lab
-                    setIsEditMode(false);
-                    setFormData(initialFormState);
-                    setActiveTab('returning');
-                    // selectedPatient is already set from the previous selection
-                } else {
-                    // New patient: go to dashboard
-                    setIsEditMode(false);
-                    setFormData(initialFormState);
-                    navigate('/registrar/dashboard');
-                }
+                showNotification('Patient successfully registered!', 'success');
+                setFormData(initialFormState);
+                navigate(`${rolePath}/patients`);
             } else {
-                showNotification(error.message, 'error');
+                if (error.message.includes('patient_pemail_key')) {
+                    showNotification('This email is already registered to another patient.', 'error');
+                } else {
+                    showNotification(error.message, 'error');
+                }
             }
         } catch (err) {
             showNotification('Network error', 'error');
@@ -426,28 +357,26 @@ const RegistrarRegistration = () => {
                     </h1>
                     <p style={{ color: '#64748b', fontSize: '1.125rem', fontWeight: '500' }}>Manage new enrollments and returning patient visits.</p>
                 </header>
-
-                <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '6px', borderRadius: '18px', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
-                    <button
-                        onClick={() => {
-                            setActiveTab('new');
-                            if (!isEditMode) setFormData(initialFormState);
-                        }}
-                        style={{ padding: '14px 32px', borderRadius: '14px', fontSize: '1rem', fontWeight: 800, cursor: 'pointer', transition: '0.3s', border: 'none', background: activeTab === 'new' ? 'white' : 'transparent', color: activeTab === 'new' ? '#2563eb' : '#64748b', boxShadow: activeTab === 'new' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <UserPlus size={20} /> {isEditMode ? 'Edit Profile' : 'New Enrollment'}
-                    </button>
-                    <button
-                        onClick={() => {
-                            setActiveTab('returning');
-                            setIsEditMode(false);
-                        }}
-                        style={{ padding: '14px 32px', borderRadius: '14px', fontSize: '1rem', fontWeight: 800, cursor: 'pointer', transition: '0.3s', border: 'none', background: activeTab === 'returning' ? 'white' : 'transparent', color: activeTab === 'returning' ? '#2563eb' : '#64748b', boxShadow: activeTab === 'returning' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <RefreshCw size={20} /> Returning Patient
-                    </button>
-                </div>
+                    <div style={{ display: 'inline-flex', background: '#f1f5f9', padding: '6px', borderRadius: '18px', border: '1px solid #e2e8f0', marginTop: '16px' }}>
+                        <button
+                            onClick={() => {
+                                setActiveTab('new');
+                                if (!isEditMode) setFormData(initialFormState);
+                            }}
+                            style={{ padding: '14px 32px', borderRadius: '14px', fontSize: '1rem', fontWeight: 800, cursor: 'pointer', transition: '0.3s', border: 'none', background: activeTab === 'new' ? 'white' : 'transparent', color: activeTab === 'new' ? '#2563eb' : '#64748b', boxShadow: activeTab === 'new' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <UserPlus size={20} /> {isEditMode ? 'Edit Profile' : 'New Enrollment'}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setActiveTab('returning');
+                                setIsEditMode(false);
+                            }}
+                            style={{ padding: '14px 32px', borderRadius: '14px', fontSize: '1rem', fontWeight: 800, cursor: 'pointer', transition: '0.3s', border: 'none', background: activeTab === 'returning' ? 'white' : 'transparent', color: activeTab === 'returning' ? '#2563eb' : '#64748b', boxShadow: activeTab === 'returning' ? '0 10px 15px -3px rgba(0, 0, 0, 0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <RefreshCw size={20} /> Returning Patient
+                        </button>
+                    </div>
 
                 <div style={{ background: 'white', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.05)', overflow: 'hidden', maxWidth: '1100px' }}>
-
                     {activeTab === 'returning' ? (
                         <div style={{ padding: '48px' }}>
                             <div style={{ margin: '0 auto 48px' }}>
@@ -499,106 +428,107 @@ const RegistrarRegistration = () => {
 
                             {selectedPatient && (
                                 <div style={{ animation: 'fadeIn 0.4s cubic-bezier(0, 0, 0.2, 1)' }}>
-                                    <div style={{ display: 'flex', gap: '32px', marginBottom: '48px', padding: '32px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
-                                        <div style={{ width: '90px', height: '90px', background: 'white', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
-                                            <Users size={40} color="#2563eb" />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '20px', marginBottom: '32px' }}>
+                                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Last Temp</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#1e293b' }}>{selectedPatient.ptemp || 'N/A'} °C</div>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flex: 1 }}>
+                                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Last BP</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#1e293b' }}>{selectedPatient.pbp || 'N/A'}</div>
+                                        </div>
+                                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Blood Group</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#1e293b' }}>{selectedPatient.pbloodgroup || 'N/A'}</div>
+                                        </div>
+                                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Last Visit</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#1e293b' }}>{selectedPatient.pdate_registered ? format(new Date(selectedPatient.pdate_registered), 'dd MMM yyyy') : 'N/A'}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* 🩺 NEW VITALS FOR THIS VISIT */}
+                                    <section style={{ borderTop: '2px solid #f1f5f9', paddingTop: '32px' }}>
+                                        <SectionHeader icon={Activity} title="New Triage / Vitals for this Visit" />
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
                                             <div>
-                                                <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#2563eb', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>Verified Patient</div>
-                                                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#1e293b', marginBottom: '8px' }}>{selectedPatient.pname}</h2>
-                                                <div style={{ fontSize: '1rem', color: '#64748b', fontWeight: '500' }}>
-                                                    {selectedPatient.patient_display_id} • {selectedPatient.pgender} • {selectedPatient.ptel}
-                                                </div>
-                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: '#dcfce7', color: '#166534', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 900, marginTop: '16px', border: '1px solid #bbf7d0' }}>
-                                                    <Activity size={16} /> VISIT #{visitCount}
-                                                </div>
+                                                <label className="label-text">Temp (°C)</label>
+                                                <input type="text" name="temp" value={formData.temp} onChange={handleChange} className="input-field" placeholder="36.5" />
                                             </div>
-                                            <button
-                                                onClick={startEdit}
-                                                style={{ padding: '10px 16px', borderRadius: '12px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', transition: '0.2s' }}>
-                                                <Edit size={18} /> Edit Credentials
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '48px' }}>
-                                        <div style={{ background: '#fff7ed', padding: '24px', borderRadius: '24px', border: '1px solid #ffedd5' }}>
-                                            <SectionHeader icon={CreditCard} title="Visit Payment Method" />
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-                                                <div>
-                                                    <label className="label-text">Payment Method</label>
-                                                    <Select
-                                                        name="paymentMethod"
-                                                        options={[{ value: 'Cash', label: 'Cash' }, { value: 'Card', label: 'Card' }, { value: 'Insurance', label: 'Insurance' }]}
-                                                        value={formData.paymentMethod ? { value: formData.paymentMethod, label: formData.paymentMethod } : null}
-                                                        onChange={handleSelectChange}
-                                                        styles={customSelectStyles}
-                                                    />
-                                                </div>
-                                                {formData.paymentMethod === 'Insurance' && (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', animation: 'fadeIn 0.3s' }}>
-                                                        <div>
-                                                            <label className="label-text">Provider</label>
-                                                            <input type="text" name="insuranceProvider" value={formData.insuranceProvider} onChange={handleChange} className="input-field" />
-                                                        </div>
-                                                        <div>
-                                                            <label className="label-text">Policy #</label>
-                                                            <input type="text" name="insuranceNumber" value={formData.insuranceNumber} onChange={handleChange} className="input-field" />
-                                                        </div>
-                                                    </div>
-                                                )}
+                                            <div>
+                                                <label className="label-text">Weight (kg)</label>
+                                                <input type="text" name="weight" value={formData.weight} onChange={handleChange} className="input-field" placeholder="70" />
+                                            </div>
+                                            <div>
+                                                <label className="label-text">Blood Pressure</label>
+                                                <input type="text" name="bp" value={formData.bp} onChange={handleChange} className="input-field" placeholder="120/80" />
                                             </div>
                                         </div>
+                                    </section>
 
-                                        <div style={{ background: '#f0f9ff', padding: '32px', borderRadius: '24px', border: '1px solid #e0f2fe' }}>
-                                            <SectionHeader icon={Thermometer} title="Current Triage Vitals" />
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-                                                <div>
-                                                    <label className="label-text">Temperature (°C)</label>
-                                                    <input type="text" name="temp" value={formData.temp} onChange={handleChange} className="input-field" placeholder="36.5" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">Weight (kg)</label>
-                                                    <input type="text" name="weight" value={formData.weight} onChange={handleChange} className="input-field" placeholder="70" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">Height (cm)</label>
-                                                    <input type="text" name="height" value={formData.height} onChange={handleChange} className="input-field" placeholder="175" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">Blood Pressure</label>
-                                                    <input type="text" name="bp" value={formData.bp} onChange={handleChange} className="input-field" placeholder="120/80" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">Heart Rate (bpm)</label>
-                                                    <input type="text" name="heartRate" value={formData.heartRate} onChange={handleChange} className="input-field" placeholder="72" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">Resp. Rate</label>
-                                                    <input type="text" name="respiratory" value={formData.respiratory} onChange={handleChange} className="input-field" placeholder="16" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">SPO₂ (%)</label>
-                                                    <input type="text" name="spo2" value={formData.spo2} onChange={handleChange} className="input-field" placeholder="98" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    {/* SINGLE ACTION BUTTON */}
+                                    <div style={{ marginTop: '32px' }}>
+                                        <button 
+                                            onClick={async () => {
+                                                setIsBooking(true);
+                                                try {
+                                                    // 1. Sync vitals to patient table for this returning visit
+                                                    await supabase.from('patient').update({
+                                                        ptemp: formData.temp || selectedPatient.ptemp,
+                                                        pbp: formData.bp || selectedPatient.pbp,
+                                                        pheartrate: formData.heartRate || selectedPatient.pheartrate,
+                                                        prespiratory: formData.respiratory || selectedPatient.prespiratory,
+                                                        pspo2: formData.spo2 || selectedPatient.pspo2,
+                                                        pweight: formData.weight || selectedPatient.pweight,
+                                                        pheight: formData.height || selectedPatient.pheight
+                                                    }).eq('pid', selectedPatient.pid);
 
-                                    <div style={{ display: 'flex', gap: '20px', justifyContent: 'flex-end', borderTop: '2px solid #f1f5f9', paddingTop: '40px' }}>
-                                        <button
-                                            onClick={() => setLabModal(true)}
-                                            style={{ padding: '18px 36px', borderRadius: '18px', background: '#f8fafc', color: '#475569', fontWeight: 800, border: '2px solid #e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', transition: '0.2s' }}
-                                            onMouseOver={e => e.currentTarget.style.borderColor = '#2563eb'}>
-                                            <FlaskConical size={22} color="#2563eb" /> Send Directly to Lab
-                                        </button>
-                                        <button
-                                            onClick={handleSendToDoctor}
+                                                    // 2. Create a 'pending' appointment to signify check-in
+                                                    const { error: appoErr } = await supabase.from('appointment').insert({
+                                                        pid: selectedPatient.pid,
+                                                        appodate: new Date().toISOString().split('T')[0],
+                                                        status: 'pending',
+                                                        reason: 'Returning Visit / Follow-up'
+                                                    });
+
+                                                    if (appoErr) throw appoErr;
+
+                                                    showNotification(`Check-in successful! Visit #${visitCount + 1} recorded. Redirecting to clinical handover...`, 'success');
+                                                    setTimeout(() => navigate(`${rolePath}/patients`), 800);
+                                                } catch (e) {
+                                                    showNotification('Registration failed', 'error');
+                                                } finally {
+                                                    setIsBooking(false);
+                                                }
+                                            }}
                                             disabled={isBooking}
-                                            style={{ padding: '18px 36px', borderRadius: '18px', background: '#2563eb', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 15px 30px -5px rgba(37, 99, 235, 0.4)' }}>
-                                            <Stethoscope size={22} /> {isBooking ? 'Processing...' : 'Send to Consultation'}
+                                            style={{ 
+                                                width: '100%',
+                                                padding: '24px', 
+                                                borderRadius: '24px', 
+                                                border: 'none', 
+                                                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
+                                                color: 'white', 
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '16px',
+                                                transition: '0.2s',
+                                                boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)',
+                                                fontSize: '1.25rem',
+                                                fontWeight: 900,
+                                                opacity: isBooking ? 0.7 : 1
+                                            }}
+                                            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                        >
+                                            <CalendarPlus size={28} color="white" />
+                                            {isBooking ? 'Registering...' : 'Register for Visit'}
                                         </button>
+                                        <p style={{ textAlign: 'center', marginTop: '16px', color: '#64748b', fontWeight: 600, fontSize: '0.95rem' }}>
+                                            Handing over will send this patient to the directory for clinical booking.
+                                        </p>
                                     </div>
                                 </div>
                             )}
@@ -839,6 +769,18 @@ const RegistrarRegistration = () => {
                                                 </div>
                                             </>
                                         )}
+                                        {regFees.length > 0 && (
+                                            <div style={{ gridColumn: 'span 2', marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                                <label className="label-text" style={{ color: '#2563eb' }}>Applicable Registration Fees</label>
+                                                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                                    {regFees.map(fee => (
+                                                        <div key={fee.id} style={{ background: 'white', padding: '10px 16px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: '700' }}>
+                                                            {fee.item_name}: <span style={{ color: '#10b981' }}>KES {fee.price.toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </section>
 
@@ -872,63 +814,74 @@ const RegistrarRegistration = () => {
                     )}
                 </div>
 
-            {/* DIRECT LAB MODAL */}
-            {labModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '24px' }}>
-                    <div style={{ background: 'white', borderRadius: '32px', width: '100%', maxWidth: '650px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
-                        <div style={{ padding: '32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                            <div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1e293b' }}>Select Lab Tests</h3>
-                                <p style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '500' }}>Direct referral for {selectedPatient?.pname}</p>
+                {/* LAB SELECTION MODAL */}
+                {labModal && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, backdropFilter: 'blur(12px)', padding: '24px' }}>
+                        <div style={{ background: 'white', width: '100%', maxWidth: '800px', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'fadeIn 0.3s ease-out' }}>
+                            <div style={{ padding: '32px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1e293b' }}>Select Lab Investigations</h3>
+                                    <p style={{ color: '#64748b', fontWeight: 600 }}>Ordering tests for {selectedPatient?.pname}</p>
+                                </div>
+                                <button onClick={() => setLabModal(false)} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: '0.2s' }}><X size={20} /></button>
                             </div>
-                            <button onClick={() => setLabModal(false)} style={{ background: 'white', border: '2px solid #e2e8f0', padding: '10px', borderRadius: '14px', cursor: 'pointer' }}>
-                                <RefreshCw size={24} color="#64748b" />
-                            </button>
-                        </div>
-
-                        <div style={{ padding: '32px', overflowY: 'auto', flex: 1 }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                {catalog.map(test => (
-                                    <div
-                                        key={test.id}
-                                        onClick={() => {
-                                            setSelectedTests(prev => prev.includes(test.test_name) ? prev.filter(t => t !== test.test_name) : [...prev, test.test_name]);
-                                        }}
-                                        style={{
-                                            padding: '20px',
-                                            borderRadius: '20px',
-                                            border: '3px solid',
-                                            borderColor: selectedTests.includes(test.test_name) ? '#2563eb' : '#f1f5f9',
-                                            background: selectedTests.includes(test.test_name) ? '#eff6ff' : 'white',
-                                            cursor: 'pointer',
-                                            transition: '0.2s',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px'
-                                        }}>
-                                        <div style={{ fontWeight: 800, color: selectedTests.includes(test.test_name) ? '#1e40af' : '#1e293b', fontSize: '1rem' }}>{test.test_name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>KES {test.price}</div>
+                            
+                            <div style={{ padding: '32px', maxHeight: '500px', overflowY: 'auto' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    {catalog.map(test => (
+                                        <div 
+                                            key={test.id}
+                                            onClick={() => {
+                                                const isSelected = selectedTests.some(t => t.id === test.id);
+                                                if (isSelected) setSelectedTests(selectedTests.filter(t => t.id !== test.id));
+                                                else setSelectedTests([...selectedTests, test]);
+                                            }}
+                                            style={{
+                                                padding: '20px',
+                                                borderRadius: '20px',
+                                                border: '3px solid',
+                                                borderColor: selectedTests.some(t => t.id === test.id) ? '#2563eb' : '#f1f5f9',
+                                                background: selectedTests.some(t => t.id === test.id) ? '#eff6ff' : 'white',
+                                                cursor: 'pointer',
+                                                transition: '0.2s',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '1.1rem' }}>{test.test_name}</div>
+                                                <div style={{ color: '#10b981', fontWeight: 800 }}>KES {Number(test.price || 0).toLocaleString()}</div>
+                                            </div>
+                                            {selectedTests.some(t => t.id === test.id) && <CheckCircle size={24} color="#2563eb" />}
+                                        </div>
+                                    ))}
+                                </div>
+                                {selectedTests.length > 0 && (
+                                    <div style={{ marginTop: '24px', padding: '20px', background: '#f0fdf4', borderRadius: '20px', border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534' }}>Total Order Cost ({selectedTests.length} tests)</span>
+                                        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#10b981' }}>KES {selectedTests.reduce((sum, t) => sum + Number(t.price || 0), 0).toLocaleString()}</span>
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        </div>
 
-                        <div style={{ padding: '32px', borderTop: '2px solid #f1f5f9', display: 'flex', gap: '16px' }}>
-                            <button
-                                onClick={() => setLabModal(false)}
-                                style={{ flex: 1, padding: '18px', borderRadius: '18px', border: '2px solid #e2e8f0', background: 'white', fontWeight: 800, cursor: 'pointer' }}>
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSendToLab}
-                                disabled={isBooking || selectedTests.length === 0}
-                                style={{ flex: 2, padding: '18px', borderRadius: '18px', background: '#2563eb', color: 'white', fontWeight: 900, border: 'none', cursor: 'pointer', opacity: selectedTests.length === 0 ? 0.5 : 1 }}>
-                                {isBooking ? 'Sending...' : `Order ${selectedTests.length} Tests`}
-                            </button>
+                            <div style={{ padding: '32px', borderTop: '2px solid #f1f5f9', display: 'flex', gap: '16px' }}>
+                                <button
+                                    onClick={() => setLabModal(false)}
+                                    style={{ flex: 1, padding: '18px', borderRadius: '18px', border: '2px solid #e2e8f0', background: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSendToLab}
+                                    disabled={isBooking || selectedTests.length === 0}
+                                    style={{ flex: 2, padding: '18px', borderRadius: '18px', background: '#2563eb', color: 'white', fontWeight: 900, border: 'none', cursor: 'pointer', opacity: selectedTests.length === 0 ? 0.5 : 1 }}>
+                                    {isBooking ? 'Sending...' : `Order ${selectedTests.length} Tests`}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+
 
             <style>{`
                 .label-text { display: block; font-size: 0.85rem; font-weight: 800; color: #475569; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }

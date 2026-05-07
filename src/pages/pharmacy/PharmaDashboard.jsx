@@ -4,8 +4,10 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-    Calendar, Users, Layout, CloudSun, Pill, Shield, FlaskConical
+    Calendar, Users, Layout, CloudSun, Pill, Shield, FlaskConical,
+    Activity, Clock, AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,7 +22,10 @@ const PharmaDashboard = () => {
     });
 
     const { profile } = useAuth();
+    const navigate = useNavigate();
     const [prescriptions, setPrescriptions] = useState([]);
+    const [expiringStocks, setExpiringStocks] = useState([]);
+    const [todayActivity, setTodayActivity] = useState([]);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -29,8 +34,11 @@ const PharmaDashboard = () => {
                 today.setHours(0, 0, 0, 0);
                 const todayStr = today.toISOString();
 
-                // 1. Fetch Stats in parallel with limited columns
-                const [prescRes, salesRes, inventoryRes, labRes] = await Promise.all([
+                // 1. Fetch Stats & Detail Lists
+                const threeMonthsFromNow = new Date();
+                threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+                
+                const [prescRes, salesRes, inventoryRes, labRes, expiringRes, activityRes] = await Promise.all([
                     supabase.from('prescriptions')
                         .select('id, created_at, appointment!inner(patient!inner(pname), schedule!inner(doctor!inner(docname)))')
                         .eq('status', 'pending'),
@@ -41,7 +49,17 @@ const PharmaDashboard = () => {
                         .select('id, stock_qty, reorder_level'),
                     supabase.from('lab_requests')
                         .select('id')
-                        .neq('status', 'completed')
+                        .neq('status', 'completed'),
+                    supabase.from('medicine')
+                        .select('med_name, batch_no, expiry_date')
+                        .lte('expiry_date', threeMonthsFromNow.toISOString().split('T')[0])
+                        .gte('expiry_date', todayStr.split('T')[0])
+                        .order('expiry_date', { ascending: true })
+                        .limit(5),
+                    supabase.from('pharmacy_sale_item')
+                        .select('quantity, medicine:medicine_id(med_name), sale:sale_id!inner(created_at)')
+                        .gte('sale.created_at', todayStr)
+                        .limit(5)
                 ]);
 
                 if (prescRes.error) throw prescRes.error;
@@ -52,6 +70,12 @@ const PharmaDashboard = () => {
                 const todaySales = salesRes.data || [];
                 const inv = inventoryRes.data || [];
                 const pendingLabs = labRes.data || [];
+                const activityData = activityRes.data || [];
+
+                // Sort activity data locally since cross-table ordering can be tricky
+                const sortedActivity = [...activityData].sort((a, b) => 
+                    new Date(b.sale?.created_at) - new Date(a.sale?.created_at)
+                );
 
                 // Calculate stats
                 const totalRevenue = todaySales.reduce((acc, s) => acc + (s.total_amount || 0), 0);
@@ -71,6 +95,9 @@ const PharmaDashboard = () => {
                     pname: p.appointment?.patient?.pname || 'Unknown',
                     docname: p.appointment?.schedule?.doctor?.docname || 'Unknown'
                 })));
+
+                setExpiringStocks(expiringRes.data || []);
+                setTodayActivity(sortedActivity);
 
             } catch (err) {
                 console.error("Dashboard data fetch error:", err);
@@ -199,36 +226,77 @@ const PharmaDashboard = () => {
                                     </div>
                                 )}
                             </div>
-                            <button style={{ width: '100%', padding: '12px', background: '#007bff', color: 'white', border: 'none', borderRadius: '0', fontWeight: '600', cursor: 'pointer' }}>
+                            <button 
+                                onClick={() => navigate('/pharmacy/workbench')}
+                                style={{ width: '100%', padding: '12px', background: '#007bff', color: 'white', border: 'none', borderRadius: '0', fontWeight: '600', cursor: 'pointer' }}
+                            >
                                 Open Dispensary Workbench
                             </button>
                         </div>
                     </div>
 
-                    {/* Sessions Section */}
+                    {/* Expiring Stocks Section */}
                     <div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#007bff', marginBottom: '10px' }}>Expiring Stocks until Next Friday</h3>
-                        <p style={{ fontSize: '0.85rem', color: '#6c757d', marginBottom: '20px' }}>Here's Quick access to Upcoming Sessions that Scheduled until 7 days. Add, Remove and Many features available in @Schedule section.</p>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#dc3545', marginBottom: '10px' }}>Expiring Stocks (Next 3 Months)</h3>
+                        <p style={{ fontSize: '0.85rem', color: '#6c757d', marginBottom: '20px' }}>Medicines nearing their shelf life limit. Please prioritize usage or plan disposal.</p>
 
-                        <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', flexDirection: 'column', height: '350px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', padding: '12px 20px', borderBottom: '2px solid #007bff', fontSize: '0.85rem', fontWeight: '700', color: '#343a40' }}>
+                        <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', flexDirection: 'column', height: '350px', overflow: 'hidden' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', padding: '12px 20px', borderBottom: '2px solid #dc3545', fontSize: '0.85rem', fontWeight: '700', color: '#343a40', background: '#fff5f5' }}>
                                 <div>Medication Title</div>
                                 <div>Batch</div>
-                                <div>Expiry Date & Time</div>
+                                <div>Expiry Date</div>
                             </div>
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-                                <div style={{ opacity: 0.3, marginBottom: '20px' }}>
-                                    <svg width="200" height="100" viewBox="0 0 200 100" fill="none">
-                                        <circle cx="100" cy="50" r="30" fill="#007bff" fillOpacity="0.2" />
-                                        <path d="M70 80C70 80 85 60 100 60C115 60 130 80 130 80" stroke="#007bff" strokeWidth="4" strokeLinecap="round" />
-                                        <rect x="85" y="40" width="30" height="10" rx="5" fill="#007bff" />
-                                    </svg>
-                                </div>
-                                <button style={{ width: '100%', padding: '12px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '600', cursor: 'pointer', marginTop: 'auto' }}>Show all Health Status</button>
+                            <div style={{ flex: 1, overflowY: 'auto' }}>
+                                {expiringStocks.length > 0 ? expiringStocks.map((item, i) => (
+                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', padding: '12px 20px', borderBottom: '1px solid #eee', fontSize: '0.85rem' }}>
+                                        <div style={{ fontWeight: '600' }}>{item.med_name}</div>
+                                        <div style={{ color: '#6c757d' }}>{item.batch_no}</div>
+                                        <div style={{ color: '#dc3545', fontWeight: '700' }}>{item.expiry_date}</div>
+                                    </div>
+                                )) : (
+                                    <div style={{ textAlign: 'center', padding: '40px', color: '#adb5bd' }}>
+                                        No medicines expiring soon.
+                                    </div>
+                                )}
                             </div>
+                            <button 
+                                onClick={() => navigate('/pharmacy/inventory')}
+                                style={{ width: '100%', padding: '12px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '0', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                                Manage Inventory
+                            </button>
                         </div>
                     </div>
 
+                </div>
+
+                {/* Latest Medicine Activity Today */}
+                <div style={{ marginTop: '40px' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#28a745', marginBottom: '10px' }}>Daily Medication Activity (Dispensed Today)</h3>
+                    <p style={{ fontSize: '0.85rem', color: '#6c757d', marginBottom: '20px' }}>Real-time log of medications dispensed to patients during the current shift.</p>
+
+                    <div style={{ background: 'white', borderRadius: '4px', border: '1px solid #dee2e6', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr', padding: '12px 20px', borderBottom: '2px solid #28a745', fontSize: '0.85rem', fontWeight: '700', color: '#343a40', background: '#f8fff9' }}>
+                            <div>Medication Name</div>
+                            <div>Quantity</div>
+                            <div>Status</div>
+                            <div>Dispensed Time</div>
+                        </div>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {todayActivity.length > 0 ? todayActivity.map((item, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr', padding: '12px 20px', borderBottom: '1px solid #eee', fontSize: '0.85rem' }}>
+                                    <div style={{ fontWeight: '600' }}>{item.medicine?.med_name || 'Unknown'}</div>
+                                    <div>{item.quantity} units</div>
+                                    <div><span style={{ padding: '2px 8px', background: '#e1f7e6', color: '#28a745', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700' }}>DISPENSED</span></div>
+                                    <div style={{ color: '#6c757d' }}>{new Date(item.sale?.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                </div>
+                            )) : (
+                                <div style={{ textAlign: 'center', padding: '40px', color: '#adb5bd' }}>
+                                    No medications dispensed today yet.
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
         </div>
     );

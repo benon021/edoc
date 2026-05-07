@@ -89,7 +89,12 @@ function App() {
             
             {/* Admin */}
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/register-patient" element={<AdminRegisterPatient />} />
+            <Route path="/admin/register-patient" element={<RegistrarRegistration />} />
+            <Route path="/admin/patients" element={<RegistrarPatients />} />
+            <Route path="/admin/history" element={<RegistrarHistory />} />
+            <Route path="/admin/billing" element={<RegistrarBilling />} />
+            <Route path="/admin/print" element={<RegistrarPrint />} />
+            <Route path="/admin/registrar-reports" element={<RegistrarReports />} />
             <Route path="/admin/staff" element={<AdminStaff />} />
 
             <Route path="/admin/financials" element={<AdminFinancials />} />

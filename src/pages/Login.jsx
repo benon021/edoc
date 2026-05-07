@@ -7,27 +7,27 @@
 // =============================================================
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, LockKeyhole, HeartPulse, Microscope, KeyRound, ShieldCheck, UserCheck, Activity } from 'lucide-react';
 
 // Route map: usertype code → dashboard path
 const ROLE_ROUTES = {
-  'a':  '/admin',
-  'd':  '/doctor',
-  'r':  '/registrar',
-  'l':  '/lab',
+  'a': '/admin',
+  'd': '/doctor',
+  'r': '/registrar',
+  'l': '/lab',
   'ph': '/pharmacy',
 };
 
 const Login = () => {
   const navigate = useNavigate();
 
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPwd, setShowPwd]   = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // ----------------------------------------------------------
   // handleLogin: called when the form is submitted
@@ -36,8 +36,6 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    // ----------------------------------
 
     // 1. Authenticate with Supabase Auth
     const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -78,170 +76,227 @@ const Login = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)',
+      background: '#fff7ed',
       fontFamily: "'Inter', sans-serif",
       padding: '24px',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      {/* Glow orbs for depth */}
-      <div style={{ position: 'fixed', top: '15%', left: '10%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'fixed', bottom: '15%', right: '10%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      {/* Dynamic Background Elements */}
+      <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(251, 146, 60, 0.1) 0%, transparent 70%)', borderRadius: '50%' }}></div>
+      <div style={{ position: 'absolute', bottom: '-10%', left: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(249, 115, 22, 0.08) 0%, transparent 70%)', borderRadius: '50%' }}></div>
 
       <div style={{
         width: '100%',
-        maxWidth: 420,
-        background: 'rgba(255,255,255,0.05)',
-        backdropFilter: 'blur(24px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 32,
-        padding: '48px 40px',
-        boxShadow: '0 40px 80px rgba(0,0,0,0.4)',
+        maxWidth: 1100,
+        background: 'rgba(255, 255, 255, 0.6)',
+        backdropFilter: 'blur(30px)',
+        border: '1px solid rgba(255, 255, 255, 0.7)',
+        borderRadius: 56,
+        display: 'flex',
+        overflow: 'hidden',
+        boxShadow: '0 50px 100px -20px rgba(249, 115, 22, 0.12), 0 30px 60px -30px rgba(0,0,0,0.1)',
         position: 'relative',
         zIndex: 1,
       }}>
-        {/* Hospital mark (Emergency Bypass: Click here to enter) */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{
-            width: 72, height: 72,
-            background: 'linear-gradient(135deg, #2563eb, #10b981)',
-            borderRadius: 20,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 20px',
-            boxShadow: '0 16px 40px rgba(37,99,235,0.4)',
-          }}>
-            <span style={{ fontSize: 32 }}>🏥</span>
+        {/* Left: Login Form (Unchanged layout, refined style) */}
+        <div style={{
+          flex: 1,
+          padding: '80px 70px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          background: 'rgba(255, 255, 255, 0.2)',
+          borderRight: '1px solid rgba(249, 115, 22, 0.05)'
+        }}>
+          <div style={{ marginBottom: 48 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f97316', fontWeight: '800', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                <div style={{ width: '20px', height: '2px', background: '#f97316' }}></div> MOONVIEW MEDICAL
+            </div>
+            <h1 style={{ color: '#0f172a', fontSize: '3.5rem', fontWeight: 900, marginBottom: 8, letterSpacing: '-2px', lineHeight: '1' }}>
+              Portal <span style={{ color: '#f97316' }}>Login</span>
+            </h1>
+            <p style={{ color: '#64748b', fontSize: '1rem', fontWeight: '500' }}>Enter your clinical credentials to proceed.</p>
           </div>
-          <h1 style={{ color: 'white', fontSize: '1.8rem', fontWeight: 900, marginBottom: 6, letterSpacing: '-0.04em' }}>
-            eDoc HMS
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
-            Hospital Management System
-          </p>
+
+          {error && (
+            <div style={{ background: '#fee2e2', padding: '14px', borderRadius: '16px', color: '#991b1b', marginBottom: '32px', fontSize: '0.9rem', fontWeight: '600', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <AlertCircle size={18} />
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div>
+              <label style={{ display: 'block', color: '#475569', fontSize: '0.85rem', fontWeight: 800, marginBottom: 10, paddingLeft: '4px' }}>OFFICIAL EMAIL</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                placeholder="doctor@moonview.med"
+                style={{
+                  width: '100%', boxSizing: 'border-box', padding: '16px 20px',
+                  background: 'white', border: '2px solid #f1f5f9', borderRadius: '18px',
+                  outline: 'none', transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  fontSize: '1rem'
+                }}
+                className="login-input"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', color: '#475569', fontSize: '0.85rem', fontWeight: 800, marginBottom: 10, paddingLeft: '4px' }}>PASSWORD</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%', boxSizing: 'border-box', padding: '16px 20px',
+                    background: 'white', border: '2px solid #f1f5f9', borderRadius: '18px',
+                    outline: 'none', fontSize: '1rem'
+                  }}
+                  className="login-input"
+                />
+                <button type="button" onClick={() => setShowPwd(!showPwd)} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }}>
+                  {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: '#f97316', color: 'white', padding: '18px', borderRadius: '18px',
+                border: 'none', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer',
+                boxShadow: '0 20px 40px -10px rgba(249, 115, 22, 0.4)', transition: '0.3s all',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
+              }}
+              className="login-btn"
+            >
+              {loading ? 'Authenticating...' : <><KeyRound size={20} /> Sign In</>}
+            </button>
+          </form>
         </div>
 
-        {/* Error banner */}
-        {error && (
-          <div style={{
-            background: 'rgba(239,68,68,0.15)',
-            border: '1px solid rgba(239,68,68,0.4)',
-            borderRadius: 12,
-            padding: '12px 16px',
-            marginBottom: 24,
-            display: 'flex', alignItems: 'center', gap: 10,
-            color: '#fca5a5', fontSize: '0.875rem', fontWeight: 600,
-          }}>
-            <AlertCircle size={16} />
-            {error}
-          </div>
-        )}
+        {/* Right: Design-Polished Hero Section */}
+        <div style={{
+          flex: 1.2,
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Hero Image with Design Polish */}
+          <div style={{ position: 'relative', width: '90%', maxWidth: '500px', animation: 'bob 6s infinite ease-in-out' }}>
+            {/* Glow behind image */}
+            <div style={{ position: 'absolute', top: '10%', left: '10%', right: '10%', bottom: '10%', background: '#f97316', filter: 'blur(100px)', opacity: 0.15, borderRadius: '50%' }}></div>
+            
+            {/* The Image with custom mask/clip */}
+            <div style={{ 
+                borderRadius: '40px', 
+                overflow: 'hidden', 
+                border: '8px solid rgba(255,255,255,0.8)',
+                boxShadow: '0 30px 60px -15px rgba(0,0,0,0.3)',
+                position: 'relative',
+                zIndex: 2
+            }}>
+                <img 
+                    src="/media__1778189859634.jpg" 
+                    alt="Clinical Team" 
+                    style={{ width: '100%', height: 'auto', display: 'block', transform: 'scale(1.05)' }} 
+                />
+            </div>
 
-        {/* Login form */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* Email field */}
-          <div>
-            <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Email Address
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              placeholder="you@hospital.com"
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                padding: '14px 16px',
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 14,
-                color: 'white', fontSize: '1rem',
-                outline: 'none',
-                transition: '0.2s border-color',
-              }}
-              onFocus={e => e.target.style.borderColor = 'rgba(37,99,235,0.7)'}
-              onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.15)'}
-            />
-          </div>
+            {/* Floating Design Elements (Badges) */}
+            <div style={{ 
+                position: 'absolute', 
+                top: '20px', 
+                right: '-30px', 
+                background: 'rgba(255,255,255,0.9)', 
+                backdropFilter: 'blur(10px)',
+                padding: '12px 20px', 
+                borderRadius: '20px', 
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                zIndex: 3,
+                animation: 'float 4s infinite ease-in-out'
+            }}>
+                <LockKeyhole style={{ color: '#10b981' }} size={20} />
+                <span style={{ fontWeight: '800', fontSize: '0.8rem', color: '#1e293b' }}>SECURE ACCESS</span>
+            </div>
 
-          {/* Password field */}
-          <div>
-            <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Password
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                id="login-password"
-                type={showPwd ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '14px 48px 14px 16px',
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: 14,
-                  color: 'white', fontSize: '1rem',
-                  outline: 'none',
-                  transition: '0.2s border-color',
-                }}
-                onFocus={e => e.target.style.borderColor = 'rgba(37,99,235,0.7)'}
-                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.15)'}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPwd(!showPwd)}
-                style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}
-              >
-                {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+            <div style={{ 
+                position: 'absolute', 
+                bottom: '40px', 
+                left: '-30px', 
+                background: 'rgba(255,255,255,0.9)', 
+                backdropFilter: 'blur(10px)',
+                padding: '12px 20px', 
+                borderRadius: '20px', 
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                zIndex: 3,
+                animation: 'float 5s infinite ease-in-out'
+            }}>
+                <HeartPulse style={{ color: '#3b82f6' }} size={20} />
+                <span style={{ fontWeight: '800', fontSize: '0.8rem', color: '#1e293b' }}>VERIFIED STAFF</span>
+            </div>
+
+            <div style={{ 
+                position: 'absolute', 
+                top: '50%', 
+                left: '-20px', 
+                background: 'rgba(255,255,255,0.9)', 
+                backdropFilter: 'blur(10px)',
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px', 
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 3,
+                animation: 'float 7s infinite ease-in-out'
+            }}>
+                <Microscope style={{ color: '#f97316' }} size={24} />
             </div>
           </div>
-
-          {/* Submit */}
-          <button
-            id="login-submit"
-            type="submit"
-            disabled={loading}
-            style={{
-              marginTop: 8,
-              padding: '16px',
-              background: loading ? 'rgba(37,99,235,0.5)' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              color: 'white',
-              border: 'none',
-              borderRadius: 14,
-              fontSize: '1rem',
-              fontWeight: 800,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              boxShadow: '0 8px 24px rgba(37,99,235,0.35)',
-              transition: '0.2s all',
-            }}
-          >
-            {loading ? (
-              <>
-                <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                Authenticating…
-              </>
-            ) : (
-              <>
-                <LogIn size={18} />
-                Sign In to HMS
-              </>
-            )}
-          </button>
-        </form>
-
-
-
-        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: 28 }}>
-          Access restricted to authorised hospital staff only.
-        </p>
+        </div>
       </div>
 
-      {/* Spinner keyframe */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes bob {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-20px); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) translateX(0); }
+          50% { transform: translateY(-10px) translateX(5px); }
+        }
+        .login-input:focus {
+            border-color: #f97316 !important;
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 50px -12px rgba(249, 115, 22, 0.5);
+        }
+        .login-btn:active {
+            transform: translateY(0);
+        }
+      `}</style>
     </div>
   );
 };

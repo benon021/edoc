@@ -168,21 +168,63 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Departmental Metrics Row */}
+            {/* Premium Departmental Metrics Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '40px' }}>
                 {metrics.map((stat, idx) => (
                     <div key={idx}
                         onClick={() => navigate(stat.path)}
-                        style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                        style={{ 
+                            background: 'white', 
+                            padding: '32px 24px', 
+                            borderRadius: '24px', 
+                            border: '1px solid #e2e8f0', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            gap: '20px',
+                            cursor: 'pointer', 
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-6px)';
+                            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.borderColor = stat.color;
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.05)';
+                            e.currentTarget.style.borderColor = '#e2e8f0';
+                        }}
                     >
-                        <div>
-                            <div style={{ fontSize: '1.875rem', fontWeight: '800', color: '#1e293b' }}>{stat.count}</div>
-                            <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#64748b' }}>{stat.label}</div>
+                        <div style={{ 
+                            width: '48px', 
+                            height: '48px', 
+                            background: `${stat.color}15`, 
+                            color: stat.color, 
+                            borderRadius: '14px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            marginBottom: '4px'
+                        }}>
+                            <stat.icon size={26} strokeWidth={2.5} />
                         </div>
-                        <div style={{ padding: '12px', background: `${stat.color}15`, color: stat.color, borderRadius: '12px' }}>
-                            <stat.icon size={24} />
+                        <div>
+                            <div style={{ fontSize: '2.25rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.025em', lineHeight: 1 }}>{stat.count}</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px' }}>{stat.label}</div>
+                        </div>
+                        
+                        <div style={{ 
+                            position: 'absolute', 
+                            right: '-10px', 
+                            bottom: '-10px', 
+                            opacity: 0.03, 
+                            color: stat.color,
+                            transform: 'rotate(-15deg)'
+                        }}>
+                            <stat.icon size={100} />
                         </div>
                     </div>
                 ))}

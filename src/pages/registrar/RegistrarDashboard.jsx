@@ -217,17 +217,33 @@ const RegistrarDashboard = () => {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '16px 32px' }}>
-                                                <span style={{ 
-                                                    padding: '4px 12px', 
-                                                    borderRadius: '20px', 
-                                                    fontSize: '0.75rem', 
-                                                    fontWeight: '700',
-                                                    background: item.status === 'waiting' ? '#fffbeb' : '#f0fdf4',
-                                                    color: item.status === 'waiting' ? '#9a3412' : '#166534',
-                                                    textTransform: 'uppercase'
-                                                }}>
-                                                    {item.status}
-                                                </span>
+                                                {(() => {
+                                                    const s = item.status?.toLowerCase() || '';
+                                                    let bg = '#f1f5f9', color = '#475569', label = item.status;
+                                                    
+                                                    if (s === 'waiting') { bg = '#fffbeb'; color = '#9a3412'; label = 'Waiting for Doctor'; }
+                                                    else if (s === 'pending_lab') { bg = '#eff6ff'; color = '#1d4ed8'; label = 'Awaiting Lab Samples'; }
+                                                    else if (s === 'lab_processing') { bg = '#f5f3ff'; color = '#7c3aed'; label = 'Lab Session Active'; }
+                                                    else if (s === 'lab_results_partial') { bg = '#fdf4ff'; color = '#a21caf'; label = 'Partial Lab Results'; }
+                                                    else if (s === 'lab_completed') { bg = '#f0fdf4'; color = '#166534'; label = 'Lab Reports Ready'; }
+                                                    else if (s === 'in_consultation') { bg = '#ecfdf5'; color = '#059669'; label = 'In Consultation'; }
+                                                    else if (s === 'completed') { bg = '#f0fdf4'; color = '#166534'; label = 'Visit Completed'; }
+                                                    
+                                                    return (
+                                                        <span style={{ 
+                                                            padding: '6px 14px', 
+                                                            borderRadius: '20px', 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: '800',
+                                                            background: bg,
+                                                            color: color,
+                                                            textTransform: 'uppercase',
+                                                            border: `1px solid ${color}20`
+                                                        }}>
+                                                            {label}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
                                             <td style={{ padding: '16px 32px', textAlign: 'right' }}>
                                                 <button onClick={() => navigate(`/registrar/history`)} style={{ background: 'none', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', color: '#475569', cursor: 'pointer' }}>View Lifecycle</button>
@@ -248,7 +264,7 @@ const RegistrarDashboard = () => {
 
                     <div style={{ padding: '24px 32px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
                         <button onClick={() => navigate('/registrar/patients')} style={{ background: 'white', border: '1px solid #e2e8f0', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', color: '#1e293b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                            Manage New Handover <ArrowRight size={16} />
+                            Manage Patient Routing <ArrowRight size={16} />
                         </button>
                     </div>
                 </div>

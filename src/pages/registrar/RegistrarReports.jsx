@@ -32,20 +32,35 @@ const RegistrarReports = () => {
             const todayVisits = visits?.filter(v => v.appodate === today).length || 0;
             const completedVisits = visits?.filter(v => v.status === 'completed' || v.status === 'discharged').length || 0;
 
-            // 3. Billing Data (From centralized invoices table)
-            const { data: invoices } = await supabase
-                .from('invoices')
-                .select('*, patient:patient_id(pname)')
-                .order('created_at', { ascending: false });
+            // 3. Billing Data (Consolidated from multiple sources)
+            const [
+                { data: invoices },
+                { data: pharmaSales },
+                { data: labRequests }
+            ] = await Promise.all([
+                supabase.from('invoices').select('*, patient:patient_id(pname)').order('created_at', { ascending: false }),
+                supabase.from('pharmacy_sale').select('total_amount, created_at'),
+                supabase.from('lab_requests').select('price, created_at').eq('is_paid', true)
+            ]);
 
-            const totalCollected = invoices?.filter(i => i.status === 'Paid' || i.status === 'Partially Paid')
+            const invoiceTotal = invoices?.filter(i => i.status === 'Paid' || i.status === 'Partially Paid')
                                            .reduce((acc, s) => acc + Number(s.amount_paid), 0) || 0;
+            const pharmaTotal = pharmaSales?.reduce((acc, s) => acc + Number(s.total_amount), 0) || 0;
+            const labTotal = labRequests?.reduce((acc, s) => acc + (Number(s.price) || 0), 0) || 0;
+            
+            const totalCollected = invoiceTotal + pharmaTotal + labTotal;
             const paidInvoices = invoices?.filter(i => i.status === 'Paid').length || 0;
             const pendingInvoices = invoices?.filter(i => i.status === 'Pending').length || 0;
 
+            // 4. Last Month Comparisons
+            const lastMonthStart = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString();
+            const lastMonthEnd = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString();
+            const lastMonthPatients = patients?.filter(p => p.pdate_registered >= lastMonthStart && p.pdate_registered <= lastMonthEnd).length || 0;
+            const lastMonthVisits = visits?.filter(v => v.appodate >= lastMonthStart && v.appodate <= lastMonthEnd).length || 0;
+
             setData({
-                registrations: { total: totalPatients, today: todayPatients, month: monthPatients },
-                visits: { total: visits?.length || 0, today: todayVisits, completed: completedVisits },
+                registrations: { total: totalPatients, today: todayPatients, month: monthPatients, lastMonth: lastMonthPatients },
+                visits: { total: visits?.length || 0, today: todayVisits, completed: completedVisits, lastMonth: lastMonthVisits },
                 billing: { totalCollected, pendingInvoices, paidInvoices },
                 recentSales: invoices?.slice(0, 10) || []
             });

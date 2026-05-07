@@ -9,7 +9,7 @@ import {
     Save, AlertTriangle, Pill, FlaskConical, Clock, ChevronLeft,
     Plus, Trash2, Clipboard, Activity, FileText, User,
     Stethoscope, Thermometer, Heart, Wind, UserCheck,
-    LogOut, Calendar, Info, ShieldCheck, MapPin, Search, PlusCircle, X, Scissors, Camera, BookOpen, Droplets, ClipboardCheck, Send
+    LogOut, Calendar, Info, ShieldCheck, MapPin, Search, PlusCircle, X, Scissors, Camera, BookOpen, Droplets, ClipboardCheck, Send, Lock, CheckCircle
 } from 'lucide-react';
 import ClinicalModal from '../../components/shared/ClinicalModal';
 import { searchIcd10, searchMedicines, getLabCatalog } from '../../lib/api';
@@ -122,18 +122,70 @@ const ConsultationModule = () => {
         respiratory_rate: '', hb: '',
         bmi: '',
     });
-    const [physicalExam, setPhysicalExam] = useState({
-        general_appearance: 'Well-looking',
-        head_neck: '',
-        heent: '',
-        cardiovascular: '',
-        respiratory: '',
-        abdomen: '',
-        neurological: '',
-        musculoskeletal: '',
-        skin_integumentary: '',
-        psychiatric: '',
+    const [physicalExam, setPhysicalExam] = useState({});
+    const [clinicalQuickPicks, setClinicalQuickPicks] = useState({
+        general_appearance: ['Well-looking', 'Ill-looking', 'Pale', 'Jaundiced', 'Cyanosed', 'Dyspnoeic', 'Distressed', 'Febrile', 'Dehydrated', 'Cachectic', 'Obese'],
+        head_neck: ['No lymphadenopathy', 'Thyroid not enlarged', 'JVP not raised', 'Supple neck', 'Trachea central'],
+        heent: ['Pupils PERRLA', 'Conjunctiva clear', 'Sclera anicteric', 'Oropharynx clear', 'No nasal discharge'],
+        cardiovascular: ['S1 S2 heard', 'No murmurs', 'Apex beat not displaced', 'No pedal edema'],
+        respiratory: ['Vesicular breath sounds', 'No crepitations', 'No wheezing', 'Equal air entry'],
+        abdomen: ['Soft, Non-tender', 'No organomegaly', 'Bowel sounds present', 'No masses'],
+        neurological: ['GCS 15/15', 'Power 5/5', 'Tone normal', 'Reflexes 2+', 'Nerves intact'],
+        musculoskeletal: ['Full ROM', 'No swelling', 'No deformities', 'Normal gait'],
+        skin_integumentary: ['No rashes', 'No lesions', 'Warm and dry', 'Normal turgor'],
+        psychiatric: ['Calm & cooperative', 'Oriented T/P/P', 'Euthymic mood', 'Appropriate affect'],
+        pmh: ['Hypertension', 'Type 2 Diabetes', 'Asthma', 'Peptic Ulcer Disease', 'Epilepsy', 'HIV Reactive'],
+        surgical_history: ['Appendectomy', 'C-Section', 'Hernia Repair', 'No past surgeries'],
+        social_history: ['Non-smoker', 'Non-drinker', 'Social drinker', 'Occasional smoker'],
+        allergies_detailed: ['Penicillin Allergy', 'Sulfa Allergy', 'No known allergies', 'Latex Allergy'],
+        medication_history: ['On Anti-hypertensives', 'On Metformin', 'On ARTs', 'On Supplements'],
+        ob_gyn_history: ['LMP: Normal', 'G1 P0', 'Irregular Cycles', 'Post-menopausal'],
+        ros: ['Systemic: Normal', 'HEENT: Normal', 'Chest: Clear', 'Abd: Soft']
     });
+    const [editMode, setEditMode] = useState({}); 
+    const [selectedForDelete, setSelectedForDelete] = useState({});
+
+    const addQuickPick = (category) => {
+        const val = physicalExam[category];
+        if (!val || clinicalQuickPicks[category].includes(val)) return;
+        setClinicalQuickPicks({
+            ...clinicalQuickPicks,
+            [category]: [...clinicalQuickPicks[category], val]
+        });
+        showToast(`Added "${val}" to ${category}`, "success");
+    };
+
+    const deleteQuickPicks = (category) => {
+        const remaining = clinicalQuickPicks[category].filter(opt => !selectedForDelete[`${category}-${opt}`]);
+        setClinicalQuickPicks({
+            ...clinicalQuickPicks,
+            [category]: remaining
+        });
+        setEditMode({ ...editMode, [category]: false });
+        setSelectedForDelete({});
+        showToast("Findings removed", "info");
+    };
+
+    const toggleNumberedItem = (currentVal, opt, setter, state, key) => {
+        let lines = (currentVal || '').split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
+        if (lines.includes(opt)) {
+            lines = lines.filter(l => l !== opt);
+        } else {
+            lines.push(opt);
+        }
+        const formatted = lines.map((l, i) => `${i + 1}. ${l}`).join('\n');
+        setter({ ...state, [key]: formatted });
+    };
+
+    const handleListKeyDown = (e, currentVal, setter, state, key) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const lines = (currentVal || '').split('\n').filter(l => l.trim() !== '');
+            const nextNum = lines.length + 1;
+            const newVal = (currentVal || '').trimEnd() + `\n${nextNum}. `;
+            setter({ ...state, [key]: newVal });
+        }
+    };
 
     // Assessment
     const [assessment, setAssessment] = useState({
@@ -168,14 +220,18 @@ const ConsultationModule = () => {
     const [technicians, setTechnicians] = useState([]);
     const [selectedTech, setSelectedTech] = useState(null);
     const [bundles, setBundles] = useState([]); // Clinical Protocols
-    const [newLab, setNewLab] = useState({ test_name: '', urgency: 'Routine', clinical_indication: '', specimen_type: '', order_notes: '' });
+    const [consultationRates, setConsultationRates] = useState([]);
+    const [newLab, setNewLab] = useState({ test_name: '', urgency: 'Routine', clinical_indication: '', specimen_type: '', order_notes: '', price: 0 });
 
     // Modal States
     const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
     const [showLabModal, setShowLabModal] = useState(false);
+    const [showProcedureModal, setShowProcedureModal] = useState(false);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [showLabResultsModal, setShowLabResultsModal] = useState(false);
     const [selectedLabResult, setSelectedLabResult] = useState(null);
+    const [procedureCatalog, setProcedureCatalog] = useState([]);
+    const [newProcedure, setNewProcedure] = useState({ procedure_name: '', notes: '', urgency: 'Routine', price: 0 });
     const [isSendingLab, setIsSendingLab] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -197,6 +253,7 @@ const ConsultationModule = () => {
     const [managementPlan, setManagementPlan] = useState('');
     const [imagingRequests, setImagingRequests] = useState([]);
     const [procedureOrders, setProcedureOrders] = useState([]);
+    const [sentProcedures, setSentProcedures] = useState([]);
     const [patientEducation, setPatientEducation] = useState('');
     const [sickLeave, setSickLeave] = useState({ required: false, days: '', notes: '' });
 
@@ -408,6 +465,15 @@ const ConsultationModule = () => {
         });
     };
 
+    const fetchProcedures = useCallback(async () => {
+        try {
+            const { data, error } = await supabase.from('pricing_matrix').select('*').eq('category', 'Procedure').eq('is_active', true);
+            if (error) throw error;
+            setProcedureCatalog(data || []);
+            console.log('[Consultation] Loaded', data?.length || 0, 'procedures');
+        } catch (e) { console.error("Procedures fetch failed", e); }
+    }, []);
+
     const fetchCatalog = useCallback(async () => {
         try {
             const { data, error } = await getLabCatalog();
@@ -437,6 +503,14 @@ const ConsultationModule = () => {
                 setSelectedTech(data[0].user_id || data[0].labid);
             }
         } catch (e) { console.error("Techs fetch failed", e); }
+    }, []);
+
+    const fetchRates = useCallback(async () => {
+        try {
+            const { data, error } = await supabase.from('pricing_matrix').select('*').eq('category', 'Consultation').eq('is_active', true);
+            if (error) throw error;
+            setConsultationRates(data || []);
+        } catch (e) { console.error("Rates fetch failed", e); }
     }, []);
 
     const applyProtocol = (bundle) => {
@@ -469,12 +543,71 @@ const ConsultationModule = () => {
     };
 
     const availableLabs = catalog.filter(t => t.is_enabled).map(t => t.test_name);
+
+    // BACKGROUND SYNC (REALTIME)
+    useEffect(() => {
+        if (!appoid || appoid === 'null') return;
+
+        console.log('[Realtime] Initializing background sync for appoid:', appoid);
+
+        // Subscribe to changes in the consultation draft
+        const consultationChannel = supabase
+            .channel(`consultation_sync_${appoid}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'consultations', 
+                filter: `appointment_id=eq.${appoid}` 
+            }, (payload) => {
+                console.log('[Realtime] Consultation update detected', payload);
+                refreshData();
+            })
+            .subscribe();
+
+        // Subscribe to lab request changes (e.g. status updates from lab)
+        const labChannel = supabase
+            .channel(`lab_sync_${appoid}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'lab_requests', 
+                filter: `appointment_id=eq.${appoid}` 
+            }, (payload) => {
+                console.log('[Realtime] Lab update detected', payload);
+                refreshData();
+            })
+            .subscribe();
+
+        // Subscribe to procedure changes (e.g. payment updates from registrar)
+        const procedureChannel = supabase
+            .channel(`proc_sync_${appoid}`)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'procedures', 
+                filter: `appointment_id=eq.${appoid}` 
+            }, (payload) => {
+                console.log('[Realtime] Procedure update detected', payload);
+                refreshData();
+            })
+            .subscribe();
+
+        return () => {
+            console.log('[Realtime] Cleaning up channels');
+            supabase.removeChannel(consultationChannel);
+            supabase.removeChannel(labChannel);
+            supabase.removeChannel(procedureChannel);
+        };
+    }, [appoid]);
+
     useEffect(() => {
         refreshData();
         fetchCatalog();
         fetchBundles();
         fetchTechnicians();
-    }, [appoid, navigate, fetchCatalog, fetchBundles, fetchTechnicians]);
+        fetchRates();
+        fetchProcedures();
+    }, [appoid, navigate, fetchCatalog, fetchBundles, fetchTechnicians, fetchRates, fetchProcedures]);
 
     const refreshData = async () => {
         if (!appoid || appoid === 'null') {
@@ -520,16 +653,20 @@ const ConsultationModule = () => {
                     bmi: (patientData.pweight && patientData.pheight) ? (patientData.pweight / ((patientData.pheight / 100) ** 2)).toFixed(1) : ''
                 });
 
-                // Get Past Consultations History
                 const { data: historyData } = await supabase
                     .from('consultations')
                     .select('id, consultation_date, diagnosis, clinical_impression')
-                    .eq('pid', patientData.pid) // Changed from patient_id to pid
-                    .in('status', ['final', 'completed'])
+                    .eq('pid', patientData.pid)
                     .order('consultation_date', { ascending: false })
-                    .range(0, 4);
-
+                    .limit(5);
                 setHistory(historyData || []);
+
+                // Fetch Sent Procedures
+                const { data: procData } = await supabase
+                    .from('procedures')
+                    .select('*')
+                    .eq('appointment_id', Number(appoid));
+                setSentProcedures(procData || []);
 
                 // Get Existing Draft
                 const { data: draftResults } = await supabase
@@ -780,18 +917,34 @@ const ConsultationModule = () => {
                 disposition: JSON.stringify(disposition || {})
             };
 
-            // 2. SAVE CONSULTATION (Upsert for reliability)
-            const { data: savedConsults, error: upsertError } = await supabase
+            // 2. SAVE CONSULTATION (Check for existing record first to avoid 42P10 Upsert error)
+            const { data: existingConsult } = await supabase
                 .from('consultations')
-                .upsert(consultationPayload, { onConflict: 'appointment_id' })
-                .select('id');
+                .select('id')
+                .eq('appointment_id', Number(appoid))
+                .maybeSingle();
 
-            if (upsertError) {
-                console.error('[saveToSupabase] Upsert error:', upsertError);
-                throw upsertError;
+            let consultId;
+            if (existingConsult?.id) {
+                const { data: updatedConsults, error: updateError } = await supabase
+                    .from('consultations')
+                    .update(consultationPayload)
+                    .eq('id', existingConsult.id)
+                    .select('id');
+                
+                if (updateError) throw updateError;
+                consultId = updatedConsults?.[0]?.id;
+            } else {
+                const { data: insertedConsults, error: insertError } = await supabase
+                    .from('consultations')
+                    .insert([consultationPayload])
+                    .select('id');
+                
+                if (insertError) throw insertError;
+                consultId = insertedConsults?.[0]?.id;
             }
-            const consultId = savedConsults?.[0]?.id;
-            if (!consultId) throw new Error('Upsert successful but no ID returned');
+
+            if (!consultId) throw new Error('Failed to retrieve Consultation ID after save');
             console.log('[saveToSupabase] Consultation synced with ID:', consultId);
 
             // Prescriptions
@@ -823,22 +976,23 @@ const ConsultationModule = () => {
             // Lab Requests - Only sync items that haven't been "sent" yet
             if (labsToSync.length > 0) {
                 const labPayload = labsToSync.map(l => ({
-                    consultation_id: consultId,
-                    appointment_id: appoid,
+                    consultation_id: Number(consultId),
+                    appointment_id: Number(appoid),
                     test_name: l.test_name,
                     status: 'pending',
                     technician_id: selectedTech || null,
                     urgency: l.urgency || 'Routine',
                     clinical_indication: l.clinical_indication || '',
                     specimen_type: l.specimen_type || '',
-                    order_notes: l.order_notes || ''
+                    order_notes: l.order_notes || '',
+                    price: l.price || 0
                 }));
                 const { error: labError } = await supabase.from('lab_requests').insert(labPayload);
                 if (!labError) {
                     console.log('[save] Sent', labsToSync.length, 'lab requests');
                     showToast(`✅ Sent ${labsToSync.length} lab order(s) successfully!`, 'success');
-                    // Update appointment status to 'Doctor' as requested
-                    await supabase.from('appointment').update({ status: 'Doctor' }).eq('appoid', appoid);
+                    // Update appointment status to 'pending_lab' so Registrar sees them in the Lab tab
+                    await supabase.from('appointment').update({ status: 'pending_lab' }).eq('appoid', Number(appoid));
                 } else {
                     console.error('Lab requests insert failed:', labError);
                     showToast(`Lab orders failed: ${labError.message.substring(0, 100)}`, 'error');
@@ -846,11 +1000,31 @@ const ConsultationModule = () => {
                 }
             }
 
+            // Procedures
+            if (procedureOrders.length > 0) {
+                const procPayload = procedureOrders.map(p => ({
+                    appointment_id: Number(appoid),
+                    procedure_name: p.procedure_name,
+                    price: Number(p.price) || 0,
+                    is_paid: false,
+                    docid: profile?.docid ? parseInt(profile.docid) : null
+                }));
+                const { error: procError } = await supabase.from('procedures').insert(procPayload);
+                if (procError) {
+                    console.error('Procedure insert failed:', procError);
+                    showToast(`Procedure failed: ${procError.message}`, 'error');
+                    return false;
+                } else {
+                    console.log('[save] Sent', procedureOrders.length, 'procedures');
+                    showToast(`✅ ${procedureOrders.length} procedure(s) ordered successfully!`, 'success');
+                }
+            }
+
             // Vitals (no error handling needed - optional)
             const vitalsPayload = {
-                consultation_id: consultId,
-                appointment_id: appoid,
-                patient_id: patient.pid,
+                consultation_id: Number(consultId),
+                appoid: Number(appoid),
+                pid: Number(patient.pid),
                 temp: vitals.temp || null,
                 bp: vitals.bp || null,
                 heart_rate: vitals.heart_rate || null,
@@ -864,7 +1038,7 @@ const ConsultationModule = () => {
             await supabase.from('vitals_records').insert(vitalsPayload);
 
             if (status === 'final') {
-                await supabase.from('appointment').update({ status: 'Completed' }).eq('appoid', appoid);
+                await supabase.from('appointment').update({ status: 'Completed' }).eq('appoid', Number(appoid));
             }
             return true;
         } catch (e) {
@@ -901,7 +1075,7 @@ const ConsultationModule = () => {
         return success;
     };
 
-    const instantSendLab = async (testItem = null) => {
+    const handleSendLabOrder = async (testItem = null) => {
         // If it's a specific test from the modal
         if (testItem && testItem.test_name) {
             // Explicitly build the list to avoid React state race conditions
@@ -925,6 +1099,18 @@ const ConsultationModule = () => {
                 setLabRequests([]);
                 refreshData();
             }
+        }
+    };
+
+    const handleSendProcedureOrder = async () => {
+        if (procedureOrders.length === 0) return;
+        setIsSendingLab(true);
+        const success = await saveToSupabase('draft');
+        setIsSendingLab(false);
+        if (success) {
+            setProcedureOrders([]);
+            setShowProcedureModal(false);
+            refreshData();
         }
     };
 
@@ -983,6 +1169,21 @@ const ConsultationModule = () => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#f1f5f9' }}>
+            <style>
+                {`
+                @keyframes critical-shake {
+                    0%, 100% { transform: translateX(0); }
+                    2%, 6%, 10% { transform: translateX(-3px); }
+                    4%, 8% { transform: translateX(3px); }
+                    15%, 100% { transform: translateX(0); }
+                }
+                .vital-critical-alert {
+                    animation: critical-shake 2s infinite ease-in-out;
+                    border-color: #ef4444 !important;
+                    background: #fef2f2 !important;
+                }
+                `}
+            </style>
                 {/* Modern Clinical Header */}
                 <header style={{
                     padding: '16px 32px',
@@ -1102,21 +1303,41 @@ const ConsultationModule = () => {
                                             <Activity size={14} /> Triage Vitals
                                         </h4>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                            <div className={vitals.temp && (parseFloat(vitals.temp) > 37.5 || parseFloat(vitals.temp) < 35.0) ? 'vital-critical-alert' : ''} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9', transition: '0.3s' }}>
                                                 <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Temp</div>
-                                                <div style={{ fontSize: '1rem', fontWeight: '700' }}>{vitals.temp || '--'}°C</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: '800', color: vitals.temp ? (parseFloat(vitals.temp) > 37.5 ? '#ef4444' : parseFloat(vitals.temp) < 36.0 ? '#3b82f6' : '#1e293b') : '#1e293b' }}>
+                                                    {vitals.temp || '--'}°C
+                                                </div>
                                             </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                            <div className={vitals.bp?.includes('/') && (parseInt(vitals.bp.split('/')[0]) > 140 || parseInt(vitals.bp.split('/')[1]) > 95 || parseInt(vitals.bp.split('/')[0]) < 90) ? 'vital-critical-alert' : ''} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9', transition: '0.3s' }}>
                                                 <div style={{ fontSize: '0.7rem', color: '#64748b' }}>BP</div>
-                                                <div style={{ fontSize: '1rem', fontWeight: '700' }}>{vitals.bp || '--/--'}</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: '800', color: vitals.bp?.includes('/') && (parseInt(vitals.bp.split('/')[0]) > 140 || parseInt(vitals.bp.split('/')[1]) > 90 || parseInt(vitals.bp.split('/')[0]) < 90) ? '#ef4444' : '#1e293b' }}>
+                                                    {vitals.bp || '--/--'}
+                                                </div>
                                             </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                            <div className={vitals.heart_rate && (vitals.heart_rate > 110 || vitals.heart_rate < 50) ? 'vital-critical-alert' : ''} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9', transition: '0.3s' }}>
                                                 <div style={{ fontSize: '0.7rem', color: '#64748b' }}>HR</div>
-                                                <div style={{ fontSize: '1rem', fontWeight: '700' }}>{vitals.heart_rate || '--'} bpm</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: '800', color: vitals.heart_rate && (vitals.heart_rate > 100 || vitals.heart_rate < 60) ? '#ef4444' : '#1e293b' }}>
+                                                    {vitals.heart_rate || '--'} <span style={{ fontSize: '0.7rem' }}>bpm</span>
+                                                </div>
                                             </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                                            <div className={vitals.spo2 && vitals.spo2 < 92 ? 'vital-critical-alert' : ''} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9', transition: '0.3s' }}>
                                                 <div style={{ fontSize: '0.7rem', color: '#64748b' }}>SpO2</div>
-                                                <div style={{ fontSize: '1rem', fontWeight: '700' }}>{vitals.spo2 || '--'}%</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: '800', color: vitals.spo2 && vitals.spo2 < 95 ? '#ef4444' : '#1e293b' }}>
+                                                    {vitals.spo2 || '--'}%
+                                                </div>
+                                            </div>
+                                            <div className={vitals.respiratory_rate && (vitals.respiratory_rate > 24 || vitals.respiratory_rate < 10) ? 'vital-critical-alert' : ''} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9', transition: '0.3s' }}>
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>RR</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: '800', color: vitals.respiratory_rate && (vitals.respiratory_rate > 20 || vitals.respiratory_rate < 12) ? '#ef4444' : '#1e293b' }}>
+                                                    {vitals.respiratory_rate || '--'} <span style={{ fontSize: '0.7rem' }}>/m</span>
+                                                </div>
+                                            </div>
+                                            <div className={vitals.hb && (vitals.hb < 9 || vitals.hb > 19) ? 'vital-critical-alert' : ''} style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #f1f5f9', transition: '0.3s' }}>
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Hb</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: '800', color: vitals.hb && (vitals.hb < 12 || vitals.hb > 18) ? '#ef4444' : '#1e293b' }}>
+                                                    {vitals.hb || '--'} <span style={{ fontSize: '0.7rem' }}>g/dL</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1176,13 +1397,11 @@ const ConsultationModule = () => {
                                         </p>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                        <div>
-                                            <label className="label">Consultation Type</label>
-                                            <select className="input-field" value={subjective.consultation_type} onChange={e => setSubjective({ ...subjective, consultation_type: e.target.value })}>
-                                                <option>Initial</option><option>Follow-up</option><option>Review</option><option>Emergency</option><option>Ward Round</option>
-                                            </select>
-                                        </div>
+                                    <div style={{ maxWidth: '400px' }}>
+                                        <label className="label">Consultation Type</label>
+                                        <select className="input-field" value={subjective.consultation_type} onChange={e => setSubjective({ ...subjective, consultation_type: e.target.value })}>
+                                            <option>Initial</option><option>Follow-up</option><option>Review</option><option>Emergency</option><option>Ward Round</option>
+                                        </select>
                                     </div>
                                     {/* Clinical Presentation Box */}
                                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
@@ -1283,50 +1502,133 @@ const ConsultationModule = () => {
                                             <Clipboard size={18} color="#2563eb" /> Clinical History & Background
                                         </h3>
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                            <div>
-                                                <label className="label">History of Presenting Illness (HPI)</label>
-                                                <textarea className="input-field" rows="4" value={subjective.hpi} onChange={e => setSubjective({ ...subjective, hpi: e.target.value })} placeholder="Detailed description of onset, duration, character, radiation..."></textarea>
-                                            </div>
+                                            {/* Clinical History Sections with Smart Quick-Picks */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                                                {[
+                                                    { label: 'Past Medical History (PMH)', key: 'pmh', stateKey: 'pmh' },
+                                                    { label: 'Surgical History', key: 'surgical_history', stateKey: 'surgical_history' },
+                                                    { label: 'Social & Family History', key: 'social_history', stateKey: 'social_history' },
+                                                    { label: 'Allergies (Detailed)', key: 'allergies_detailed', stateKey: 'allergies_detailed' },
+                                                    { label: 'Medication History', key: 'medication_history', stateKey: 'medication_history' },
+                                                    { label: 'OB/GYN History', key: 'ob_gyn_history', stateKey: 'ob_gyn_history' },
+                                                    { label: 'Review of Systems (ROS)', key: 'ros', stateKey: 'ros', fullWidth: true }
+                                                ].map((section) => {
+                                                    const currentVal = subjective[section.stateKey] || '';
+                                                    const lines = currentVal.split('\n');
+                                                    const lastLine = lines[lines.length - 1] || '';
+                                                    const activeSearchTerm = lastLine.replace(/^\d+\.\s*/, '').toLowerCase();
+                                                    
+                                                    const filteredOptions = (clinicalQuickPicks[section.stateKey] || []).filter(opt => 
+                                                        opt.toLowerCase().includes(activeSearchTerm)
+                                                    );
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                                <div>
-                                                    <label className="label">Past Medical History (PMH)</label>
-                                                    <textarea className="input-field" rows="3" value={subjective.pmh} onChange={e => setSubjective({ ...subjective, pmh: e.target.value })} placeholder="Hypertension, Diabetes, Chronic conditions..."></textarea>
-                                                </div>
-                                                <div>
-                                                    <label className="label">Surgical History</label>
-                                                    <textarea className="input-field" rows="3" value={subjective.surgical_history} onChange={e => setSubjective({ ...subjective, surgical_history: e.target.value })} placeholder="Past procedures, dates, complications..."></textarea>
-                                                </div>
-                                            </div>
+                                                    return (
+                                                        <div key={section.key} style={{ 
+                                                            background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', 
+                                                            display: 'flex', flexDirection: 'column',
+                                                            gridColumn: section.fullWidth ? 'span 2' : 'span 1'
+                                                        }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                                <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                                    {section.label}
+                                                                </label>
+                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const val = subjective[section.stateKey];
+                                                                            if (!val || clinicalQuickPicks[section.stateKey].includes(val)) return;
+                                                                            setClinicalQuickPicks({
+                                                                                ...clinicalQuickPicks,
+                                                                                [section.stateKey]: [...clinicalQuickPicks[section.stateKey], val]
+                                                                            });
+                                                                            showToast(`Added to ${section.label}`, "success");
+                                                                        }}
+                                                                        style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                                                    >
+                                                                        + Add
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => setEditMode({ ...editMode, [section.stateKey]: !editMode[section.stateKey] })}
+                                                                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                                                    >
+                                                                        {editMode[section.stateKey] ? 'Cancel' : 'Edit'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <textarea 
+                                                                className="input-field" 
+                                                                rows={section.fullWidth ? 2 : 3}
+                                                                value={subjective[section.stateKey] || ''} 
+                                                                onChange={e => {
+                                                                    setSubjective({ ...subjective, [section.stateKey]: e.target.value });
+                                                                    e.target.style.height = 'auto';
+                                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                                }} 
+                                                                onKeyDown={e => handleListKeyDown(e, subjective[section.stateKey], setSubjective, subjective, section.stateKey)}
+                                                                placeholder={`Type to search or record...`}
+                                                                style={{ marginBottom: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', resize: 'vertical', minHeight: '60px' }}
+                                                            />
+                                                            
+                                                            <div style={{ 
+                                                                maxHeight: '120px', overflowY: 'auto', 
+                                                                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', padding: '4px' 
+                                                            }}>
+                                                                {filteredOptions.length > 0 ? filteredOptions.map(opt => {
+                                                                    const currentVal = subjective[section.stateKey] || '';
+                                                                    const rawLines = currentVal.split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim());
+                                                                    const isSelected = rawLines.includes(opt);
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                                <div>
-                                                    <label className="label">Social & Family History</label>
-                                                    <textarea className="input-field" rows="2" value={subjective.social_history} onChange={e => setSubjective({ ...subjective, social_history: e.target.value })} placeholder="Smoking, Alcohol, Family conditions..."></textarea>
-                                                </div>
-                                                <div>
-                                                    <label className="label">Allergies (Detailed)</label>
-                                                    <textarea className="input-field" rows="2" value={subjective.allergies_detailed} onChange={e => setSubjective({ ...subjective, allergies_detailed: e.target.value })} placeholder="Drug/Food reactions & severity..."></textarea>
-                                                </div>
-                                            </div>
+                                                                    return (
+                                                                        <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                            {editMode[section.stateKey] && (
+                                                                                <input 
+                                                                                    type="checkbox" 
+                                                                                    checked={!!selectedForDelete[`${section.stateKey}-${opt}`]} 
+                                                                                    onChange={() => setSelectedForDelete({
+                                                                                        ...selectedForDelete,
+                                                                                        [`${section.stateKey}-${opt}`]: !selectedForDelete[`${section.stateKey}-${opt}`]
+                                                                                    })}
+                                                                                />
+                                                                            )}
+                                                                            <button 
+                                                                                onClick={() => toggleNumberedItem(subjective[section.stateKey], opt, setSubjective, subjective, section.stateKey)}
+                                                                                style={{ 
+                                                                                    width: '100%', padding: '6px 8px', borderRadius: '6px', fontSize: '0.65rem', textAlign: 'left',
+                                                                                    background: isSelected ? '#2563eb' : 'white',
+                                                                                    color: isSelected ? 'white' : '#64748b',
+                                                                                    border: '1px solid',
+                                                                                    borderColor: isSelected ? '#2563eb' : '#e2e8f0',
+                                                                                    cursor: editMode[section.stateKey] ? 'default' : 'pointer', fontWeight: '600', transition: '0.2s',
+                                                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                                                                }}
+                                                                                title={opt}
+                                                                            >
+                                                                                {opt}
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                }) : (
+                                                                    <div style={{ gridColumn: 'span 3', fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic' }}>No matches found.</div>
+                                                                )}
+                                                            </div>
 
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                                <div>
-                                                    <label className="label">Medication History</label>
-                                                    <textarea className="input-field" rows="3" value={subjective.medication_history} onChange={e => setSubjective({ ...subjective, medication_history: e.target.value })} placeholder="Current medications, dosage, compliance..."></textarea>
-                                                </div>
-                                                <div>
-                                                    <label className="label">OB/GYN History (If Applicable)</label>
-                                                    <textarea className="input-field" rows="3" value={subjective.ob_gyn_history} onChange={e => setSubjective({ ...subjective, ob_gyn_history: e.target.value })} placeholder="LMP, Parity, Gravidity, Cycle..."></textarea>
-                                                </div>
+                                                            {editMode[section.stateKey] && Object.keys(selectedForDelete).some(k => k.startsWith(section.stateKey) && selectedForDelete[k]) && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const remaining = clinicalQuickPicks[section.stateKey].filter(o => !selectedForDelete[`${section.stateKey}-${o}`]);
+                                                                        setClinicalQuickPicks({ ...clinicalQuickPicks, [section.stateKey]: remaining });
+                                                                        setEditMode({ ...editMode, [section.stateKey]: false });
+                                                                        setSelectedForDelete({});
+                                                                    }}
+                                                                    style={{ marginTop: '12px', background: '#dc2626', color: 'white', border: 'none', padding: '6px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                                                                >
+                                                                    Delete Selected
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-
-                                            <div>
-                                                <label className="label">Review of Systems (ROS)</label>
-                                                <textarea className="input-field" rows="2" value={subjective.ros} onChange={e => setSubjective({ ...subjective, ros: e.target.value })} placeholder="Systemic assessment notes..."></textarea>
-                                            </div>
-                                        </div>
                                     </div>
 
                                 </section>
@@ -1342,47 +1644,126 @@ const ConsultationModule = () => {
                                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                         <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={18} color="#2563eb" /> Vital Signs & Biometrics</h3>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-                                            <div>
+                                            <div className={vitals.temp && (parseFloat(vitals.temp) > 37.5 || parseFloat(vitals.temp) < 35.0) ? 'vital-critical-alert' : ''} style={{ borderRadius: '8px', padding: '4px', transition: '0.3s' }}>
                                                 <label className="label">Temp (°C)</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
                                                     className="input-field"
                                                     value={vitals.temp}
-                                                    onChange={e => setVitals({ ...vitals, temp: e.target.value })}
+                                                    onChange={e => setVitals({ ...vitals, temp: e.target.value.replace(/[^0-9.]/g, '') })}
+                                                    onBlur={e => {
+                                                        let val = e.target.value;
+                                                        if (!val) return;
+                                                        if (!val.includes('.')) {
+                                                            if (val.length === 2) val = val + ".0";
+                                                            else if (val.length === 3) val = val.substring(0, 2) + "." + val.substring(2);
+                                                        }
+                                                        setVitals({ ...vitals, temp: val });
+                                                    }}
                                                     placeholder="36.5"
                                                     style={{
                                                         color: vitals.temp ? (parseFloat(vitals.temp) > 37.5 ? '#ef4444' : parseFloat(vitals.temp) < 36.0 ? '#3b82f6' : '#1e293b') : '#1e293b',
-                                                        fontWeight: vitals.temp && (parseFloat(vitals.temp) > 37.5 || parseFloat(vitals.temp) < 36.0) ? '800' : '500'
+                                                        fontWeight: vitals.temp && (parseFloat(vitals.temp) > 37.5 || parseFloat(vitals.temp) < 36.0) ? '800' : '500',
+                                                        background: 'transparent'
                                                     }}
                                                 />
                                             </div>
-                                            <div>
+                                            <div className={vitals.bp?.includes('/') && (parseInt(vitals.bp.split('/')[0]) > 140 || parseInt(vitals.bp.split('/')[1]) > 95 || parseInt(vitals.bp.split('/')[0]) < 90) ? 'vital-critical-alert' : ''} style={{ borderRadius: '8px', padding: '4px', transition: '0.3s' }}>
                                                 <label className="label">BP (mmHg)</label>
-                                                <input className="input-field" value={vitals.bp} onChange={e => setVitals({ ...vitals, bp: e.target.value })} placeholder="120/80" />
+                                                <input 
+                                                    className="input-field" 
+                                                    value={vitals.bp} 
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^0-9/]/g, '');
+                                                        setVitals({ ...vitals, bp: val });
+                                                    }} 
+                                                    onBlur={e => {
+                                                        let val = e.target.value;
+                                                        if (!val) return;
+                                                        if (!val.includes('/')) {
+                                                            if (val.length === 5) val = val.substring(0, 3) + "/" + val.substring(3);
+                                                            else if (val.length === 4) val = val.substring(0, 2) + "/" + val.substring(2);
+                                                            else {
+                                                                showToast("⚠️ Invalid BP format. Must be Systolic/Diastolic (e.g., 120/80)", "warning");
+                                                            }
+                                                        }
+                                                        setVitals({ ...vitals, bp: val });
+                                                    }}
+                                                    placeholder="120/80"
+                                                    style={{
+                                                        color: vitals.bp?.includes('/') && (parseInt(vitals.bp.split('/')[0]) > 140 || parseInt(vitals.bp.split('/')[1]) > 90 || parseInt(vitals.bp.split('/')[0]) < 90) ? '#ef4444' : '#1e293b',
+                                                        fontWeight: vitals.bp?.includes('/') && (parseInt(vitals.bp.split('/')[0]) > 140 || parseInt(vitals.bp.split('/')[1]) > 90 || parseInt(vitals.bp.split('/')[0]) < 90) ? '800' : '500',
+                                                        background: 'transparent'
+                                                    }}
+                                                />
+                                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>Format: SYS/DIA (e.g. 120/80)</div>
                                             </div>
-                                            <div>
+                                            <div className={vitals.heart_rate && (vitals.heart_rate > 110 || vitals.heart_rate < 50) ? 'vital-critical-alert' : ''} style={{ borderRadius: '8px', padding: '4px', transition: '0.3s' }}>
                                                 <label className="label">HR (bpm)</label>
-                                                <input type="number" className="input-field" value={vitals.heart_rate} onChange={e => setVitals({ ...vitals, heart_rate: e.target.value })} placeholder="72" />
+                                                <input 
+                                                    type="number" 
+                                                    className="input-field" 
+                                                    value={vitals.heart_rate} 
+                                                    onChange={e => setVitals({ ...vitals, heart_rate: e.target.value })} 
+                                                    placeholder="72" 
+                                                    style={{
+                                                        color: vitals.heart_rate && (vitals.heart_rate > 100 || vitals.heart_rate < 60) ? '#ef4444' : '#1e293b',
+                                                        fontWeight: vitals.heart_rate && (vitals.heart_rate > 100 || vitals.heart_rate < 60) ? '800' : '500',
+                                                        background: 'transparent'
+                                                    }}
+                                                />
                                             </div>
-                                            <div>
+                                            <div className={vitals.spo2 && vitals.spo2 < 92 ? 'vital-critical-alert' : ''} style={{ borderRadius: '8px', padding: '4px', transition: '0.3s' }}>
                                                 <label className="label">SpO2 (%)</label>
-                                                <input type="number" className="input-field" value={vitals.spo2} onChange={e => setVitals({ ...vitals, spo2: e.target.value })} placeholder="98" />
+                                                <input 
+                                                    type="number" 
+                                                    className="input-field" 
+                                                    value={vitals.spo2} 
+                                                    onChange={e => setVitals({ ...vitals, spo2: e.target.value })} 
+                                                    placeholder="98" 
+                                                    style={{
+                                                        color: vitals.spo2 && vitals.spo2 < 95 ? '#ef4444' : '#1e293b',
+                                                        fontWeight: vitals.spo2 && vitals.spo2 < 95 ? '800' : '500',
+                                                        background: 'transparent'
+                                                    }}
+                                                />
                                             </div>
-                                            <div>
+                                            <div className={vitals.respiratory_rate && (vitals.respiratory_rate > 24 || vitals.respiratory_rate < 10) ? 'vital-critical-alert' : ''} style={{ borderRadius: '8px', padding: '4px', transition: '0.3s' }}>
                                                 <label className="label">Resp Rate (/min)</label>
-                                                <input type="number" className="input-field" value={vitals.respiratory_rate} onChange={e => setVitals({ ...vitals, respiratory_rate: e.target.value })} placeholder="16" />
+                                                <input 
+                                                    type="number" 
+                                                    className="input-field" 
+                                                    value={vitals.respiratory_rate} 
+                                                    onChange={e => setVitals({ ...vitals, respiratory_rate: e.target.value })} 
+                                                    placeholder="16" 
+                                                    style={{
+                                                        color: vitals.respiratory_rate && (vitals.respiratory_rate > 20 || vitals.respiratory_rate < 12) ? '#ef4444' : '#1e293b',
+                                                        fontWeight: vitals.respiratory_rate && (vitals.respiratory_rate > 20 || vitals.respiratory_rate < 12) ? '800' : '500',
+                                                        background: 'transparent'
+                                                    }}
+                                                />
                                             </div>
-                                            <div>
+                                            <div className={vitals.hb && (vitals.hb < 9 || vitals.hb > 19) ? 'vital-critical-alert' : ''} style={{ borderRadius: '8px', padding: '4px', transition: '0.3s' }}>
                                                 <label className="label">Hb (g/dL)</label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
                                                     className="input-field"
                                                     value={vitals.hb}
-                                                    onChange={e => setVitals({ ...vitals, hb: e.target.value })}
+                                                    onChange={e => setVitals({ ...vitals, hb: e.target.value.replace(/[^0-9.]/g, '') })}
+                                                    onBlur={e => {
+                                                        let val = e.target.value;
+                                                        if (!val) return;
+                                                        if (!val.includes('.')) {
+                                                            if (val.length === 2) val = val + ".0";
+                                                            else if (val.length === 3) val = val.substring(0, 2) + "." + val.substring(2);
+                                                        }
+                                                        setVitals({ ...vitals, hb: val });
+                                                    }}
                                                     placeholder="13.5"
                                                     style={{
-                                                        color: vitals.hb ? (parseFloat(vitals.hb) < 11.0 ? '#ef4444' : parseFloat(vitals.hb) > 18.0 ? '#ef4444' : '#1e293b') : '#1e293b',
-                                                        fontWeight: vitals.hb && (parseFloat(vitals.hb) < 11.0 || parseFloat(vitals.hb) > 18.0) ? '800' : '500'
+                                                        color: vitals.hb ? (parseFloat(vitals.hb) < 12.0 ? '#ef4444' : parseFloat(vitals.hb) > 18.0 ? '#ef4444' : '#1e293b') : '#1e293b',
+                                                        fontWeight: vitals.hb && (parseFloat(vitals.hb) < 12.0 || parseFloat(vitals.hb) > 18.0) ? '800' : '500',
+                                                        background: 'transparent'
                                                     }}
                                                 />
                                             </div>
@@ -1393,163 +1774,119 @@ const ConsultationModule = () => {
 
                                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                         <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '20px' }}>Systemic Physical Examination</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                            <div>
-                                                <label className="label">General Appearance</label>
-                                                <select className="input-field" value={physicalExam.general_appearance} onChange={e => setPhysicalExam({ ...physicalExam, general_appearance: e.target.value })}>
-                                                    <option>Well-looking</option><option>Ill-looking</option><option>Pale</option><option>Jaundiced</option><option>Cyanosed</option><option>Dyspnoeic</option><option>Distressed</option>
-                                                </select>
-                                            </div>
-                                            <div><label className="label">Head & Neck</label><input className="input-field" value={physicalExam.head_neck} onChange={e => setPhysicalExam({ ...physicalExam, head_neck: e.target.value })} /></div>
-                                            <div><label className="label">HEENT (Eyes/Ears/Nose/Throat)</label><input className="input-field" value={physicalExam.heent} onChange={e => setPhysicalExam({ ...physicalExam, heent: e.target.value })} /></div>
-                                            <div><label className="label">Cardiovascular (Heart Sounds)</label><input className="input-field" value={physicalExam.cardiovascular} onChange={e => setPhysicalExam({ ...physicalExam, cardiovascular: e.target.value })} /></div>
-                                            <div><label className="label">Respiratory (Breath Sounds)</label><input className="input-field" value={physicalExam.respiratory} onChange={e => setPhysicalExam({ ...physicalExam, respiratory: e.target.value })} /></div>
-                                            <div><label className="label">Abdomen (Palpation/Bowel)</label><input className="input-field" value={physicalExam.abdomen} onChange={e => setPhysicalExam({ ...physicalExam, abdomen: e.target.value })} /></div>
-                                            <div><label className="label">Neurological (Power/Reflex)</label><input className="input-field" value={physicalExam.neurological} onChange={e => setPhysicalExam({ ...physicalExam, neurological: e.target.value })} /></div>
-                                            <div><label className="label">Musculoskeletal</label><input className="input-field" value={physicalExam.musculoskeletal} onChange={e => setPhysicalExam({ ...physicalExam, musculoskeletal: e.target.value })} /></div>
-                                            <div><label className="label">Skin & Integumentary</label><input className="input-field" value={physicalExam.skin_integumentary} onChange={e => setPhysicalExam({ ...physicalExam, skin_integumentary: e.target.value })} /></div>
-                                            <div><label className="label">Psychiatric (Mood/Affect)</label><input className="input-field" value={physicalExam.psychiatric} onChange={e => setPhysicalExam({ ...physicalExam, psychiatric: e.target.value })} /></div>
-                                        </div>
-                                    </div>
+                                        
+                                        {/* Systemic Physical Examination with Smart Quick-Picks & Management */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                                            {[
+                                                { label: 'General Appearance', key: 'general_appearance' },
+                                                { label: 'Head & Neck', key: 'head_neck' },
+                                                { label: 'HEENT (Eyes/Ears/Nose/Throat)', key: 'heent' },
+                                                { label: 'Cardiovascular (Heart)', key: 'cardiovascular' },
+                                                { label: 'Respiratory (Lungs)', key: 'respiratory' },
+                                                { label: 'Abdomen (Palpation)', key: 'abdomen' },
+                                                { label: 'Neurological', key: 'neurological' },
+                                                { label: 'Musculoskeletal', key: 'musculoskeletal' },
+                                                { label: 'Skin & Integumentary', key: 'skin_integumentary' },
+                                                { label: 'Psychiatric', key: 'psychiatric' }
+                                            ].map((section) => {
+                                                const currentVal = physicalExam[section.key] || '';
+                                                const lines = currentVal.split('\n');
+                                                const lastLine = lines[lines.length - 1] || '';
+                                                const activeSearchTerm = lastLine.replace(/^\d+\.\s*/, '').toLowerCase();
 
-                                </section>
+                                                const filteredOptions = clinicalQuickPicks[section.key].filter(opt => 
+                                                    opt.toLowerCase().includes(activeSearchTerm)
+                                                );
 
-                                {/* Clinical Action: Laboratory (Primary Action before Assessment) */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <button
-                                        onClick={() => {
-                                            if (labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) {
-                                                setNewLab({ test_name: '', urgency: 'Urgent', clinical_indication: 'ADDITIONAL/FOLLOW-UP TEST: Required based on preliminary findings.', specimen_type: '', order_notes: '' });
-                                            }
-                                            setShowLabModal(true);
-                                        }}
-                                        style={{
-                                            width: '100%',
-                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: 'none',
-                                            color: 'white',
-                                            fontWeight: '800',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '16px',
-                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.2), 0 4px 6px -2px rgba(16, 185, 129, 0.1)',
-                                            fontSize: '1.1rem',
-                                            letterSpacing: '0.5px'
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.01)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(16, 185, 129, 0.3)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(16, 185, 129, 0.2)'; }}
-                                    >
-                                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px', borderRadius: '14px' }}>
-                                            <FlaskConical size={28} />
-                                        </div>
-                                        <span>{(labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) ? 'ORDER ADDITIONAL LAB TEST' : 'ORDER LABORATORY INVESTIGATIONS'}</span>
-                                    </button>
-                                </div>
-
-                                <section id="assessment" style={{ scrollMarginTop: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    {/* SOAP Guidance */}
-                                    <div style={{ background: '#f5f3ff', padding: '16px', borderRadius: '8px', border: '1px solid #ede9fe', display: 'flex', gap: '12px' }}>
-                                        <Info size={20} color="#5b21b6" />
-                                        <p style={{ fontSize: '0.85rem', color: '#5b21b6' }}>
-                                            <strong>Assessment (A):</strong> Your clinical diagnosis. Use the ICD-10 search to find the standard code. This section summarizes your reasoning for the diagnosis.
-                                        </p>
-                                    </div>
-
-                                    {/* Diagnosis & Assessment Box */}
-                                    <div style={{ background: 'white', padding: '32px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
-                                            <Clipboard size={20} color="#2563eb" /> Clinical Assessment
-                                        </h3>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                                            <div style={{ background: '#eff6ff', padding: '24px', borderRadius: '12px', border: '1px solid #dbeafe', position: 'relative' }}>
-                                                <label className="label" style={{ color: '#1e40af' }}>Primary Diagnosis (ICD-10 Coded)</label>
-
-                                                {/* Selected Diagnoses */}
-                                                {(assessment.primary_diagnosis_code || assessment.secondary_diagnoses.length > 0) && (
-                                                    <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                        {assessment.primary_diagnosis_code && (
-                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#dbeafe', border: '1px solid #bfdbfe', borderRadius: '8px' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                    <span style={{ fontSize: '1rem', background: '#1e40af', color: 'white', padding: '4px 8px', borderRadius: '4px', fontWeight: '800' }}>{assessment.primary_diagnosis_code}</span>
-                                                                    <div>
-                                                                        <p style={{ margin: 0, fontWeight: '600', color: '#1e3a8a' }}>{assessment.diagnosis}</p>
-                                                                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#2563eb' }}>Primary Diagnosis {assessment.diagnosis_details?.category ? `• ${assessment.diagnosis_details.category}` : ''}</p>
-                                                                    </div>
-                                                                </div>
-                                                                <button onClick={handleRemovePrimaryDiagnosis} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={18} /></button>
+                                                return (
+                                                    <div key={section.key} style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                            <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                                {section.label}
+                                                            </label>
+                                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                                <button 
+                                                                    onClick={() => addQuickPick(section.key)}
+                                                                    title="Save current text as quick pick"
+                                                                    style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                                                >
+                                                                    + Add
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => setEditMode({ ...editMode, [section.key]: !editMode[section.key] })}
+                                                                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
+                                                                >
+                                                                    {editMode[section.key] ? 'Cancel' : 'Edit'}
+                                                                </button>
                                                             </div>
-                                                        )}
-                                                        {assessment.secondary_diagnoses.map(diag => (
-                                                            <div key={diag.code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                    <span style={{ fontSize: '0.9rem', background: '#e2e8f0', color: '#334155', padding: '4px 8px', borderRadius: '4px', fontWeight: '800' }}>{diag.code}</span>
-                                                                    <div>
-                                                                        <p style={{ margin: 0, fontWeight: '500', color: '#334155' }}>{diag.description}</p>
-                                                                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Secondary Diagnosis</p>
-                                                                    </div>
-                                                                </div>
-                                                                <button onClick={() => handleRemoveSecondaryDiagnosis(diag.code)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><X size={18} /></button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                <div style={{ display: 'flex', gap: '16px' }}>
-                                                    <div style={{ flex: 1, position: 'relative' }}>
-                                                        <input
-                                                            className="input-field"
-                                                            style={{ width: '100%', fontSize: '1.1rem', paddingRight: isSearchingIcd ? '40px' : '16px' }}
-                                                            placeholder="Search by diagnosis name (e.g. 'Malaria') or ICD-10 code..."
-                                                            value={icdSearchTerm}
-                                                            onChange={e => setIcdSearchTerm(e.target.value)}
-                                                            onFocus={() => { if (icdSearchTerm) setShowIcdDropdown(true); }}
-                                                            onBlur={() => setTimeout(() => setShowIcdDropdown(false), 200)}
+                                                        </div>
+                                                        <textarea 
+                                                            className="input-field" 
+                                                            rows={1}
+                                                            value={physicalExam[section.key] || ''} 
+                                                            onChange={e => {
+                                                                setPhysicalExam({ ...physicalExam, [section.key]: e.target.value });
+                                                                e.target.style.height = 'auto';
+                                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                                            }} 
+                                                            onKeyDown={e => handleListKeyDown(e, physicalExam[section.key], setPhysicalExam, physicalExam, section.key)}
+                                                            placeholder={`Type to search or record...`}
+                                                            style={{ 
+                                                                marginBottom: '12px', border: '1px solid #cbd5e1', borderRadius: '8px',
+                                                                minHeight: '60px', resize: 'vertical', padding: '10px'
+                                                            }}
                                                         />
-                                                        {isSearchingIcd && (
-                                                            <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>
-                                                                <div className="animate-spin" style={{ width: '16px', height: '16px', border: '2px solid #2563eb', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
-                                                            </div>
-                                                        )}
-                                                        {showIcdDropdown && icdResults.length > 0 && (
-                                                            <div style={{
-                                                                position: 'absolute', zIndex: 50, top: '100%', left: 0, right: 0,
-                                                                background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px',
-                                                                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', marginTop: '4px',
-                                                                maxHeight: '200px', overflowY: 'auto'
-                                                            }}>
-                                                                {icdResults.map(res => (
-                                                                    <div
-                                                                        key={res.code}
-                                                                        onClick={() => handleSelectDiagnosis(res)}
-                                                                        style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f8fafc', display: 'flex', gap: '12px', alignItems: 'center' }}
-                                                                        onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                                                                        onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                                                                    >
-                                                                        <span style={{ fontWeight: '800', color: '#2563eb', minWidth: '60px' }}>{res.code}</span>
-                                                                        <span style={{ color: '#1e293b' }}>{res.description}</span>
+                                                        
+                                                        <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '4px' }}>
+                                                            {filteredOptions.length > 0 ? filteredOptions.map(opt => {
+                                                                const currentVal = physicalExam[section.key] || '';
+                                                                const rawLines = currentVal.split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim());
+                                                                const isSelected = rawLines.includes(opt);
+
+                                                                return (
+                                                                    <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        {editMode[section.key] && (
+                                                                            <input 
+                                                                                type="checkbox" 
+                                                                                checked={!!selectedForDelete[`${section.key}-${opt}`]} 
+                                                                                onChange={() => setSelectedForDelete({
+                                                                                    ...selectedForDelete,
+                                                                                    [`${section.key}-${opt}`]: !selectedForDelete[`${section.key}-${opt}`]
+                                                                                })}
+                                                                            />
+                                                                        )}
+                                                                        <button 
+                                                                            onClick={() => toggleNumberedItem(physicalExam[section.key], opt, setPhysicalExam, physicalExam, section.key)}
+                                                                            style={{ 
+                                                                                padding: '5px 10px', borderRadius: '6px', fontSize: '0.7rem', 
+                                                                                background: isSelected ? '#2563eb' : 'white',
+                                                                                color: isSelected ? 'white' : '#64748b',
+                                                                                border: '1px solid',
+                                                                                borderColor: isSelected ? '#2563eb' : '#e2e8f0',
+                                                                                cursor: editMode[section.key] ? 'default' : 'pointer', fontWeight: '600', transition: '0.2s',
+                                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                                            }}
+                                                                        >
+                                                                            {opt}
+                                                                        </button>
                                                                     </div>
-                                                                ))}
-                                                            </div>
+                                                                );
+                                                            }) : (
+                                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic' }}>No matching findings. Click "+ Add" to save this.</div>
+                                                            )}
+                                                        </div>
+
+                                                        {editMode[section.key] && Object.keys(selectedForDelete).some(k => k.startsWith(section.key) && selectedForDelete[k]) && (
+                                                            <button 
+                                                                onClick={() => deleteQuickPicks(section.key)}
+                                                                style={{ marginTop: '12px', background: '#dc2626', color: 'white', border: 'none', padding: '6px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                                                            >
+                                                                Delete Selected
+                                                            </button>
                                                         )}
                                                     </div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="label">Clinical Impression / Narrative Summary</label>
-                                                <textarea className="input-field" rows="6" style={{ fontSize: '1.05rem', lineHeight: '1.6' }} value={assessment.clinical_impression} onChange={e => setAssessment({ ...assessment, clinical_impression: e.target.value })} placeholder="Describe your clinical reasoning here..."></textarea>
-                                            </div>
-
-                                            <div>
-                                                <label className="label">Differential Diagnoses</label>
-                                                <textarea className="input-field" rows="2" style={{ fontSize: '1.05rem' }} value={assessment.differential_diagnoses.join(', ')} onChange={e => setAssessment({ ...assessment, differential_diagnoses: e.target.value.split(',').map(s => s.trim()) })} placeholder="List alternative diagnoses..."></textarea>
-                                            </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
@@ -1636,6 +1973,58 @@ const ConsultationModule = () => {
                                         labTracker.length === 0 && <div style={{ padding: '24px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '0.9rem' }}>No past or completed lab results found for this patient.</div>
                                     )}
 
+                                    {labRequests.length > 0 && (
+                                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Selected for Order ({labRequests.length})</div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                                                {labRequests.map((l, i) => (
+                                                    <div key={i} style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '2px dashed #cbd5e1', position: 'relative' }}>
+                                                        <button onClick={() => setLabRequests(labRequests.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                                        <div style={{ fontWeight: '800', color: '#475569', fontSize: '0.9rem' }}>{l.test_name}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>{l.urgency} • {l.specimen_type}</div>
+                                                        <div style={{ marginTop: '8px', fontSize: '0.8rem', fontWeight: '800', color: '#10b981' }}>KES {Number(l.price || 0).toLocaleString()}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={() => {
+                                            if (labTracker.length > 0 || labReports.length > 0 || labRequests.length > 0) {
+                                                setNewLab({ test_name: '', urgency: 'Urgent', clinical_indication: 'ADDITIONAL/FOLLOW-UP TEST: Required based on preliminary findings.', specimen_type: '', order_notes: '' });
+                                            }
+                                            setShowLabModal(true);
+                                        }}
+                                        style={{
+                                            marginTop: '24px',
+                                            width: '100%',
+                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                            padding: '24px',
+                                            borderRadius: '24px',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '15px',
+                                            boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.3)',
+                                            transition: '0.2s'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                    >
+                                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px', borderRadius: '16px' }}>
+                                            <FlaskConical size={24} />
+                                        </div>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <div style={{ fontSize: '1.1rem' }}>{labRequests.length > 0 ? 'Review & Order Tests' : 'Request Laboratory Tests'}</div>
+                                            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{labRequests.length} test(s) currently selected</div>
+                                        </div>
+                                    </button>
+
                                     {/* Lab Order Tracker (Pending) */}
                                     {labTracker.filter(l => l.status !== 'completed').length > 0 && (
                                         <div style={{ marginTop: '0', padding: '20px', background: '#f0fdf4', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
@@ -1645,19 +2034,37 @@ const ConsultationModule = () => {
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                 {labTracker.filter(l => l.status !== 'completed').map((lab, i) => (
-                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px 16px', borderRadius: '10px', border: '1px solid #dcfce7' }}>
-                                                        <div>
-                                                            <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.9rem' }}>{lab.test_name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '8px' }}>
+                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px 16px', borderRadius: '10px', border: lab.is_paid ? '1px solid #dcfce7' : '1px solid #fee2e2' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.9rem' }}>{lab.test_name}</div>
+                                                                {lab.is_paid ? (
+                                                                    <span style={{ fontSize: '0.65rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '4px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                                        <CheckCircle size={10} /> PAID
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{ fontSize: '0.65rem', background: '#fef2f2', color: '#991b1b', padding: '2px 8px', borderRadius: '4px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                                        <Lock size={10} /> PENDING PAYMENT
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', gap: '12px', marginTop: '2px' }}>
+                                                                <span style={{ fontWeight: '700', color: '#10b981' }}>KES {Number(lab.price || 0).toLocaleString()}</span>
                                                                 <span>Ordered at {new Date(lab.created_at).toLocaleTimeString()}</span>
-                                                                <span style={{ color: '#ef4444', fontWeight: '700' }}>
+                                                                <span style={{ color: lab.is_paid ? '#0891b2' : '#94a3b8', fontWeight: '700' }}>
                                                                     ({Math.floor((currentTime - new Date(lab.created_at)) / 60000)} mins waiting)
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0891b2', fontSize: '0.75rem', fontWeight: '700' }}>
-                                                            <div className="pulse" style={{ width: '8px', height: '8px', background: '#0891b2', borderRadius: '50%' }}></div>
-                                                            PROCESSING...
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: lab.is_paid ? '#0891b2' : '#94a3b8', fontSize: '0.75rem', fontWeight: '700' }}>
+                                                            {lab.is_paid ? (
+                                                                <>
+                                                                    <div className="pulse" style={{ width: '8px', height: '8px', background: '#0891b2', borderRadius: '50%' }}></div>
+                                                                    {lab.status === 'pending' ? 'WAITING FOR SAMPLE' : (lab.status === 'processing' ? 'PROCESSING...' : lab.status.toUpperCase())}
+                                                                </>
+                                                            ) : (
+                                                                <span style={{ color: '#ef4444' }}>AWAITING CLEARANCE</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -1730,6 +2137,296 @@ const ConsultationModule = () => {
                                         </div>
                                     )}
                                 </section>
+                                {/* PROCEDURES STATUS SECTION */}
+                                <div style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <Scissors size={20} color="#6366f1" /> Minor Theatre & Procedures
+                                        </h3>
+                                        <button 
+                                            onClick={() => setShowProcedureModal(true)}
+                                            style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '8px 16px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <Plus size={16} /> Manage Procedures
+                                        </button>
+                                    </div>
+                                    
+                                    {(sentProcedures.length > 0 || procedureOrders.length > 0) ? (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                                            {/* FINALIZED PROCEDURES */}
+                                            {sentProcedures.map((proc) => (
+                                                <div key={proc.id} style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', transition: '0.2s' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: '900', color: '#0f172a', fontSize: '1.05rem', lineHeight: '1.2' }}>{proc.procedure_name}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginTop: '4px' }}>Finalized Order</div>
+                                                        </div>
+                                                        <div style={{ 
+                                                            fontSize: '0.7rem', padding: '6px 12px', borderRadius: '20px', fontWeight: '900',
+                                                            background: proc.is_paid ? '#ecfdf5' : '#fef2f2',
+                                                            color: proc.is_paid ? '#059669' : '#dc2626',
+                                                            border: `1px solid ${proc.is_paid ? '#10b981' : '#ef4444'}`,
+                                                            textTransform: 'uppercase', letterSpacing: '0.5px'
+                                                        }}>
+                                                            {proc.is_paid ? 'PAID' : 'UNPAID'}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#475569', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #f1f5f9', minHeight: '50px', marginBottom: '16px' }}>
+                                                        {proc.notes || 'No specific clinical instructions provided.'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#1e293b' }}>{proc.urgency?.toUpperCase()}</span>
+                                                        <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#10b981' }}>KES {Number(proc.price || 0).toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* DRAFT PROCEDURES */}
+                                            {procedureOrders.map((p, i) => (
+                                                <div key={`draft-${i}`} style={{ background: '#f8fafc', borderRadius: '20px', border: '2px dashed #cbd5e1', padding: '24px', position: 'relative' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: '900', color: '#475569', fontSize: '1.05rem' }}>{p.procedure_name}</div>
+                                                            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginTop: '4px' }}>Draft Item</div>
+                                                        </div>
+                                                        <button onClick={() => setProcedureOrders(procedureOrders.filter((_, idx) => idx !== i))} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer' }}>
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', marginBottom: '16px' }}>
+                                                        {p.notes || 'No notes added yet.'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#94a3b8' }}>{p.urgency?.toUpperCase()}</span>
+                                                        <div style={{ fontSize: '1rem', fontWeight: '800', color: '#94a3b8' }}>KES {Number(p.price || 0).toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '60px 20px', border: '2px dashed #e2e8f0', borderRadius: '24px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc' }}>
+                                            <Scissors size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                                            <div style={{ fontSize: '0.9rem', fontWeight: '600' }}>No surgical procedures requested for this session.</div>
+                                        </div>
+                                    )}
+
+                                    {procedureOrders.length > 0 && (
+                                        <button
+                                            onClick={handleSendProcedureOrder}
+                                            disabled={isSendingLab}
+                                            style={{
+                                                marginTop: '16px',
+                                                width: '100%',
+                                                background: '#0f172a',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '20px',
+                                                borderRadius: '20px',
+                                                fontWeight: '800',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '10px',
+                                                boxShadow: '0 10px 15px -3px rgba(15, 23, 42, 0.2)'
+                                            }}
+                                        >
+                                            {isSendingLab ? 'SAVING...' : <><CheckCircle size={20} /> FINALIZE {procedureOrders.length} PROCEDURE(S)</>}
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setShowProcedureModal(true)}
+                                        style={{
+                                            marginTop: procedureOrders.length > 0 ? '12px' : '24px',
+                                            width: '100%',
+                                            background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                                            padding: '24px',
+                                            borderRadius: '24px',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontWeight: '800',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '15px',
+                                            boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)',
+                                            transition: '0.2s'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                    >
+                                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px', borderRadius: '16px' }}>
+                                            <Scissors size={24} />
+                                        </div>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <div style={{ fontSize: '1.1rem' }}>Order Procedures</div>
+                                            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{procedureOrders.length} ordered</div>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <section id="assessment" style={{ scrollMarginTop: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    {/* SOAP Guidance */}
+                                    <div style={{ background: '#f5f3ff', padding: '16px', borderRadius: '8px', border: '1px solid #ede9fe', display: 'flex', gap: '12px' }}>
+                                        <Info size={20} color="#5b21b6" />
+                                        <p style={{ fontSize: '0.85rem', color: '#5b21b6' }}>
+                                            <strong>Assessment (A):</strong> Your clinical diagnosis. Use the ICD-10 search to find the standard code. This section summarizes your reasoning for the diagnosis.
+                                        </p>
+                                    </div>
+
+                                    {/* Diagnosis & Assessment Box */}
+                                    <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#0f172a' }}>
+                                                <div style={{ background: '#eff6ff', padding: '8px', borderRadius: '12px' }}>
+                                                    <Clipboard size={22} color="#2563eb" />
+                                                </div>
+                                                Clinical Assessment
+                                            </h3>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                            <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '20px', border: '1px solid #eff6ff', position: 'relative' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                                    <Stethoscope size={16} color="#2563eb" />
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Primary Diagnosis (ICD-10 CODED)</span>
+                                                </div>
+
+                                                {/* Selected Diagnoses */}
+                                                {(assessment.primary_diagnosis_code || assessment.secondary_diagnoses.length > 0) && (
+                                                    <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        {assessment.primary_diagnosis_code && (
+                                                            <div style={{ 
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                                                                padding: '16px 20px', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', 
+                                                                border: '1px solid #bfdbfe', borderRadius: '16px',
+                                                                boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.1)'
+                                                            }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                    <div style={{ 
+                                                                        fontSize: '1.1rem', background: '#2563eb', color: 'white', 
+                                                                        width: '70px', height: '44px', borderRadius: '12px', 
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900',
+                                                                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)'
+                                                                    }}>
+                                                                        {assessment.primary_diagnosis_code}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontWeight: '800', color: '#1e3a8a', fontSize: '1.05rem' }}>{assessment.diagnosis}</div>
+                                                                        <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#3b82f6', textTransform: 'uppercase', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                            <CheckCircle size={10} /> Primary Clinical Finding
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <button onClick={handleRemovePrimaryDiagnosis} style={{ background: '#fee2e2', border: 'none', color: '#ef4444', padding: '8px', borderRadius: '10px', cursor: 'pointer', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                                                                    <X size={18} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {assessment.secondary_diagnoses.map(diag => (
+                                                            <div key={diag.code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                                    <span style={{ fontSize: '0.9rem', background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontWeight: '800', border: '1px solid #e2e8f0' }}>{diag.code}</span>
+                                                                    <div>
+                                                                        <div style={{ fontWeight: '700', color: '#334155' }}>{diag.description}</div>
+                                                                        <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Secondary Diagnosis</div>
+                                                                    </div>
+                                                                </div>
+                                                                <button onClick={() => handleRemoveSecondaryDiagnosis(diag.code)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><X size={18} /></button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                <div style={{ position: 'relative' }}>
+                                                    <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
+                                                        <Search size={18} />
+                                                    </div>
+                                                    <input
+                                                        style={{ 
+                                                            width: '100%', padding: '18px 20px 18px 48px', fontSize: '1.05rem', 
+                                                            borderRadius: '16px', border: '2px solid #e2e8f0', background: 'white',
+                                                            outline: 'none', transition: '0.2s'
+                                                        }}
+                                                        onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 4px rgba(37, 99, 235, 0.1)'; if (icdSearchTerm) setShowIcdDropdown(true); }}
+                                                        onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; setTimeout(() => setShowIcdDropdown(false), 200); }}
+                                                        placeholder="Search by diagnosis name (e.g. 'Malaria') or ICD-10 code..."
+                                                        value={icdSearchTerm}
+                                                        onChange={e => setIcdSearchTerm(e.target.value)}
+                                                    />
+                                                    {isSearchingIcd && (
+                                                        <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
+                                                            <div className="animate-spin" style={{ width: '18px', height: '18px', border: '3px solid #2563eb', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                                                        </div>
+                                                    )}
+                                                    {showIcdDropdown && icdResults.length > 0 && (
+                                                        <div style={{
+                                                            position: 'absolute', zIndex: 100, top: '100%', left: 0, right: 0,
+                                                            background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px',
+                                                            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', marginTop: '8px',
+                                                            maxHeight: '280px', overflowY: 'auto', padding: '8px'
+                                                        }}>
+                                                            {icdResults.map(res => (
+                                                                <div
+                                                                    key={res.code}
+                                                                    onClick={() => handleSelectDiagnosis(res)}
+                                                                    style={{ padding: '12px 16px', cursor: 'pointer', borderRadius: '10px', display: 'flex', gap: '16px', alignItems: 'center' }}
+                                                                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                                                                >
+                                                                    <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#2563eb', minWidth: '60px', background: '#eff6ff', padding: '4px 8px', borderRadius: '6px', textAlign: 'center' }}>{res.code}</div>
+                                                                    <span style={{ color: '#1e293b', fontWeight: '600', fontSize: '0.95rem' }}>{res.description}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                    <FileText size={16} color="#2563eb" />
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Clinical Impression / Narrative Summary</span>
+                                                </div>
+                                                <textarea 
+                                                    style={{ 
+                                                        width: '100%', padding: '20px', borderRadius: '20px', border: '2px solid #f1f5f9',
+                                                        fontSize: '1.05rem', lineHeight: '1.6', background: '#f8fafc', color: '#1e293b',
+                                                        outline: 'none', transition: '0.2s', minHeight: '160px'
+                                                    }}
+                                                    onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.background = 'white'; }}
+                                                    onBlur={e => { e.target.style.borderColor = '#f1f5f9'; e.target.style.background = '#f8fafc'; }}
+                                                    value={assessment.clinical_impression} 
+                                                    onChange={e => setAssessment({ ...assessment, clinical_impression: e.target.value })} 
+                                                    placeholder="Describe your clinical reasoning, detailed findings, or patient-specific observations here..."
+                                                ></textarea>
+                                            </div>
+
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                    <AlertTriangle size={16} color="#d97706" />
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Differential Diagnoses</span>
+                                                </div>
+                                                <textarea 
+                                                    style={{ 
+                                                        width: '100%', padding: '16px 20px', borderRadius: '16px', border: '2px solid #f1f5f9',
+                                                        fontSize: '1rem', background: '#fffbeb', color: '#92400e',
+                                                        outline: 'none', transition: '0.2s', minHeight: '60px'
+                                                    }} 
+                                                    onFocus={e => { e.target.style.borderColor = '#f59e0b'; e.target.style.background = 'white'; }}
+                                                    onBlur={e => { e.target.style.borderColor = '#f1f5f9'; e.target.style.background = '#fffbeb'; }}
+                                                    value={assessment.differential_diagnoses.join(', ')} 
+                                                    onChange={e => setAssessment({ ...assessment, differential_diagnoses: e.target.value.split(',').map(s => s.trim()) })} 
+                                                    placeholder="List potential alternative diagnoses separated by commas..."
+                                                ></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </section>
+
 
                                 <section id="plan" style={{ scrollMarginTop: '20px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative' }}>
                                     {/* Clinical Gate: Test-Before-Treat Logic (Downsized to small centered div) */}
@@ -1924,6 +2621,22 @@ const ConsultationModule = () => {
                 .btn-primary:active { transform: translateY(0); }
                 .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+                
+                .vital-critical-alert {
+                    animation: tremble 2s ease-in-out infinite;
+                    border: 2px solid #ef4444 !important;
+                    background: #fff1f2 !important;
+                    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+                }
+
+                @keyframes tremble {
+                    0%, 70%, 100% { transform: translate(0, 0); }
+                    75% { transform: translate(-2px, 0); }
+                    80% { transform: translate(2px, 0); }
+                    85% { transform: translate(-2px, 0); }
+                    90% { transform: translate(2px, 0); }
+                    95% { transform: translate(-1px, 0); }
+                }
             `}} />
 
             {/* MODALS */}
@@ -2190,7 +2903,7 @@ const ConsultationModule = () => {
                                                     setNewLab({ ...newLab, test_name: val });
                                                     const match = catalog.find(t => (t.test_name || '').toLowerCase() === val.toLowerCase());
                                                     if (match) {
-                                                        setNewLab({ ...newLab, test_name: match.test_name, specimen_type: match.required_sample || '' });
+                                                        setNewLab({ ...newLab, test_name: match.test_name, specimen_type: match.required_sample || '', price: match.price || 0 });
                                                     }
                                                 }}
                                             />
@@ -2207,6 +2920,7 @@ const ConsultationModule = () => {
                                                                         ...newLab,
                                                                         test_name: t.test_name,
                                                                         specimen_type: t.required_sample || 'Blood',
+                                                                        price: t.price || 0,
                                                                         clinical_indication: `Test: ${t.test_name} (${t.category})`
                                                                     });
                                                                     document.activeElement.blur();
@@ -2218,7 +2932,10 @@ const ConsultationModule = () => {
                                                                 }}
                                                             >
                                                                 <span style={{ fontWeight: '600' }}>{t.test_name}</span>
-                                                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.required_sample} • {t.category}</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                    <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#10b981' }}>KES {Number(t.price || 0).toLocaleString()}</span>
+                                                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{t.required_sample} • {t.category}</span>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                 </div>
@@ -2328,51 +3045,197 @@ const ConsultationModule = () => {
                                 </div>
                             </div>
 
-                            {/* RIGHT SIDE: Selected Items / Summary */}
-                            <div style={{ flex: '0.8', background: '#f8fafc', padding: '32px', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-                                    <div style={{ width: '10px', height: '10px', background: '#3b82f6', borderRadius: '50%' }}></div>
-                                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SELECTED FOR THIS VISIT ({labRequests.length})</h4>
+                            {/* RIGHT SIDE: Selected Tests */}
+                            <div style={{ flex: '0.8', background: '#f8fafc', padding: '32px', overflowY: 'auto', maxHeight: '70vh' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Orders for this visit ({labRequests.length})</h4>
+                                    {labRequests.length > 0 && <button onClick={() => setLabRequests([])} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}>Clear All</button>}
                                 </div>
 
-                                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {labRequests.length === 0 ? (
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5, textAlign: 'center', padding: '20px' }}>
-                                            <div style={{ padding: '20px', background: 'white', borderRadius: '50%', marginBottom: '16px' }}>
-                                                <FlaskConical size={32} color="#94a3b8" />
-                                            </div>
-                                            <p style={{ margin: 0, fontWeight: '600', color: '#64748b', fontSize: '0.9rem' }}>No investigations selected yet.</p>
-                                            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>Search and add tests on the left.</p>
+                                        <div style={{ textAlign: 'center', padding: '64px 20px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '24px' }}>
+                                            <FlaskConical size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                                            <div style={{ fontSize: '0.9rem' }}>No investigations selected.</div>
                                         </div>
                                     ) : (
                                         labRequests.map((l, i) => (
-                                            <div key={i} style={{ background: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', position: 'relative', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.95rem' }}>{l.test_name}</div>
-                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                                            <span style={{ fontSize: '0.7rem', background: l.urgency === 'Routine' ? '#eff6ff' : '#fee2e2', color: l.urgency === 'Routine' ? '#2563eb' : '#ef4444', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>
-                                                                {l.urgency.toUpperCase()}
-                                                            </span>
-                                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600' }}>{l.specimen_type}</span>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => setLabRequests(labRequests.filter((_, idx) => idx !== i))}
-                                                        style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
-                                                    >
-                                                        <X size={16} />
-                                                    </button>
+                                            <div key={l.id} style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', position: 'relative' }}>
+                                                <button onClick={() => setLabRequests(labRequests.filter(item => item.id !== l.id))} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                                <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '4px' }}>{l.test_name}</div>
+                                                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                                    <span style={{ fontSize: '0.65rem', background: l.urgency === 'Routine' ? '#f1f5f9' : '#fee2e2', color: l.urgency === 'Routine' ? '#475569' : '#ef4444', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>{l.urgency.toUpperCase()}</span>
+                                                    <span style={{ fontSize: '0.65rem', background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', fontWeight: '800' }}>{l.specimen_type}</span>
                                                 </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>{l.clinical_indication}</div>
+                                                <div style={{ marginTop: '10px', fontSize: '0.8rem', fontWeight: '700', color: '#10b981' }}>Price: KES {Number(l.price || 0).toLocaleString()}</div>
                                             </div>
                                         ))
                                     )}
                                 </div>
+
+                                {labRequests.length > 0 && (
+                                    <button
+                                        onClick={handleSendLabOrder}
+                                        disabled={isSendingLab}
+                                        style={{ width: '100%', marginTop: '32px', background: '#0f172a', color: 'white', border: 'none', padding: '18px', borderRadius: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                                    >
+                                        {isSendingLab ? 'SENDING ORDERS...' : <><Send size={20} /> FINALIZE & SEND TO LAB</>}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            {showProcedureModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '900px', borderRadius: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                        <div style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Minor Theatre & Procedures</div>
+                                <h3 style={{ margin: '4px 0 0 0', fontSize: '1.25rem', fontWeight: '900', color: '#0f172a' }}>{patient?.pname}</h3>
+                            </div>
+                            <button onClick={() => setShowProcedureModal(false)} style={{ background: '#f1f5f9', border: 'none', width: '36px', height: '36px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
+                        </div>
+
+                        <div style={{ display: 'flex', minHeight: '500px' }}>
+                            <div style={{ flex: '1.2', padding: '32px', borderRight: '1px solid #f1f5f9', overflowY: 'auto', maxHeight: '70vh' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div>
+                                        <label className="label">SELECT PROCEDURE</label>
+                                        <select 
+                                            className="input-field" 
+                                            value={newProcedure.procedure_name}
+                                            onChange={e => {
+                                                const match = procedureCatalog.find(p => p.item_name === e.target.value);
+                                                if (match) {
+                                                    setNewProcedure({ ...newProcedure, procedure_name: match.item_name, price: match.price });
+                                                } else {
+                                                    setNewProcedure({ ...newProcedure, procedure_name: e.target.value });
+                                                }
+                                            }}
+                                        >
+                                            <option value="">-- Search / Select Procedure --</option>
+                                            {procedureCatalog.map(p => (
+                                                <option key={p.id} value={p.item_name}>{p.item_name} (KES {p.price})</option>
+                                            ))}
+                                            {profile?.usertype === 'admin' && (
+                                                <option value="Manual">-- Add Custom Procedure --</option>
+                                            )}
+                                        </select>
+                                    </div>
+                                    {newProcedure.procedure_name === 'Manual' && (
+                                        <input 
+                                            type="text" 
+                                            placeholder="Type procedure name..." 
+                                            className="input-field" 
+                                            onChange={e => setNewProcedure({ ...newProcedure, procedure_name: e.target.value })} 
+                                        />
+                                    )}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                                        <div>
+                                            <label className="label">Standard Fee</label>
+                                            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', fontWeight: '800', color: '#10b981' }}>
+                                                KES {Number(newProcedure.price || 0).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="label">PROCEDURE NOTES / INSTRUCTIONS</label>
+                                        <textarea 
+                                            className="input-field" 
+                                            style={{ height: '100px' }} 
+                                            placeholder="Specific details for the surgical team..."
+                                            value={newProcedure.notes}
+                                            onChange={e => setNewProcedure({ ...newProcedure, notes: e.target.value })}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            if (!newProcedure.procedure_name) return showToast("Select a procedure", "error");
+                                            setProcedureOrders([...procedureOrders, { ...newProcedure, id: Date.now() }]);
+                                            setNewProcedure({ procedure_name: '', notes: '', urgency: 'Routine', price: 0 });
+                                        }}
+                                        style={{ background: '#2563eb', color: 'white', border: 'none', padding: '18px', borderRadius: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                                    >
+                                        <Plus size={20} /> ADD TO PROCEDURE LIST
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ flex: '0.8', background: '#f8fafc', padding: '32px', overflowY: 'auto', maxHeight: '70vh' }}>
+                                <h4 style={{ margin: '0 0 20px 0', fontSize: '0.85rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Ordered Procedures ({procedureOrders.length + sentProcedures.length})</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {/* SENT PROCEDURES */}
+                                    {sentProcedures.map((p) => (
+                                        <div key={p.id} style={{ background: '#f0fdfa', padding: '20px', borderRadius: '16px', border: '1px solid #ccfbf1', position: 'relative' }}>
+                                            {!p.is_paid && (
+                                                <button 
+                                                    onClick={async () => {
+                                                        if (window.confirm('Delete this procedure order?')) {
+                                                            const { error } = await supabase.from('procedures').delete().eq('id', p.id);
+                                                            if (!error) refreshData();
+                                                        }
+                                                    }} 
+                                                    style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                                <div style={{ fontWeight: '800', color: '#0f172a' }}>{p.procedure_name}</div>
+                                                <div style={{ 
+                                                    fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px', fontWeight: '900',
+                                                    background: p.is_paid ? '#dcfce7' : '#fee2e2',
+                                                    color: p.is_paid ? '#166534' : '#991b1b',
+                                                    textTransform: 'uppercase'
+                                                }}>
+                                                    {p.is_paid ? 'PAID' : 'UNPAID'}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: '800', marginTop: '4px' }}>{p.urgency?.toUpperCase()}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>{p.notes}</div>
+                                            <div style={{ marginTop: '10px', fontSize: '0.8rem', fontWeight: '700', color: '#10b981' }}>KES {Number(p.price || 0).toLocaleString()}</div>
+                                        </div>
+                                    ))}
+
+                                    {/* DRAFT PROCEDURES */}
+                                    {procedureOrders.map((p, i) => (
+                                        <div key={p.id} style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', borderStyle: 'dashed', position: 'relative' }}>
+                                            <button onClick={() => setProcedureOrders(procedureOrders.filter(item => item.id !== p.id))} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: '#ef4444' }}><Trash2 size={16} /></button>
+                                            <div style={{ fontWeight: '800', color: '#0f172a' }}>{p.procedure_name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: '800', marginTop: '4px' }}>{p.urgency.toUpperCase()}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>{p.notes}</div>
+                                            <div style={{ marginTop: '10px', fontSize: '0.8rem', fontWeight: '700', color: '#10b981' }}>KES {Number(p.price || 0).toLocaleString()}</div>
+                                            <div style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: '4px' }}>Draft - Not yet sent</div>
+                                        </div>
+                                    ))}
+
+                                    {(procedureOrders.length === 0 && sentProcedures.length === 0) && (
+                                        <div style={{ textAlign: 'center', padding: '64px 20px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '24px' }}>
+                                            <Scissors size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                                            <div>No procedures ordered.</div>
+                                        </div>
+                                    )}
+                                </div>
+                                {procedureOrders.length > 0 && (
+                                    <button
+                                        onClick={handleSendProcedureOrder}
+                                        disabled={isSendingLab}
+                                        style={{ width: '100%', marginTop: '32px', background: '#0f172a', color: 'white', border: 'none', padding: '18px', borderRadius: '16px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                                    >
+                                        {isSendingLab ? 'SAVING...' : <><CheckCircle size={20} /> FINALIZE PROCEDURES</>}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
 
             {/* PRESCRIPTION PREVIEW MODAL */}
             {showPreviewModal && (

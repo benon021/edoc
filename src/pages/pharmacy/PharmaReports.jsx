@@ -54,6 +54,16 @@ const PharmaReports = () => {
                 .slice(0, 5)
                 .map(m => ({ name: m.med_name, qty: 0 }));
 
+            // Category Analysis
+            const catMap = {};
+            inventory?.forEach(m => {
+                const c = m.category || 'General';
+                catMap[c] = (catMap[c] || 0) + 1;
+            });
+            const categorySplit = Object.entries(catMap)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count);
+
             setData({
                 dispensedToday,
                 totalSales,
@@ -61,7 +71,7 @@ const PharmaReports = () => {
                 expiringSoon,
                 fastMoving,
                 slowMoving,
-                categorySplit: [] // Logic for category distribution would go here
+                categorySplit
             });
 
         } catch (e) {

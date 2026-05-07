@@ -4,27 +4,48 @@
 // =============================================================
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Clock, ChevronRight, Activity, Calendar, FlaskConical, Pill, ArrowRight, UserPlus, FileText, ListOrdered } from 'lucide-react';
+import { Search, Clock, ChevronRight, Activity, Calendar, FlaskConical, Pill, ArrowRight, UserPlus, FileText, ListOrdered, CreditCard, Stethoscope } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import BillingGateModal from '../../components/registrar/BillingGateModal';
 
 const RegistrarHistory = () => {
     const { profile } = useAuth();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'all');
+    const [activeTab, setActiveTab] = useState(new URLSearchParams(window.location.search).get('tab') || 'waiting');
     const [doctors, setDoctors] = useState([]);
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [showBookingModal, setShowBookingModal] = useState(false);
+    const [showBillingModal, setShowBillingModal] = useState(false);
     const [bookingData, setBookingData] = useState({ docid: '' });
     const [bookingError, setBookingError] = useState('');
 
     useEffect(() => {
         fetchDoctors();
         fetchPatients();
+
+        // LIVE SYNC: Listen for appointment changes
+        const channel = supabase
+            .channel('clinical-updates')
+            .on('postgres_changes', { event: '*', table: 'appointment' }, (payload) => {
+                console.log("[Realtime] Appointment Update Received:", payload);
+                fetchPatients(true);
+            })
+            .subscribe((status) => {
+                console.log("[Realtime] Subscription Status:", status);
+            });
+
+        // FALLBACK: Poll every 5 seconds in case Realtime is disabled in Supabase Console
+        const pollInterval = setInterval(() => fetchPatients(true), 5000);
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearInterval(pollInterval);
+        };
     }, []);
 
     const fetchDoctors = async () => {
@@ -36,9 +57,9 @@ const RegistrarHistory = () => {
         }
     };
 
-    const fetchPatients = async () => {
+    const fetchPatients = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             
             if (activeTab === 'archive') {
                 // Fetch ALL patients for Master Archive
@@ -54,7 +75,7 @@ const RegistrarHistory = () => {
                 const { data: appointments, error } = await supabase
                     .from('appointment')
                     .select('appoid, status, patient:pid(*), doctor:docid(docname)')
-                    .in('status', ['waiting', 'in_consultation', 'pending_lab']);
+                    .in('status', ['waiting', 'in_consultation', 'pending_lab', 'lab_processing', 'lab_results_partial', 'lab_completed']);
                     
                 if (appointments) {
                     const bookedPatients = appointments.map(app => ({
@@ -85,6 +106,11 @@ const RegistrarHistory = () => {
         setBookingError('');
         setBookingData({ docid: '' });
         setShowBookingModal(true);
+    };
+
+    const handleBillingClick = (patient) => {
+        setSelectedPatient(patient);
+        setShowBillingModal(true);
     };
 
     const confirmBooking = async () => {
@@ -148,10 +174,10 @@ const RegistrarHistory = () => {
         const matchesSearch = p.pname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                               p.patient_display_id?.toLowerCase().includes(searchQuery.toLowerCase());
         const status = p.appointment?.status || 'unknown';
-        if (activeTab === 'all') return matchesSearch;
         if (activeTab === 'waiting') return matchesSearch && status === 'waiting';
         if (activeTab === 'consulting') return matchesSearch && status === 'in_consultation';
-        if (activeTab === 'lab') return matchesSearch && status === 'pending_lab';
+        if (activeTab === 'lab') return matchesSearch && ['pending_lab', 'lab_processing', 'lab_results_partial', 'lab_completed'].includes(status);
+        if (activeTab === 'archive') return matchesSearch;
         return matchesSearch;
     });
 
@@ -160,9 +186,9 @@ const RegistrarHistory = () => {
                 <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                         <h1 style={{ fontSize: '1.875rem', fontWeight: '800', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <ListOrdered color="var(--primary)" size={28} /> Clinical History & Handover
+                            <ListOrdered color="var(--primary)" size={28} /> Clinical History & Rerouting
                         </h1>
-                        <p style={{ color: '#64748b', fontSize: '1.1rem' }}>Track patient journeys and manage department handovers.</p>
+                        <p style={{ color: '#64748b', fontSize: '1.1rem' }}>Track patient journeys and manage department rerouting.</p>
                     </div>
                 </header>
 
@@ -170,7 +196,6 @@ const RegistrarHistory = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: 'white', padding: '16px 24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         {[ 
-                            { id: 'all', label: 'All Active' },
                             { id: 'waiting', label: 'Waiting Area' },
                             { id: 'consulting', label: 'In Consultation' },
                             { id: 'lab', label: 'At Laboratory' },
@@ -197,11 +222,11 @@ const RegistrarHistory = () => {
                         ))}
                     </div>
 
-                    <div style={{ position: 'relative', width: '300px' }}>
+                    <div style={{ position: 'relative', width: '350px' }}>
                         <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                         <input
                             type="text"
-                            placeholder="Search active patients..."
+                            placeholder="Search patients..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{ width: '100%', padding: '12px 16px 12px 42px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none' }}
@@ -209,69 +234,90 @@ const RegistrarHistory = () => {
                     </div>
                 </div>
 
-                {/* Data Grid */}
-                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                {/* Premium Data Table */}
+                <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ background: '#f8fafc' }}>
-                            <tr>
-                                <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Patient Info</th>
-                                <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Current Stage</th>
-                                <th style={{ textAlign: 'left', padding: '16px 24px', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Assigned Doctor</th>
-                                <th style={{ textAlign: 'right', padding: '16px 24px', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>Actions</th>
+                        <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                <th style={{ padding: '20px 24px', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Patient Information</th>
+                                <th style={{ padding: '20px 24px', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Clinical Status</th>
+                                <th style={{ padding: '20px 24px', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Assigned Specialist</th>
+                                <th style={{ padding: '20px 24px', textAlign: 'right', fontSize: '0.75rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '48px', color: '#64748b' }}>Loading active clinical cycles...</td></tr>
+                                <tr>
+                                    <td colSpan={4} style={{ textAlign: 'center', padding: '64px' }}>
+                                        <Activity size={48} color="#3b82f6" style={{ marginBottom: '16px', opacity: 0.5, animation: 'pulse 2s infinite' }} />
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#475569' }}>Synchronizing clinical cycles...</h3>
+                                    </td>
+                                </tr>
                             ) : filteredPatients.length === 0 ? (
-                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '48px', color: '#64748b' }}>No patients found in the current view.</td></tr>
+                                <tr>
+                                    <td colSpan={4} style={{ textAlign: 'center', padding: '64px' }}>
+                                        <Search size={48} color="#94a3b8" style={{ marginBottom: '16px', opacity: 0.5 }} />
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#475569' }}>No patients found</h3>
+                                        <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Try adjusting your search or department filter.</p>
+                                    </td>
+                                </tr>
                             ) : (
                                 filteredPatients.map(patient => (
-                                    <tr key={patient.pid} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <div style={{ fontWeight: '700', color: '#1e293b' }}>{patient.pname}</div>
-                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>ID: {patient.patient_display_id}</div>
+                                    <tr key={patient.pid} style={{ borderBottom: '1px solid #f1f5f9', transition: '0.2s' }} className="hover-row">
+                                        <td style={{ padding: '20px 24px' }}>
+                                            <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '1rem' }}>{patient.pname}</div>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px' }}>ID: {patient.patient_display_id}</div>
                                         </td>
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: '600' }}>
-                                                {patient.appointment?.status === 'waiting' && <><Clock size={16} color="#f59e0b"/> <span style={{color: '#d97706'}}>Waiting Area</span></>}
-                                                {patient.appointment?.status === 'in_consultation' && <><Activity size={16} color="#3b82f6"/> <span style={{color: '#2563eb'}}>In Consultation</span></>}
-                                                {patient.appointment?.status === 'pending_lab' && <><FlaskConical size={16} color="#8b5cf6"/> <span style={{color: '#7c3aed'}}>Laboratory</span></>}
-                                                {!['waiting', 'in_consultation', 'pending_lab'].includes(patient.appointment?.status) && <span style={{color: '#64748b'}}>{patient.appointment?.status || 'Unknown'}</span>}
+                                        <td style={{ padding: '20px 24px' }}>
+                                            <div style={{ 
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '6px 14px', 
+                                                borderRadius: '20px', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: '800',
+                                                background: 
+                                                    patient.appointment?.status === 'waiting' ? '#fff7ed' : 
+                                                    patient.appointment?.status === 'in_consultation' ? '#eff6ff' : 
+                                                    patient.appointment?.status === 'pending_lab' ? '#f5f3ff' : '#f8fafc',
+                                                color: 
+                                                    patient.appointment?.status === 'waiting' ? '#d97706' : 
+                                                    patient.appointment?.status === 'in_consultation' ? '#2563eb' : 
+                                                    patient.appointment?.status === 'pending_lab' ? '#7c3aed' : '#64748b'
+                                            }}>
+                                                {patient.appointment?.status === 'waiting' && <><Clock size={12}/> Waiting</>}
+                                                {patient.appointment?.status === 'in_consultation' && <><Activity size={12}/> Consulting</>}
+                                                {['pending_lab', 'lab_processing', 'lab_results_partial'].includes(patient.appointment?.status) && <><FlaskConical size={12}/> At Laboratory</>}
+                                                {patient.appointment?.status === 'lab_completed' && <><CheckCircle size={12}/> Results Ready</>}
+                                                {!['waiting', 'in_consultation', 'pending_lab', 'lab_processing', 'lab_results_partial', 'lab_completed'].includes(patient.appointment?.status) && <span>{patient.appointment?.status || 'Active'}</span>}
                                             </div>
                                         </td>
-                                        <td style={{ padding: '16px 24px', fontWeight: '600', color: '#475569' }}>
-                                            {activeTab === 'archive' ? (
-                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>N/A (Archived)</span>
-                                            ) : (
-                                                patient.appointment?.doctor_name ? `Dr. ${patient.appointment.doctor_name}` : 'Not Assigned'
-                                            )}
+                                        <td style={{ padding: '20px 24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Stethoscope size={16} color="#3b82f6" />
+                                                </div>
+                                                <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.9rem' }}>
+                                                    {activeTab === 'archive' ? '---' : (patient.appointment?.doctor_name ? `Dr. ${patient.appointment.doctor_name}` : 'Unassigned')}
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                            <button 
-                                                onClick={() => handleHandoverClick(patient)}
-                                                disabled={profile?.role === 'a'}
-                                                style={{ 
-                                                    padding: '8px 16px', 
-                                                    background: 'white', 
-                                                    border: '1px solid #e2e8f0', 
-                                                    borderRadius: '8px', 
-                                                    fontSize: '0.85rem', 
-                                                    fontWeight: '600', 
-                                                    color: profile?.role === 'a' ? '#94a3b8' : '#1e293b', 
-                                                    cursor: profile?.role === 'a' ? 'not-allowed' : 'pointer', 
-                                                    display: 'inline-flex', 
-                                                    alignItems: 'center', 
-                                                    gap: '6px', 
-                                                    transition: '0.2s',
-                                                    opacity: profile?.role === 'a' ? 0.6 : 1
-                                                }}
-                                                onMouseOver={(e) => { if (profile?.role !== 'a') e.currentTarget.style.borderColor = '#94a3b8'; }}
-                                                onMouseOut={(e) => { if (profile?.role !== 'a') e.currentTarget.style.borderColor = '#e2e8f0'; }}
-                                                title={profile?.role === 'a' ? 'Clinical routing must be managed by clinical staff' : 'Change assigned doctor'}
-                                            >
-                                                Change Doctor <ChevronRight size={14} />
-                                            </button>
+                                        <td style={{ padding: '20px 24px', textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                <button 
+                                                    onClick={() => handleBillingClick(patient)}
+                                                    style={{ padding: '8px 14px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                >
+                                                    <CreditCard size={14} color="#3b82f6" /> Billing
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleHandoverClick(patient)}
+                                                    style={{ padding: '8px 14px', background: '#0f172a', border: 'none', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                >
+                                                    Reroute <ChevronRight size={14} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -279,6 +325,10 @@ const RegistrarHistory = () => {
                         </tbody>
                     </table>
                 </div>
+                <style>{`
+                    .hover-row:hover { background: #f8fafc !important; }
+                    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+                `}</style>
 
             {/* Handover / Re-Route Modal */}
             {showBookingModal && selectedPatient && (
@@ -310,13 +360,21 @@ const RegistrarHistory = () => {
                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
                             <button onClick={() => setShowBookingModal(false)} style={{ padding: '12px 24px', background: '#f1f5f9', border: 'none', borderRadius: '10px', fontWeight: '700', color: '#475569', cursor: 'pointer' }}>Cancel</button>
                             <button onClick={confirmBooking} style={{ padding: '12px 24px', background: '#ff7200', border: 'none', borderRadius: '10px', fontWeight: '700', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                Confirm Handover <ArrowRight size={18} />
+                                Confirm Reroute <ArrowRight size={18} />
                             </button>
                         </div>
                     </div>
                 </div>
             )}
             <style>{`@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+            {/* Billing Modal */}
+            <BillingGateModal 
+                isOpen={showBillingModal}
+                onClose={() => setShowBillingModal(false)}
+                onUpdate={fetchPatients}
+                patient={selectedPatient}
+                appointmentId={selectedPatient?.appointment?.appoid}
+            />
         </div>
     );
 };

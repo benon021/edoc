@@ -1,21 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Plus, Edit2, Search, Activity, Stethoscope, Microscope, Pill, FileText, CheckCircle, Save } from 'lucide-react';
-import { getLabCatalog, updateLabCatalogItem, createLabCatalogItem } from '../../lib/api';
+import { getLabCatalog, updateLabCatalogItem, createLabCatalogItem, getPricingMatrix, updatePricingMatrix, createPricingMatrix } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 const AdminFinancials = () => {
     const [activeTab, setActiveTab] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     
-    // Base static configuration for non-database items
-    const [basePricing, setBasePricing] = useState([
-        { id: 'admin_1', source: 'static', category: 'Administration', name: 'Registration Fee', price: 500, status: 'Active' },
-        { id: 'cons_1', source: 'static', category: 'Consultation', name: 'General Consultation', price: 2500, status: 'Active' },
-        { id: 'cons_2', source: 'static', category: 'Consultation', name: 'Specialist Consultation', price: 4000, status: 'Active' },
-        { id: 'proc_1', source: 'static', category: 'Procedure', name: 'Wound Dressing', price: 1500, status: 'Active' },
-        { id: 'proc_2', source: 'static', category: 'Procedure', name: 'Suturing', price: 3000, status: 'Active' }
-    ]);
-
     const [pricingData, setPricingData] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -26,7 +18,17 @@ const AdminFinancials = () => {
     const loadData = async () => {
         setLoading(true);
         try {
+            const { data: matrix } = await getPricingMatrix();
             const { data: labs } = await getLabCatalog();
+
+            const formattedMatrix = (matrix || []).map(m => ({
+                id: m.id,
+                source: 'matrix',
+                category: m.category,
+                name: m.item_name,
+                price: Number(m.price || 0),
+                status: 'Active'
+            }));
 
             const formattedLabs = (labs || []).map(l => ({
                 id: l.id,
@@ -37,10 +39,9 @@ const AdminFinancials = () => {
                 status: l.is_enabled ? 'Active' : 'Inactive'
             }));
 
-            setPricingData([...basePricing, ...formattedLabs]);
+            setPricingData([...formattedMatrix, ...formattedLabs]);
         } catch (error) {
             console.error("Failed to load pricing catalog", error);
-            setPricingData([...basePricing]);
         } finally {
             setLoading(false);
         }
@@ -48,7 +49,7 @@ const AdminFinancials = () => {
 
     useEffect(() => {
         loadData();
-    }, [basePricing]);
+    }, []);
 
     const getIconForCategory = (cat) => {
         switch(cat) {
@@ -77,17 +78,16 @@ const AdminFinancials = () => {
             if (editingSource === 'lab') {
                 await updateLabCatalogItem(editingId, { test_name: newItem.name, price: newItem.price });
             } else {
-                setBasePricing(basePricing.map(item => item.id === editingId ? { ...item, ...newItem } : item));
+                await updatePricingMatrix(editingId, { category: newItem.category, item_name: newItem.name, price: newItem.price });
             }
-            loadData(); // refresh
         } else {
             if (newItem.category === 'Laboratory') {
                 await createLabCatalogItem({ test_name: newItem.name, price: newItem.price, category: 'General', is_enabled: true });
-                loadData();
             } else {
-                setBasePricing([...basePricing, { ...newItem, id: 'custom_' + Date.now(), source: 'static', status: 'Active' }]);
+                await createPricingMatrix({ category: newItem.category, item_name: newItem.name, price: newItem.price });
             }
         }
+        loadData();
         setShowModal(false);
         setEditingId(null);
         setEditingSource(null);

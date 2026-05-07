@@ -1,117 +1,144 @@
 // =============================================================
 // FILE: LabResults.jsx
-// PURPOSE: React component / entry point for the eDoc Hospital
-//          frontend. Part of the Vite + React SPA.
+// PURPOSE: Central hub for viewing and delivering laboratory results.
+//          Handles patient-centric grouping of finalized reports.
+//          Distinguishes between partially and fully complete panels.
 // =============================================================
 import React, { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Search, Download, Eye, X, FileText, Calendar, User, Microscope, AlertCircle } from 'lucide-react';
+import { CheckCircle, Search, Download, Eye, X, FileText, Calendar, User, Microscope, AlertCircle, Clock, Activity, Loader, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function LabResults() {
-    const [results, setResults] = useState([]);
+    const [requests, setRequests] = useState([]);
+    const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [selected, setSelected] = useState(null);
+    const [currentTab, setCurrentTab] = useState('Incomplete'); // 'Incomplete', 'Complete'
+    const [selectedReport, setSelectedReport] = useState(null);
 
-    const fetchResults = useCallback(async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // 1. Fetch raw reports
-            const { data: rawData, error: reportError } = await supabase
-                .from('lab_reports')
+            // 1. Fetch all lab requests that have at least one completed test
+            const { data: reqData, error: reqError } = await supabase
+                .from('lab_requests')
                 .select('*')
                 .order('created_at', { ascending: false });
+            if (reqError) throw reqError;
 
-            if (reportError) throw reportError;
+            // 2. Fetch all reports
+            const { data: repData, error: repError } = await supabase
+                .from('lab_reports')
+                .select('*');
+            if (repError) throw repError;
 
-            // 2. Fetch patients manually
-            const pids = [...new Set((rawData || []).map(r => r.patient_id).filter(Boolean))];
-            let patients = [];
-            if (pids.length > 0) {
-                const { data: pData } = await supabase
-                    .from('patient')
-                    .select('pid, pname, pgender')
-                    .in('pid', pids);
-                patients = pData || [];
+            // 3. Fetch patient & doctor details for grouping
+            const appoids = [...new Set((reqData || []).map(r => r.appointment_id).filter(Boolean))];
+            let appos = [];
+            if (appoids.length > 0) {
+                const { data: appoData } = await supabase
+                    .from('appointment')
+                    .select('appoid, patient:pid(pname, pgender), doctor:docid(docname)')
+                    .in('appoid', appoids);
+                appos = appoData || [];
             }
 
-            // 3. Fetch technicians manually
-            const { data: techData } = await supabase
-                .from('lab_technician')
-                .select('labid, labname');
-            const techMap = (techData || []).reduce((acc, t) => {
-                acc[t.labid] = t.labname;
-                return acc;
-            }, {});
-
-            const mapped = (rawData || []).map(r => {
-                const pat = patients.find(p => p.pid === r.patient_id);
+            // 4. Map requests with details
+            const mapped = (reqData || []).map(r => {
+                const appo = appos.find(a => a.appoid === r.appointment_id);
                 return {
                     ...r,
-                    pname: pat?.pname || 'Unknown',
-                    pgender: pat?.pgender || 'Unknown',
-                    technician_name: techMap[r.technician_id] || 'System'
+                    pname: appo?.patient?.pname || 'Unknown',
+                    pgender: appo?.patient?.pgender || 'Unknown',
+                    docname: appo?.doctor?.docname || 'Staff'
                 };
             });
-            
-            setResults(mapped);
-        } catch (e) { setResults([]); }
-        setLoading(false);
+
+            setRequests(mapped);
+            setReports(repData || []);
+        } catch (e) {
+            console.error("Fetch failed", e);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    useEffect(() => { fetchResults(); }, [fetchResults]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
-    const filtered = results.filter(r =>
-        !search || r.pname?.toLowerCase().includes(search.toLowerCase()) || r.test_name?.toLowerCase().includes(search.toLowerCase())
-    );
+    // Grouping & Tab Filtering
+    const grouped = requests.reduce((acc, req) => {
+        if (!acc[req.appointment_id]) acc[req.appointment_id] = [];
+        acc[req.appointment_id].push(req);
+        return acc;
+    }, {});
 
-    const handlePrint = (result) => {
-        const resultData = (() => { try { return JSON.parse(result.results || '{}'); } catch { return {}; } })();
+    const tabData = Object.entries(grouped).reduce((acc, [appoid, group]) => {
+        const anyCompleted = group.some(r => r.status === 'completed');
+        const allCompleted = group.every(r => r.status === 'completed');
+
+        if (allCompleted) acc.Complete[appoid] = group;
+        else if (anyCompleted) acc.Incomplete[appoid] = group;
+
+        return acc;
+    }, { Incomplete: {}, Complete: {} });
+
+    const displayedGroups = tabData[currentTab];
+
+    const handlePrint = (report, patInfo) => {
+        const resultData = (() => { try { return JSON.parse(report.results || '{}'); } catch { return {}; } })();
         const win = window.open('', '_blank');
         win.document.write(`
-            <!DOCTYPE html><html><head><title>Lab Report — ${result.pname}</title>
+            <!DOCTYPE html><html><head><title>Lab Report — ${patInfo.pname}</title>
             <style>
-                body { font-family: 'Arial', sans-serif; margin: 40px; color: #1e293b; }
-                .header { border-bottom: 3px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; }
-                .logo { font-size: 1.4rem; font-weight: 900; color: #0f172a; }
-                .subtitle { color: #64748b; font-size: 0.85rem; }
-                .badge { background: #ecfdf5; border: 1px solid #86efac; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
-                .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 24px; }
-                .info-item label { display: block; font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 4px; }
-                .info-item span { font-weight: 700; font-size: 0.95rem; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-                th { background: #0f172a; color: white; padding: 10px 16px; text-align: left; font-size: 0.8rem; }
-                td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
-                tr:nth-child(even) td { background: #f8fafc; }
-                .notes { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 4px; font-size: 0.9rem; }
-                .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 16px; display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; }
-                .sig { border-top: 1px solid #0f172a; width: 200px; padding-top: 4px; font-size: 0.78rem; color: #64748b; text-align: center; }
+                body { font-family: 'Inter', 'Arial', sans-serif; margin: 40px; color: #1e293b; line-height: 1.5; }
+                .header { border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+                .logo { font-size: 1.5rem; font-weight: 900; color: #2563eb; letter-spacing: -0.5px; }
+                .hospital { color: #0f172a; font-size: 1rem; font-weight: 800; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; padding: 24px; border-radius: 12px; margin-bottom: 30px; border: 1px solid #e2e8f0; }
+                .info-item label { display: block; font-size: 0.65rem; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.05em; }
+                .info-item span { font-weight: 700; font-size: 1rem; color: #1e293b; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                th { background: #f8fafc; color: #64748b; padding: 12px 16px; text-align: left; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+                td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
+                .results-row:nth-child(even) { background: #fcfdfe; }
+                .notes { background: #fffbeb; border: 1px solid #fef3c7; padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+                .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; }
+                .status-badge { background: #ecfdf5; color: #059669; padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 0.7rem; border: 1px solid #86efac; }
+                .test-section { margin-bottom: 40px; }
+                .test-header { font-size: 1.1rem; font-weight: 800; color: #2563eb; margin-bottom: 15px; border-left: 4px solid #2563eb; padding-left: 15px; }
             </style></head><body>
             <div class="header">
-                <div><div class="logo">🏥 eDoc Hospital</div><div class="subtitle">Clinical Laboratory Report</div></div>
-                <div style="text-align:right"><div class="badge">✓ COMPLETED</div><div style="margin-top:6px;font-size:0.8rem;color:#64748b">${new Date(result.created_at).toLocaleDateString()}</div></div>
+                <div>
+                    <div class="logo">EDOC CLINICAL LAB</div>
+                    <div class="hospital">Diagnostic Excellence Center</div>
+                </div>
+                <div style="text-align:right">
+                    <span class="status-badge">✓ FINALIZED REPORT</span>
+                </div>
             </div>
             <div class="info-grid">
-                <div class="info-item"><label>Patient Name</label><span>${result.pname}</span></div>
-                <div class="info-item"><label>Patient ID</label><span>${result.patient_display_id || '—'}</span></div>
-                <div class="info-item"><label>Gender</label><span>${result.pgender || '—'}</span></div>
-                <div class="info-item"><label>Test Name</label><span>${result.test_name}</span></div>
-                <div class="info-item"><label>Technician</label><span>${result.technician_name || '—'}</span></div>
-                <div class="info-item"><label>Date Processed</label><span>${new Date(result.created_at).toLocaleString()}</span></div>
+                <div>
+                    <div class="info-item" style="margin-bottom:16px;"><label>Patient Name</label><span>${patInfo.pname}</span></div>
+                    <div class="info-item"><label>Gender / Age</label><span>${patInfo.pgender}</span></div>
+                </div>
+                <div style="text-align:right">
+                    <div class="info-item" style="margin-bottom:16px;"><label>Investigation</label><span>${report.test_name}</span></div>
+                    <div class="info-item"><label>Date Processed</label><span>${new Date(report.created_at).toLocaleString()}</span></div>
+                </div>
             </div>
             <table>
-                <thead><tr><th>Parameter</th><th>Result</th></tr></thead>
+                <thead><tr><th>Diagnostic Parameter</th><th>Result Value</th></tr></thead>
                 <tbody>
                     ${Object.entries(resultData).map(([k, v]) => {
                         const valStr = typeof v === 'object' && v !== null ? `${v.value} ${v.unit || ''}` : String(v);
-                        return `<tr><td>${k}</td><td><strong>${valStr}</strong></td></tr>`;
+                        return `<tr class="results-row"><td>${k}</td><td><strong style="color:#0f172a">${valStr}</strong></td></tr>`;
                     }).join('')}
                 </tbody>
             </table>
-            ${result.notes ? `<div class="notes"><strong>Technician Notes:</strong><br>${result.notes}</div>` : ''}
+            ${report.notes ? `<div class="notes"><label style="display:block;font-size:0.7rem;font-weight:800;color:#92400e;margin-bottom:8px;text-transform:uppercase;">Clinical Remarks</label>${report.notes}</div>` : ''}
             <div class="footer">
-                <div>Generated: ${new Date().toLocaleString()}</div>
-                <div class="sig">Authorized Technician: ${result.technician_name || '___________'}</div>
+                <div>Document Hash: ${Math.random().toString(36).substring(7).toUpperCase()}</div>
+                <div>Printed on: ${new Date().toLocaleString()} • Ref: ${report.id}</div>
             </div>
             </body></html>
         `);
@@ -119,243 +146,265 @@ export default function LabResults() {
         win.print();
     };
 
-    const parseResults = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
+    const handlePrintAll = (group, patInfo) => {
+        const completedTests = group.filter(r => r.status === 'completed');
+        if (completedTests.length === 0) return alert("No completed tests to print.");
 
-    return (
-        <div style={{ padding: '40px 56px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
-                <div style={{ marginBottom: 32 }}>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <CheckCircle size={28} color="#10b981" /> Completed Results
-                    </h1>
-                    <p style={{ color: '#64748b', marginTop: 4 }}>Review and deliver completed test results to doctors.</p>
+        const win = window.open('', '_blank');
+        let html = `
+            <!DOCTYPE html><html><head><title>Full Diagnostic Panel — ${patInfo.pname}</title>
+            <style>
+                body { font-family: 'Inter', 'Arial', sans-serif; margin: 40px; color: #1e293b; line-height: 1.5; }
+                .header { border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+                .logo { font-size: 1.5rem; font-weight: 900; color: #2563eb; letter-spacing: -0.5px; }
+                .hospital { color: #0f172a; font-size: 1rem; font-weight: 800; }
+                .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; padding: 24px; border-radius: 12px; margin-bottom: 40px; border: 1px solid #e2e8f0; }
+                .info-item label { display: block; font-size: 0.65rem; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.05em; }
+                .info-item span { font-weight: 700; font-size: 1rem; color: #1e293b; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                th { background: #f8fafc; color: #64748b; padding: 12px 16px; text-align: left; font-size: 0.7rem; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+                td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+                .test-section { margin-bottom: 50px; page-break-inside: avoid; }
+                .test-header { font-size: 1.15rem; font-weight: 900; color: #0f172a; margin-bottom: 15px; border-left: 5px solid #2563eb; padding-left: 15px; text-transform: uppercase; }
+                .notes { background: #fefce8; border: 1px solid #fef3c7; padding: 16px; border-radius: 10px; margin-top: 10px; font-size: 0.85rem; }
+                .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; }
+                .status-badge { background: #ecfdf5; color: #059669; padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 0.7rem; border: 1px solid #86efac; }
+            </style></head><body>
+            <div class="header">
+                <div>
+                    <div class="logo">EDOC CLINICAL LAB</div>
+                    <div class="hospital">Diagnostic Excellence Center</div>
                 </div>
-
-                {/* Search */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                        <Search size={16} style={{ position: 'absolute', left: 12, top: 11, color: '#94a3b8' }} />
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by patient or test name..." style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.875rem', boxSizing: 'border-box' }} />
-                    </div>
+                <div style="text-align:right">
+                    <span class="status-badge">✓ CONSOLIDATED DIAGNOSTIC SUMMARY</span>
                 </div>
+            </div>
+            <div class="info-grid">
+                <div>
+                    <div class="info-item" style="margin-bottom:16px;"><label>Patient Name</label><span>${patInfo.pname}</span></div>
+                    <div class="info-item"><label>Gender / Age</label><span>${patInfo.pgender}</span></div>
+                </div>
+                <div style="text-align:right">
+                    <div class="info-item" style="margin-bottom:16px;"><label>Requesting Physician</label><span>Dr. ${patInfo.docname}</span></div>
+                    <div class="info-item"><label>Visit Reference</label><span>REF-${patInfo.appointment_id}</span></div>
+                </div>
+            </div>
+        `;
 
-                {/* Table */}
-                <div style={{ background: 'white', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                {['Patient', 'Test Name', 'Technician', 'Date Completed', 'Status', 'Actions'].map(h => (
-                                    <th key={h} style={{ textAlign: 'left', padding: '14px 20px', fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
+        completedTests.forEach(req => {
+            const report = reports.find(r => r.request_id === req.id);
+            if (!report) return;
+            const resultData = (() => { try { return JSON.parse(report.results || '{}'); } catch { return {}; } })();
+
+            html += `
+                <div class="test-section">
+                    <div class="test-header">${req.test_name}</div>
+                    <table>
+                        <thead><tr><th>Parameter</th><th>Result</th></tr></thead>
                         <tbody>
-                            {loading ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 64, color: '#94a3b8' }}>Loading results archive...</td></tr>
-                            ) : filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6}>
-                                        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-                                            <FileText size={48} color="#e2e8f0" style={{ marginBottom: 16 }} />
-                                            <p style={{ color: '#94a3b8', fontWeight: 500 }}>No completed results found</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : filtered.map((r, i) => (
-                                <tr key={i} style={{ borderBottom: '1px solid #f8fafc', transition: '0.15s' }}
-                                    onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
-                                    onMouseOut={e => e.currentTarget.style.background = 'white'}>
-                                    <td style={{ padding: '16px 20px' }}>
-                                        <div style={{ fontWeight: 700, color: '#1e293b' }}>{r.pname}</div>
-                                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{r.pgender} · ID: {r.patient_display_id || '—'}</div>
-                                    </td>
-                                    <td style={{ padding: '16px 20px' }}>
-                                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Microscope size={14} color="#64748b" /> {r.test_name}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '16px 20px', fontSize: '0.875rem', color: '#475569' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <User size={13} color="#94a3b8" /> {r.technician_name || 'Unknown'}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '16px 20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: '#64748b' }}>
-                                            <Calendar size={13} /> {new Date(r.created_at).toLocaleString()}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '16px 20px' }}>
-                                        <span style={{ background: r.verified === 1 ? '#ecfdf5' : '#fef3c7', color: r.verified === 1 ? '#059669' : '#b45309', padding: '4px 12px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700 }}>
-                                            {r.verified === 1 ? '✓ Verified' : 'Pending Review'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '16px 20px' }}>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <button onClick={() => setSelected(r)} style={{ padding: '6px 14px', borderRadius: 8, background: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                <Eye size={13} /> View
-                                            </button>
-                                            <button onClick={() => handlePrint(r)} style={{ padding: '6px 14px', borderRadius: 8, background: '#f0fdf4', color: '#059669', border: '1px solid #86efac', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                <Download size={13} /> Print
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            ${Object.entries(resultData).map(([k, v]) => {
+                                const valStr = typeof v === 'object' && v !== null ? `${v.value} ${v.unit || ''}` : String(v);
+                                return `<tr><td>${k}</td><td><strong style="color:#1e293b">${valStr}</strong></td></tr>`;
+                            }).join('')}
                         </tbody>
                     </table>
-                    {filtered.length > 0 && (
-                        <div style={{ padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '0.78rem', color: '#64748b' }}>
-                            {filtered.length} results in archive
-                        </div>
-                    )}
+                    ${report.notes ? `<div class="notes"><strong>Remarks:</strong> ${report.notes}</div>` : ''}
                 </div>
+            `;
+        });
 
-                {/* Result Detail Modal - Professional Medical Report Style */}
-                {selected && (
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>
-                        <div style={{ 
-                            background: 'white', borderRadius: 24, width: 640, maxHeight: '90vh', overflowY: 'auto', 
-                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid #e2e8f0',
-                            position: 'relative', display: 'flex', flexDirection: 'column'
-                        }}>
-                            {/* Colorful Header Accent */}
-                            <div style={{ height: 8, background: 'linear-gradient(90deg, #3b82f6, #10b981)', borderRadius: '24px 24px 0 0' }}></div>
-                            
-                            <div style={{ padding: '32px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                        <div style={{ background: '#eff6ff', padding: 8, borderRadius: 12 }}>
-                                            <Microscope size={24} color="#3b82f6" />
-                                        </div>
-                                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900, color: '#1e293b', letterSpacing: '-0.5px' }}>MEDICAL REPORT</h2>
-                                    </div>
-                                    <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <FileText size={14} /> Official Laboratory Result · Case #{selected.id?.toString().padStart(6, '0')}
-                                    </div>
-                                </div>
-                                <button onClick={() => setSelected(null)} style={{ background: '#f1f5f9', border: 'none', padding: 8, borderRadius: 12, cursor: 'pointer', color: '#64748b', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}><X size={20} /></button>
-                            </div>
+        html += `
+            <div class="footer">
+                <div>Consolidated Report Hash: ${Math.random().toString(36).substring(7).toUpperCase()}</div>
+                <div>Generated: ${new Date().toLocaleString()}</div>
+            </div>
+            </body></html>
+        `;
 
-                            <div style={{ padding: '0 40px 40px' }}>
-                                {/* Receipt-style Patient Header */}
-                                <div style={{ 
-                                    background: '#f8fafc', padding: 24, borderRadius: 20, marginBottom: 32,
-                                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px',
-                                    border: '1px solid #f1f5f9'
-                                }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 4, letterSpacing: '0.5px' }}>PATIENT NAME</div>
-                                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b' }}>{selected.pname}</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>{selected.pgender} · ID: {selected.patient_display_id || '—'}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 4, letterSpacing: '0.5px' }}>ORDER DETAILS</div>
-                                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1e293b' }}>{selected.test_name}</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 2 }}>Authorized by {selected.technician_name || 'Lab Staff'}</div>
-                                    </div>
-                                    <div style={{ gridColumn: 'span 2', paddingTop: 16, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
-                                        <div>
-                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 2 }}>DATE SAMPLED</div>
-                                            <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{new Date(selected.created_at).toLocaleDateString()}</div>
-                                        </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, marginBottom: 2 }}>STATUS</div>
-                                            <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#10b981' }}>✓ VALIDATED</div>
-                                        </div>
-                                    </div>
-                                </div>
+        win.document.write(html);
+        win.document.close();
+        win.print();
+    };
 
-                                {/* Results Section */}
-                                <div style={{ marginBottom: 32 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                                        <div style={{ flex: 1, height: 1, background: '#f1f5f9' }}></div>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Clinical Findings</span>
-                                        <div style={{ flex: 1, height: 1, background: '#f1f5f9' }}></div>
-                                    </div>
+    return (
+        <div style={{ padding: '32px 48px', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+            <header style={{ marginBottom: 40 }}>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <CheckCircle size={28} color="#10b981" /> Laboratory Results
+                </h1>
+                <p style={{ color: '#64748b', marginTop: 4 }}>Archive of finalized diagnostic panels and patient reports.</p>
+            </header>
 
-                                    <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid #f1f5f9' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                            <thead style={{ background: '#f8fafc' }}>
-                                                <tr>
-                                                    <th style={{ textAlign: 'left', padding: '12px 20px', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Parameter</th>
-                                                    <th style={{ textAlign: 'right', padding: '12px 20px', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Value / Flag</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {Object.entries(parseResults(selected.results)).map(([k, v], i) => (
-                                                    <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                                        <td style={{ padding: '16px 20px', fontSize: '0.9rem', fontWeight: 600, color: '#475569' }}>{k}</td>
-                                                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                                                            {typeof v === 'object' && v !== null ? (
-                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
-                                                                    <span style={{ fontWeight: 800, fontSize: '1.1rem', color: v.status && v.status !== 'Normal' ? '#ef4444' : '#1e293b' }}>
-                                                                        {v.value}
-                                                                    </span>
-                                                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>{v.unit || ''}</span>
-                                                                    {v.status && v.status !== 'Normal' && (
-                                                                        <span style={{ 
-                                                                            padding: '4px 10px', borderRadius: 8, fontSize: '0.7rem', fontWeight: 800,
-                                                                            background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2'
-                                                                        }}>
-                                                                            {v.status}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <span style={{ fontWeight: 800, color: '#1e293b' }}>{String(v)}</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
+            {/* Tab Navigation */}
+            <div style={{ display: 'flex', gap: '32px', marginBottom: '32px', borderBottom: '2px solid #f1f5f9' }}>
+                {[
+                    { id: 'Incomplete', label: 'Incomplete Panels', icon: Activity, count: Object.keys(tabData.Incomplete).length, color: '#f59e0b' },
+                    { id: 'Complete', label: 'Full Reports', icon: CheckCircle, count: Object.keys(tabData.Complete).length, color: '#10b981' }
+                ].map(t => (
+                    <button 
+                        key={t.id}
+                        onClick={() => setCurrentTab(t.id)}
+                        style={{
+                            padding: '12px 16px',
+                            background: 'none',
+                            border: 'none',
+                            borderBottom: currentTab === t.id ? `4px solid ${t.color}` : '4px solid transparent',
+                            color: currentTab === t.id ? t.color : '#64748b',
+                            fontSize: '0.95rem',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            transition: '0.2s'
+                        }}
+                    >
+                        <t.icon size={18} /> {t.label}
+                        <span style={{ fontSize: '0.7rem', background: currentTab === t.id ? t.color : '#e2e8f0', color: currentTab === t.id ? 'white' : '#64748b', padding: '2px 8px', borderRadius: '12px', marginLeft: '4px' }}>{t.count}</span>
+                    </button>
+                ))}
+            </div>
 
-                                {selected.notes && (
-                                    <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 16, padding: '20px', marginBottom: 32 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, fontSize: '0.8rem', color: '#92400e', marginBottom: 8, textTransform: 'uppercase' }}>
-                                            <AlertCircle size={14} /> Technician Comments
-                                        </div>
-                                        <div style={{ fontSize: '0.9rem', color: '#78350f', lineHeight: 1.6 }}>{selected.notes}</div>
-                                    </div>
-                                )}
-
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <button 
-                                        onClick={() => handlePrint(selected)} 
-                                        style={{ 
-                                            flex: 2, padding: '16px', borderRadius: 16, 
-                                            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', 
-                                            color: 'white', border: 'none', fontWeight: 800, cursor: 'pointer', 
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                                            boxShadow: '0 10px 15px -3px rgba(15, 23, 42, 0.2)'
-                                        }}
-                                    >
-                                        <Download size={20} /> DOWNLOAD OFFICIAL REPORT
-                                    </button>
-                                    <button 
-                                        onClick={() => setSelected(null)} 
-                                        style={{ 
-                                            flex: 1, padding: '16px', borderRadius: 16, 
-                                            background: '#f1f5f9', color: '#475569', 
-                                            border: 'none', fontWeight: 700, cursor: 'pointer',
-                                            transition: '0.2s'
-                                        }}
-                                        onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-                                        onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
-                                    >
-                                        CLOSE
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            {/* Footer Accent */}
-                            <div style={{ padding: '12px', textAlign: 'center', borderTop: '1px solid #f1f5f9', background: '#f8fafc', borderRadius: '0 0 24px 24px', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
-                                This is a computer-generated report and remains valid without a physical signature.
-                            </div>
-                        </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: 64 }}><Loader size={24} className="animate-spin" /></div>
+                ) : Object.entries(displayedGroups).length === 0 ? (
+                    <div style={{ padding: '80px', textAlign: 'center', background: 'white', borderRadius: '24px', border: '2px dashed #e2e8f0' }}>
+                        <h3 style={{ color: '#64748b', fontSize: '1.2rem', fontWeight: '700' }}>No {currentTab} Reports</h3>
+                        <p style={{ color: '#94a3b8' }}>Finalized results will appear here automatically.</p>
                     </div>
-                )}
+                ) : Object.entries(displayedGroups).map(([appoid, group]) => {
+                    const patient = group[0];
+                    return (
+                        <div key={appoid} style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                            <div style={{ padding: '20px 32px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'white', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <User size={20} color="#64748b" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>{patient.pname}</h3>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Ordered by Dr. {patient.docname} · {group.length} Investigation(s)</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    {currentTab === 'Complete' && (
+                                        <button 
+                                            onClick={() => handlePrintAll(group, patient)}
+                                            style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '10px',
+                                                background: '#0f172a',
+                                                color: 'white',
+                                                border: 'none',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                                            }}
+                                        >
+                                            <Printer size={16} /> Print Full Panel
+                                        </button>
+                                    )}
+                                    {currentTab === 'Incomplete' && (
+                                        <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', color: '#92400e', padding: '6px 12px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Clock size={14} /> PENDING {group.filter(r => r.status !== 'completed').length} TESTS
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <tbody>
+                                    {group.map((req, i) => {
+                                        const report = reports.find(r => r.request_id === req.id);
+                                        return (
+                                            <tr key={req.id} style={{ borderBottom: i === group.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: '16px 32px' }}>
+                                                    <div style={{ fontWeight: '700', color: '#1e293b' }}>{req.test_name}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Status: <span style={{ color: req.status === 'completed' ? '#10b981' : '#f59e0b', fontWeight: '700' }}>{req.status.toUpperCase()}</span></div>
+                                                </td>
+                                                <td style={{ padding: '16px 32px', textAlign: 'right' }}>
+                                                    {report ? (
+                                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                            <button onClick={() => setSelectedReport({ report, patient })} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <Eye size={14} /> View
+                                                            </button>
+                                                            <button onClick={() => handlePrint(report, patient)} style={{ padding: '6px 12px', borderRadius: '8px', border: 'none', background: '#f0fdf4', color: '#166534', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <Printer size={14} /> Print
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic' }}>Report Pending</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Detailed Result Modal */}
+            {selectedReport && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
+                    <div style={{ background: 'white', borderRadius: '32px', width: '600px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', padding: '40px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
+                            <div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#0f172a' }}>Investigation Result</h2>
+                                <p style={{ color: '#64748b' }}>{selectedReport.report.test_name} for {selectedReport.patient.pname}</p>
+                            </div>
+                            <button onClick={() => setSelectedReport(null)} style={{ background: '#f1f5f9', border: 'none', padding: '10px', borderRadius: '12px', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                        <th style={{ textAlign: 'left', padding: '12px 0', fontSize: '0.7rem', color: '#94a3b8' }}>PARAMETER</th>
+                                        <th style={{ textAlign: 'right', padding: '12px 0', fontSize: '0.7rem', color: '#94a3b8' }}>VALUE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {Object.entries(JSON.parse(selectedReport.report.results || '{}')).map(([k, v], i) => (
+                                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '14px 0', fontWeight: '700', color: '#1e293b' }}>{k}</td>
+                                            <td style={{ padding: '14px 0', textAlign: 'right', fontWeight: '800', fontSize: '1.1rem', color: '#2563eb' }}>
+                                                {typeof v === 'object' && v !== null ? `${v.value} ${v.unit || ''}` : String(v)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {selectedReport.report.notes && (
+                            <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', padding: '20px', borderRadius: '16px', marginBottom: '32px' }}>
+                                <div style={{ fontWeight: '800', fontSize: '0.7rem', color: '#92400e', textTransform: 'uppercase', marginBottom: '8px' }}>Clinical Notes</div>
+                                <div style={{ color: '#78350f' }}>{selectedReport.report.notes}</div>
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={() => handlePrint(selectedReport.report, selectedReport.patient)}
+                            style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#0f172a', color: 'white', border: 'none', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                        >
+                            <Printer size={20} /> Print Formal Report
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                .animate-spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

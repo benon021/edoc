@@ -287,7 +287,7 @@ const handleToggle = async (item) => {
                                             placeholder="Type custom category name..." 
                                             value={form.category === 'Other' ? '' : form.category} 
                                             onChange={e => setForm(v => ({ ...v, category: e.target.value }))}
-                                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', boxSizing: 'border-box', background: '#fffbeb', border: '1px solid #fef3c7' }} 
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: '0.9rem', boxSizing: 'border-box', background: '#fffbeb', border: '1px solid #fef3c7' }} 
                                         />
                                     )}
                                 </div>

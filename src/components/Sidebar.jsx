@@ -141,12 +141,12 @@ const Sidebar = ({ userType }) => {
             { name: 'System Settings',     icon: Settings,        path: '/admin/settings' },
 
             { name: 'Reception & Registration', type: 'header' },
-            { name: 'Registrar Home',      icon: Home,            path: '/registrar' },
-            { name: 'New Registration',    icon: UserPlus,        path: '/registrar/new-patient' },
-            { name: 'Patient Directory',   icon: Users,           path: '/registrar/patients' },
-            { name: 'Patient History',     icon: ListOrdered,     path: '/registrar/history' },
-            { name: 'Billing Desk',        icon: CreditCard,      path: '/registrar/billing' },
-            { name: 'Printing Hub',        icon: Printer,         path: '/registrar/print' },
+            { name: 'Admin Home',          icon: Home,            path: '/admin' },
+            { name: 'New Registration',    icon: UserPlus,        path: '/admin/register-patient' },
+            { name: 'Patient Directory',   icon: Users,           path: '/admin/patients' },
+            { name: 'Patient History',     icon: ListOrdered,     path: '/admin/history' },
+            { name: 'Billing Desk',        icon: CreditCard,      path: '/admin/billing' },
+            { name: 'Printing Hub',        icon: Printer,         path: '/admin/print' },
 
             { name: 'Clinical Consultation', type: 'header' },
             { name: 'Doctor Home',         icon: Home,            path: '/doctor' },
@@ -166,7 +166,7 @@ const Sidebar = ({ userType }) => {
             { name: 'Laboratory Services', type: 'header' },
             { name: 'Lab Home',            icon: Home,            path: '/lab' },
             { name: 'Lab Workbench',       icon: Microscope,      path: '/lab/workbench' },
-            { name: 'Completed Results',   icon: CheckCircle,     path: '/lab/results' },
+            { name: 'Results',             icon: CheckCircle,     path: '/lab/results' },
             { name: 'Test Catalog',        icon: Tag,             path: '/lab/catalog' },
             { name: 'Lab Inventory',       icon: Package,         path: '/lab/inventory' },
 
@@ -180,7 +180,7 @@ const Sidebar = ({ userType }) => {
         l: [
             { name: 'Dashboard',           icon: Home,         path: '/lab' },
             { name: 'Lab Workbench',       icon: Microscope,   path: '/lab/workbench' },
-            { name: 'Completed Results',   icon: CheckCircle,  path: '/lab/results' },
+            { name: 'Results',             icon: CheckCircle,  path: '/lab/results' },
             { name: 'Test Catalog',        icon: Tag,          path: '/lab/catalog' },
             { name: 'Inventory',           icon: Package,      path: '/lab/inventory' },
             { name: 'Reports',             icon: BarChart3,    path: '/lab/analytics' },

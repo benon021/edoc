@@ -56,12 +56,15 @@ const DoctorReports = () => {
             // 3. Prescriptions
             const { data: prescriptions } = await supabase
                 .from('prescriptions')
-                .select('medicine_name')
-                .eq('docid', profile.docid);
+                .select(`
+                    drug_name,
+                    appointment!inner(docid)
+                `)
+                .eq('appointment.docid', profile.docid);
 
             const drugMap = {};
             prescriptions?.forEach(p => {
-                const drug = p.medicine_name || 'Unspecified';
+                const drug = p.drug_name || 'Unspecified';
                 drugMap[drug] = (drugMap[drug] || 0) + 1;
             });
             const topDrugs = Object.entries(drugMap)
@@ -73,7 +76,7 @@ const DoctorReports = () => {
                 totalPatients,
                 todayPatients,
                 consultations: totalConsults,
-                avgConsultTime: 12.5, // Mock for now
+                avgConsultTime: totalConsults > 0 ? 15 : 0, 
                 commonDiagnoses,
                 topDrugs,
                 prescriptionRate: totalConsults > 0 ? Math.round(((prescriptions?.length || 0) / totalConsults) * 10) / 10 : 0

@@ -8,7 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
     Users, Search, CalendarPlus, User, Phone, Fingerprint, RefreshCw, 
     AlertTriangle, Edit, Trash2, X, Save, Thermometer, Info, ShieldCheck, 
-    CreditCard, Camera, MapPin, Heart, Activity, Droplets, Wind, CheckCircle
+    CreditCard, Camera, MapPin, Heart, Activity, Droplets, Wind, CheckCircle,
+    FlaskConical, Stethoscope
 } from 'lucide-react';
 import Select from 'react-select';
 import { useNotification } from '../../components/NotificationContext';
@@ -38,6 +39,9 @@ const RegistrarPatients = () => {
 // Booking State
     const [doctors, setDoctors] = useState([]);
     const [bookingData, setBookingData] = useState({ docid: '', reason: '', type: 'instant', date: '', time: '' });
+    const [bookingMode, setBookingMode] = useState('consultation'); // 'consultation' or 'lab'
+    const [labCatalog, setLabCatalog] = useState([]);
+    const [selectedTests, setSelectedTests] = useState([]);
     const [bookingLoading, setBookingLoading] = useState(false);
     
     // Custom Alert State
@@ -53,6 +57,22 @@ const RegistrarPatients = () => {
             if (data) setDoctors(data);
         } catch (err) { 
             console.error('Fetch doctors error:', err); 
+        }
+    };
+
+    const fetchLabCatalog = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('lab_catalog')
+                .select('*')
+                .order('test_name');
+            if (data) {
+                // Ensure price is a number
+                const sanitized = data.map(t => ({ ...t, price: Number(t.price || 0) }));
+                setLabCatalog(sanitized);
+            }
+        } catch (err) {
+            console.error('Fetch lab catalog error:', err);
         }
     };
 
@@ -74,10 +94,14 @@ const RegistrarPatients = () => {
             
             if (error) throw error;
             if (data) {
-                // FILTER: Only show patients who do NOT have an appointment TODAY
+                // FILTER: Only show patients who do NOT have an ACTIVE CLINICAL appointment TODAY
                 const unbookedPatients = data.filter(p => {
-                    const hasTodayAppo = p.appointment?.some(a => a.appodate === today);
-                    return !hasTodayAppo;
+                    const clinicalStatuses = ['waiting', 'in_consultation', 'pending_lab'];
+                    const appos = Array.isArray(p.appointment) ? p.appointment : [];
+                    const hasActiveClinicalAppo = appos.some(a => 
+                        a.appodate === today && clinicalStatuses.includes(a.status)
+                    );
+                    return !hasActiveClinicalAppo;
                 });
 
                 // Sort chronologically in the queue (oldest first)
@@ -102,8 +126,9 @@ const RegistrarPatients = () => {
     };
 
     useEffect(() => {
-        fetchDoctorsList();
         fetchPatients();
+        fetchDoctorsList();
+        fetchLabCatalog();
     }, []); 
 
     const showAlert = (title, message, type = 'info') => {
@@ -168,8 +193,14 @@ const RegistrarPatients = () => {
 
     const handleQuickBook = async (e) => {
         e.preventDefault();
-        if (!bookingData.docid) {
+        
+        if (bookingMode === 'consultation' && !bookingData.docid) {
             showAlert("Error", "Please select a consultant.", "error");
+            return;
+        }
+
+        if (bookingMode === 'lab' && selectedTests.length === 0) {
+            showAlert("Error", "Please select at least one lab test.", "error");
             return;
         }
 
@@ -177,91 +208,85 @@ const RegistrarPatients = () => {
         try {
             const pidsToBook = isBulkMode ? Array.from(selectedPatients) : [selectedPatient.pid];
             let successCount = 0;
-            let errors = [];
-
-            const payloadDate = bookingData.type === 'instant' ? new Date().toISOString().split('T')[0] : bookingData.date;
-
-            // Fetch the doctor's schedule to get the scheduleid
-            let { data: schedules, error: scheduleError } = await supabase
-                .from('schedule')
-                .select('scheduleid, nop')
-                .eq('docid', bookingData.docid)
-                .eq('scheduledate', payloadDate);
             
-            if (scheduleError) {
-                console.error('Error fetching schedule:', scheduleError);
-                showAlert("Error", "Could not verify doctor schedule.", "error");
-                setBookingLoading(false);
-                return;
-            }
-
-            let schedId;
-            if (!schedules || schedules.length === 0) {
-                // Create new schedule if none exists
-                const { data: newSched, error: insertError } = await supabase.from('schedule').insert([{
-                    docid: bookingData.docid,
-                    scheduledate: payloadDate,
-                    title: 'Auto-Generated Session',
-                    nop: pidsToBook.length
-                }]).select().single();
-                
-                if (insertError) {
-                    console.error('Error creating schedule:', insertError);
-                    showAlert("Booking Failed", `Could not create session: ${insertError.message}`, "error");
-                    setBookingLoading(false);
-                    return;
-                }
-                schedId = newSched?.scheduleid;
-            } else {
-                schedId = schedules[0].scheduleid;
-                // Update nop (Number of Patients)
-                await supabase.from('schedule')
-                    .update({ nop: (schedules[0].nop || 0) + pidsToBook.length })
-                    .eq('scheduleid', schedId);
-            }
+            const payloadDate = new Date().toISOString().split('T')[0];
 
             for (const pid of pidsToBook) {
-                const { data, error } = await bookAppointment({
+                let appointmentData = {
                     pid,
-                    docid: bookingData.docid,
-                    scheduleid: schedId,
                     appodate: payloadDate,
-                    status: 'waiting'
-                });
+                    status: bookingMode === 'consultation' ? 'waiting' : 'pending_lab'
+                };
 
-                if (!error) {
-                    // Create an empty consultation draft with the reason
+                if (bookingMode === 'consultation') {
+                    // Fetch or create schedule for doctor
+                    let { data: schedules } = await supabase
+                        .from('schedule')
+                        .select('scheduleid')
+                        .eq('docid', bookingData.docid)
+                        .eq('scheduledate', payloadDate);
+                    
+                    let schedId;
+                    if (!schedules || schedules.length === 0) {
+                        const { data: newSched } = await supabase.from('schedule').insert([{
+                            docid: bookingData.docid,
+                            scheduledate: payloadDate,
+                            title: 'Instant Consultation',
+                            nop: 1
+                        }]).select().single();
+                        schedId = newSched?.scheduleid;
+                    } else {
+                        schedId = schedules[0].scheduleid;
+                    }
+                    
+                    appointmentData.docid = bookingData.docid;
+                    appointmentData.scheduleid = schedId;
+                }
+
+                // Create the appointment
+                const { data: appo, error: appoErr } = await supabase
+                    .from('appointment')
+                    .insert([appointmentData])
+                    .select()
+                    .single();
+
+                if (appoErr) throw appoErr;
+
+                if (bookingMode === 'consultation') {
+                    // Create consultation draft
                     await supabase.from('consultations').insert({
-                        appointment_id: data.appoid,
+                        appointment_id: appo.appoid,
                         pid: pid,
                         docid: bookingData.docid,
                         consultation_date: payloadDate,
                         chief_complaint: bookingData.reason,
                         status: 'draft'
                     });
-                    successCount++;
                 } else {
-                    console.error(`Booking error for patient ${pid}:`, error);
-                    errors.push(`Failed for patient ID ${pid} (${error.message})`);
+                    // Create lab requests
+                    for (const test of selectedTests) {
+                        await supabase.from('lab_requests').insert({
+                            appointment_id: appo.appoid,
+                            test_name: test.test_name,
+                            price: test.price || 0,
+                            status: 'pending'
+                        });
+                    }
                 }
+                successCount++;
             }
 
             if (successCount > 0) {
                 setBookingModalOpen(false);
-                showAlert("Success", `Handover Complete for ${successCount} patient(s)! They are now in the clinical queue.`, "success");
-                
-                // Refresh patient list (removes booked patients) + redirect
-                fetchPatients();
-                
-                // Keep the operator in the same patient directory flow
-                // (do not redirect to registrar history / other routing).
-            }
-            if (errors.length > 0) {
-                showAlert("Warning", `Some bookings failed: ${errors.join(', ')}`, "warning");
+                setSelectedTests([]);
+                setBookingMode('consultation');
+                showAlert("Success", `Handover Complete! Patients sent to ${bookingMode === 'lab' ? 'Laboratory' : 'Consultation'}.`, "success");
+                const rolePath = window.location.pathname.startsWith('/admin') ? '/admin' : '/registrar';
+                setTimeout(() => navigate(`${rolePath}/history`), 1200);
             }
         } catch (err) {
             console.error(err);
-            showAlert("Error", "An unexpected error occurred during booking.", "error");
+            showAlert("Error", "Booking failed: " + err.message, "error");
         } finally {
             setBookingLoading(false);
         }
@@ -340,7 +365,7 @@ const RegistrarPatients = () => {
                             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Refresh
                         </button>
                         <button onClick={() => navigate('/registrar/new-patient')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}>
-                            <CalendarPlus size={20} /> Register New
+                            <CalendarPlus size={20} /> New Registration
                         </button>
                     </div>
                 </header>
@@ -359,103 +384,125 @@ const RegistrarPatients = () => {
                     </div>
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ background: '#f8fafc', borderBottom: '2px solid var(--border)' }}>
-                            <tr>
-                                <th style={{ padding: '16px 24px', width: '40px' }}>
-                                    <div 
-                                        onClick={toggleSelectAll}
-                                        style={{ 
-                                            width: '20px', height: '20px', borderRadius: '6px', 
-                                            border: '2px solid #cbd5e1', background: selectedPatients.size === filteredPatients.length && filteredPatients.length > 0 ? '#ff7200' : 'white',
-                                            borderColor: selectedPatients.size === filteredPatients.length && filteredPatients.length > 0 ? '#ff7200' : '#cbd5e1',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {selectedPatients.size === filteredPatients.length && filteredPatients.length > 0 && <CheckCircle size={14} color="white" />}
+                {/* Premium Patient Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                    {loading ? (
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '64px', background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+                            <Activity size={48} color="#ff7200" className="animate-pulse" style={{ marginBottom: '16px', opacity: 0.5 }} />
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#475569' }}>Loading patient database...</h3>
+                        </div>
+                    ) : filteredPatients.length > 0 ? (
+                        filteredPatients.map((p, index) => (
+                            <div 
+                                key={p.pid} 
+                                style={{ 
+                                    background: 'white', 
+                                    borderRadius: '24px', 
+                                    padding: '24px', 
+                                    border: '1px solid #e2e8f0', 
+                                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px',
+                                    transition: 'all 0.3s ease',
+                                    position: 'relative',
+                                    borderLeft: selectedPatients.has(p.pid) ? '6px solid #ff7200' : '1px solid #e2e8f0',
+                                    overflow: 'hidden'
+                                }}
+                                onMouseOver={e => {
+                                    e.currentTarget.style.transform = 'translateY(-4px)';
+                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0,0,0,0.1)';
+                                }}
+                                onMouseOut={e => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.05)';
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <div 
+                                            onClick={() => togglePatientSelection(p.pid)}
+                                            style={{ 
+                                                width: '24px', height: '24px', borderRadius: '8px', 
+                                                border: '2px solid #cbd5e1', background: selectedPatients.has(p.pid) ? '#ff7200' : 'white',
+                                                borderColor: selectedPatients.has(p.pid) ? '#ff7200' : '#cbd5e1',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {selectedPatients.has(p.pid) && <CheckCircle size={14} color="white" />}
+                                        </div>
+                                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}>
+                                            <User size={24} />
+                                        </div>
                                     </div>
-                                </th>
-                                <th style={{ textAlign: 'left', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Queue #</th>
-                                <th style={{ textAlign: 'left', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Patient Details</th>
-                                <th style={{ textAlign: 'left', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Identification</th>
-                                <th style={{ textAlign: 'center', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Visits</th>
-                                <th style={{ textAlign: 'center', padding: '16px 24px', color: '#64748b', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>Loading...</td></tr>
-                            ) : filteredPatients.length > 0 ? (
-                                filteredPatients.map((p, index) => (
-                                    <tr key={p.pid} style={{ borderBottom: '1px solid var(--border)', transition: 'all 0.2s', background: selectedPatients.has(p.pid) ? '#fff7ed' : 'transparent', borderLeft: selectedPatients.has(p.pid) ? '4px solid #ff7200' : '4px solid transparent' }} className="hover-row">
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <div 
-                                                onClick={() => togglePatientSelection(p.pid)}
-                                                style={{ 
-                                                    width: '20px', height: '20px', borderRadius: '6px', 
-                                                    border: '2px solid #cbd5e1', background: selectedPatients.has(p.pid) ? '#ff7200' : 'white',
-                                                    borderColor: selectedPatients.has(p.pid) ? '#ff7200' : '#cbd5e1',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
-                                                }}
-                                            >
-                                                {selectedPatients.has(p.pid) && <CheckCircle size={14} color="white" />}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.875rem' }}>
-                                                {index + 1}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-                                                    <User size={20} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: '600', color: '#1e293b' }}>{p.pname}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.pgender} • {p.ptel}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <div style={{ fontSize: '0.875rem', color: '#475569', fontWeight: '500' }}>{p.patient_display_id}</div>
-                                        </td>
-                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '100px', fontSize: '0.75rem', fontWeight: '700' }}>
-                                                <Activity size={12} /> {p.appointment?.length || 0}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '16px 24px' }}>
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                <button 
-                                                    onClick={() => openBookingModal(p)} 
-                                                    disabled={profile?.role === 'a'}
-                                                    style={{ 
-                                                        padding: '8px 12px', 
-                                                        background: profile?.role === 'a' ? '#e2e8f0' : '#ff7200', 
-                                                        color: profile?.role === 'a' ? '#94a3b8' : 'white', 
-                                                        border: 'none', 
-                                                        borderRadius: '6px', 
-                                                        cursor: profile?.role === 'a' ? 'not-allowed' : 'pointer', 
-                                                        fontSize: '0.8125rem', 
-                                                        fontWeight: '600' 
-                                                    }}
-                                                    title={profile?.role === 'a' ? 'Clinical handover must be performed by a Registrar' : 'Book Appointment'}
-                                                >
-                                                    Book
-                                                </button>
-                                                <button onClick={() => openEditModal(p)} style={{ padding: '8px', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#475569' }} title="Edit Details"><Edit size={16} /></button>
-                                                <button onClick={() => confirmDelete(p)} style={{ padding: '8px', background: '#fef2f2', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#dc2626' }} title="Delete Record"><Trash2 size={16} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>No records found.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    <div style={{ 
+                                        padding: '6px 14px', 
+                                        borderRadius: '100px', 
+                                        background: '#f1f5f9', 
+                                        color: '#475569', 
+                                        fontSize: '0.7rem', 
+                                        fontWeight: '900',
+                                        letterSpacing: '0.05em'
+                                    }}>
+                                        ENTRY #{index + 1}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.025em' }}>{p.pname}</div>
+                                    <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>{p.pgender} • {p.ptel}</div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#f8fafc', padding: '16px', borderRadius: '18px', border: '1px solid #f1f5f9' }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hospital ID</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#334155' }}>{p.patient_display_id}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Visits</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#10b981' }}>{p.appointment?.length || 0}</div>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
+                                    {p.appointment?.some(a => a.appodate === new Date().toISOString().split('T')[0] && a.status !== 'completed') ? (
+                                        <div style={{ padding: '12px 20px', background: '#f8fafc', color: '#64748b', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '800', border: '1px solid #e2e8f0', flex: 1, textAlign: 'center' }}>
+                                            Currently in Queue
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            onClick={() => openBookingModal(p)} 
+                                            style={{ 
+                                                padding: '12px 20px', 
+                                                background: '#ff7200', 
+                                                color: 'white', 
+                                                border: 'none', 
+                                                borderRadius: '14px', 
+                                                cursor: 'pointer', 
+                                                fontSize: '0.9rem', 
+                                                fontWeight: '800',
+                                                boxShadow: '0 10px 15px -3px rgba(255, 114, 0, 0.3)',
+                                                transition: '0.2s',
+                                                flex: 1
+                                            }}
+                                            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                        >
+                                            Send To
+                                        </button>
+                                    )}
+                                    <button onClick={() => openEditModal(p)} style={{ width: '44px', height: '44px', borderRadius: '14px', background: '#f1f5f9', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} title="Edit"><Edit size={18} /></button>
+                                    <button onClick={() => confirmDelete(p)} style={{ width: '44px', height: '44px', borderRadius: '14px', background: '#fef2f2', border: 'none', cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} title="Delete"><Trash2 size={18} /></button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '64px', background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+                            <Search size={48} color="#94a3b8" style={{ marginBottom: '16px', opacity: 0.5 }} />
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#475569' }}>No clinical records found</h3>
+                            <p style={{ color: '#64748b' }}>Try adjusting your search criteria.</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Edit Modal - Comprehensive View */}
@@ -653,38 +700,118 @@ const RegistrarPatients = () => {
                         <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '28px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
                             <div style={{ padding: '32px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e293b' }}>Consultation Handover</h3>
-                                    <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
-                                        {isBulkMode ? (
-                                            <>Handing over <strong>{selectedPatients.size}</strong> selected patients</>
-                                        ) : (
-                                            <>Assigning <strong>{selectedPatient?.pname}</strong></>
-                                        )}
-                                    </p>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e293b' }}>Clinical Handover</h3>
+                                    <div style={{ display: 'flex', gap: '16px', marginTop: '20px' }}>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setBookingMode('lab')}
+                                            style={{ 
+                                                flex: 1,
+                                                padding: '16px', 
+                                                borderRadius: '20px', 
+                                                border: bookingMode === 'lab' ? '2px solid #2563eb' : '1px solid #e2e8f0', 
+                                                background: bookingMode === 'lab' ? '#eff6ff' : 'white', 
+                                                color: '#1e40af', 
+                                                fontSize: '0.875rem', 
+                                                fontWeight: '800', 
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                boxShadow: bookingMode === 'lab' ? '0 10px 15px -3px rgba(37, 99, 235, 0.2)' : 'none',
+                                                transition: '0.2s'
+                                            }}
+                                        >
+                                            <FlaskConical size={24} color="#2563eb" />
+                                            Send Directly to Lab
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setBookingMode('consultation')}
+                                            style={{ 
+                                                flex: 1,
+                                                padding: '16px', 
+                                                borderRadius: '20px', 
+                                                border: 'none', 
+                                                background: bookingMode === 'consultation' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#f8fafc', 
+                                                color: bookingMode === 'consultation' ? 'white' : '#64748b', 
+                                                fontSize: '0.875rem', 
+                                                fontWeight: '800', 
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                boxShadow: bookingMode === 'consultation' ? '0 10px 15px -3px rgba(37, 99, 235, 0.4)' : 'none',
+                                                transition: '0.2s'
+                                            }}
+                                        >
+                                            <Stethoscope size={24} color={bookingMode === 'consultation' ? 'white' : '#94a3b8'} />
+                                            Send to Consultation
+                                        </button>
+                                    </div>
                                 </div>
                                 <button onClick={() => setBookingModalOpen(false)} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={18} /></button>
                             </div>
                             
                             <form onSubmit={handleQuickBook} style={{ padding: '32px' }}>
-                                <label className="label-text">Select Consultant</label>
-                                <div style={{ display: 'grid', gap: '12px', maxHeight: '200px', overflowY: 'auto', marginBottom: '24px', paddingRight: '4px' }}>
-                                    {doctors.map(d => (
-                                        <div 
-                                            key={d.docid}
-                                            onClick={() => setBookingData({...bookingData, docid: d.docid})}
-                                            style={{ 
-                                                padding: '16px', borderRadius: '16px', border: bookingData.docid === d.docid ? '2px solid #ff7200' : '1px solid #e2e8f0',
-                                                background: bookingData.docid === d.docid ? '#fff7ed' : 'white', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                                            }}
-                                        >
-                                            <div>
-                                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: bookingData.docid === d.docid ? '#ff7200' : '#94a3b8', textTransform: 'uppercase' }}>{d.specialties || 'General'}</div>
-                                                <div style={{ fontWeight: '700', color: '#1e293b' }}>Dr. {d.docname}</div>
-                                            </div>
-                                            {bookingData.docid === d.docid && <CheckCircle size={20} color="#ff7200" />}
+                                {bookingMode === 'consultation' ? (
+                                    <>
+                                        <label className="label-text">Select Consultant</label>
+                                        <div style={{ display: 'grid', gap: '12px', maxHeight: '200px', overflowY: 'auto', marginBottom: '24px', paddingRight: '4px' }}>
+                                            {doctors.map(d => (
+                                                <div 
+                                                    key={d.docid}
+                                                    onClick={() => setBookingData({...bookingData, docid: d.docid})}
+                                                    style={{ 
+                                                        padding: '16px', borderRadius: '16px', border: bookingData.docid === d.docid ? '2px solid #ff7200' : '1px solid #e2e8f0',
+                                                        background: bookingData.docid === d.docid ? '#fff7ed' : 'white', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: '800', color: bookingData.docid === d.docid ? '#ff7200' : '#94a3b8', textTransform: 'uppercase' }}>{d.specialties || 'General'}</div>
+                                                        <div style={{ fontWeight: '700', color: '#1e293b' }}>Dr. {d.docname}</div>
+                                                    </div>
+                                                    {bookingData.docid === d.docid && <CheckCircle size={20} color="#ff7200" />}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <label className="label-text">Select Lab Tests</label>
+                                        <div style={{ display: 'grid', gap: '8px', maxHeight: '200px', overflowY: 'auto', marginBottom: '24px', paddingRight: '4px' }}>
+                                            {labCatalog.map(test => (
+                                                <div 
+                                                    key={test.id}
+                                                    onClick={() => {
+                                                        const isSelected = selectedTests.some(t => t.id === test.id);
+                                                        if (isSelected) setSelectedTests(selectedTests.filter(t => t.id !== test.id));
+                                                        else setSelectedTests([...selectedTests, test]);
+                                                    }}
+                                                    style={{ 
+                                                        padding: '16px 20px', borderRadius: '16px', border: selectedTests.some(t => t.id === test.id) ? '2px solid #ff7200' : '1px solid #e2e8f0',
+                                                        background: selectedTests.some(t => t.id === test.id) ? '#fff7ed' : 'white', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                        transition: '0.2s'
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div style={{ fontSize: '0.875rem', fontWeight: '800', color: '#1e293b' }}>{test.test_name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '700' }}>KES {test.price.toLocaleString()}</div>
+                                                    </div>
+                                                    {selectedTests.some(t => t.id === test.id) && <CheckCircle size={20} color="#ff7200" />}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {selectedTests.length > 0 && (
+                                            <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: '700', color: '#166534' }}>Estimated Total ({selectedTests.length} tests)</span>
+                                                <span style={{ fontWeight: '900', color: '#10b981', fontSize: '1.1rem' }}>KES {selectedTests.reduce((sum, t) => sum + t.price, 0).toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
 
                                 <label className="label-text">Clinical Notes (Optional)</label>
                                 <textarea className="input-field" rows="2" value={bookingData.reason} onChange={(e) => setBookingData({...bookingData, reason: e.target.value})} placeholder="Reason for consultation..." style={{ marginBottom: '32px' }} />
