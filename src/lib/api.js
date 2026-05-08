@@ -147,10 +147,24 @@ export const createStaffAccount = async ({ role, name, email, password, phone, u
   // 2. Profile Record is created AUTOMATICALLY by the database trigger!
   // But we need to update the username manually as the trigger might not handle it.
   if (username) {
-    await supabase
+    const { data: updatedData } = await supabase
       .from('profiles')
       .update({ username })
-      .eq('email', email);
+      .eq('email', email)
+      .select();
+      
+    if (!updatedData || updatedData.length === 0) {
+      // Record didn't exist yet (trigger delay), let's insert it!
+      await supabase
+        .from('profiles')
+        .insert({ 
+          id: authData.user.id, 
+          email, 
+          username, 
+          usertype: type, 
+          full_name: name 
+        });
+    }
   }
 
   // 3. Keep legacy tables in sync for now
@@ -170,6 +184,55 @@ export const createStaffAccount = async ({ role, name, email, password, phone, u
 
 export const updateStaffStatus = (email, status) =>
   supabase.from('profiles').update({ status }).eq('email', email);
+
+export const updateStaffAccount = async (email, { name, phone, username, role }) => {
+  const typeMap = { Doctor: 'd', Receptionist: 'r', Lab: 'l', Pharmacy: 'ph' };
+  const type = typeMap[role];
+  
+  if (username) {
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('email')
+      .ilike('username', username)
+      .maybeSingle();
+      
+    if (existingUser && existingUser.email !== email) {
+      return { error: { message: 'This username is already taken. Please choose another.' } };
+    }
+  }
+
+  // 1. Update Profiles table
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ full_name: name, username })
+    .eq('email', email);
+    
+  if (profileError) return { error: profileError };
+  
+  // 2. Update Legacy table
+  const legacyMap = {
+    d: { table: 'doctor', nameField: 'docname', telField: 'doctel', emailField: 'docemail' },
+    r: { table: 'registrar', nameField: 'regname', telField: 'regtel', emailField: 'regemail' },
+    l: { table: 'lab_technician', nameField: 'labname', telField: 'labtel', emailField: 'labemail' },
+    ph: { table: 'pharmacist', nameField: 'phname', telField: 'phtel', emailField: 'phemail' },
+  };
+  
+  if (legacyMap[type]) {
+    const { table, nameField, telField, emailField } = legacyMap[type];
+    const updateData = {};
+    if (name) updateData[nameField] = name;
+    if (phone) updateData[telField] = phone;
+    
+    const { error: legacyError } = await supabase
+      .from(table)
+      .update(updateData)
+      .eq(emailField, email);
+      
+    if (legacyError) return { error: legacyError };
+  }
+  
+  return { error: null };
+};
 
 export const deleteStaffAccount = async (email) => {
   // We delete from profiles, but note that the Auth user still exists 

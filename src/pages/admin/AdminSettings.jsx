@@ -33,6 +33,7 @@ const AdminSettings = () => {
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState(null);
     const [requests, setRequests] = useState([]);
+    const [usernameRequests, setUsernameRequests] = useState([]);
     const [adminCreds, setAdminCreds] = useState({
         username: '',
         email: '',
@@ -76,6 +77,15 @@ const AdminSettings = () => {
                 })
                 .catch(console.error);
 
+            supabase
+                .from('username_change_requests')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .then(({ data, error }) => {
+                    if (!error) setUsernameRequests(data || []);
+                })
+                .catch(console.error);
+
             // Real-time updates for requests
             const subscription = supabase
                 .channel('password_change_requests_channel')
@@ -86,8 +96,18 @@ const AdminSettings = () => {
                 })
                 .subscribe();
 
+            const userSubscription = supabase
+                .channel('username_change_requests_channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'username_change_requests' }, payload => {
+                    supabase.from('username_change_requests').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+                        if (data) setUsernameRequests(data);
+                    });
+                })
+                .subscribe();
+
             return () => {
                 supabase.removeChannel(subscription);
+                supabase.removeChannel(userSubscription);
             };
         }
     }, [activeTab]);
@@ -139,6 +159,49 @@ const AdminSettings = () => {
             setRequests(data || []);
         } catch (err) {
             showToast('Error revoking password change', 'error');
+        }
+    };
+
+    const handleApproveUsername = async (id, email, newUsername) => {
+        try {
+            // 1. Update profiles table
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({ username: newUsername })
+                .eq('email', email);
+                
+            if (profileError) throw profileError;
+            
+            // 2. Update request status
+            await supabase
+                .from('username_change_requests')
+                .update({ status: 'approved' })
+                .eq('id', id);
+                
+            showToast('Username change approved and updated!');
+            
+            // Refresh list
+            const { data } = await supabase.from('username_change_requests').select('*').order('created_at', { ascending: false });
+            if (data) setUsernameRequests(data);
+        } catch (err) {
+            showToast('Error approving username change: ' + err.message, 'error');
+        }
+    };
+
+    const handleDenyUsername = async (id) => {
+        try {
+            await supabase
+                .from('username_change_requests')
+                .update({ status: 'denied' })
+                .eq('id', id);
+                
+            showToast('Username change denied');
+            
+            // Refresh list
+            const { data } = await supabase.from('username_change_requests').select('*').order('created_at', { ascending: false });
+            if (data) setUsernameRequests(data);
+        } catch (err) {
+            showToast('Error denying username change', 'error');
         }
     };
 
@@ -351,6 +414,69 @@ const AdminSettings = () => {
                                                                         style={{ padding: '8px 16px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
                                                                     >
                                                                         Revoke
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Staff Username Change Requests */}
+                            <div style={{ background: 'white', padding: '40px', borderRadius: '32px', border: '1px solid #e2e8f0', marginTop: '24px' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Bell size={22} color="#8b5cf6" /> Staff Username Change Requests
+                                </h3>
+                                {usernameRequests.length === 0 ? (
+                                    <p style={{ color: '#64748b', textAlign: 'center' }}>No pending requests.</p>
+                                ) : (
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#475569' }}>Staff Email</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#475569' }}>Current Username</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#475569' }}>New Username</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#475569' }}>Status</th>
+                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#475569' }}>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {usernameRequests.map(req => (
+                                                    <tr key={req.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                        <td style={{ padding: '12px' }}>{req.user_email}</td>
+                                                        <td style={{ padding: '12px' }}>{req.current_username || 'N/A'}</td>
+                                                        <td style={{ padding: '12px' }}>{req.new_username}</td>
+                                                        <td style={{ padding: '12px' }}>
+                                                            <span style={{ 
+                                                                padding: '4px 8px', 
+                                                                borderRadius: '8px', 
+                                                                fontSize: '0.8rem', 
+                                                                fontWeight: '700',
+                                                                background: req.status === 'pending' ? '#fef3c7' : req.status === 'approved' ? '#d1fae5' : '#fee2e2',
+                                                                color: req.status === 'pending' ? '#d97706' : req.status === 'approved' ? '#059669' : '#dc2626'
+                                                            }}>
+                                                                {req.status.toUpperCase()}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '12px' }}>
+                                                            {req.status === 'pending' && (
+                                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                                    <button 
+                                                                        onClick={() => handleApproveUsername(req.id, req.user_email, req.new_username)}
+                                                                        style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDenyUsername(req.id)}
+                                                                        style={{ padding: '8px 16px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                                                                    >
+                                                                        Deny
                                                                     </button>
                                                                 </div>
                                                             )}

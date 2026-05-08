@@ -4,7 +4,7 @@
 //          frontend. Part of the Vite + React SPA.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import { getAllStaff, createStaffAccount, updateStaffStatus, deleteStaffAccount } from '../../lib/api';
+import { getAllStaff, createStaffAccount, updateStaffStatus, deleteStaffAccount, updateStaffAccount } from '../../lib/api';
 import { UserPlus, Search, Shield, Stethoscope, Pill, FlaskConical, UserCheck, MoreVertical, X, Phone, Mail, Key } from 'lucide-react';
 import { useNotification } from '../../components/NotificationContext';
 
@@ -14,6 +14,8 @@ const AdminStaff = () => {
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', role: 'Doctor', username: '' });
+    const [isEditing, setIsEditing] = useState(false);
+    const [selectedStaff, setSelectedStaff] = useState(null);
 
     const formatPhone = (val) => {
         const digits = val.replace(/\D/g, '').slice(0, 10);
@@ -42,6 +44,21 @@ const AdminStaff = () => {
         }
     };
 
+    const handleEditStaff = async (e) => {
+        e.preventDefault();
+        const { error } = await updateStaffAccount(formData.email, formData);
+        if (!error) {
+            showNotification("Staff account updated successfully!", "success");
+            setShowModal(false);
+            setIsEditing(false);
+            setSelectedStaff(null);
+            fetchStaff();
+            setFormData({ name: '', email: '', password: '', phone: '', role: 'Doctor', username: '' });
+        } else {
+            showNotification(`Error updating staff: ${error.message || "Unknown error"}`, "error");
+        }
+    };
+
     const getRoleIcon = (role) => {
         switch(role) {
             case 'Doctor': return <Stethoscope size={18} color="#10b981" />;
@@ -64,7 +81,7 @@ const AdminStaff = () => {
                         <h1 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px' }}>Staff Management</h1>
                         <p style={{ color: 'var(--text-muted)' }}>Manage hospital personnel, roles, and access credentials.</p>
                     </div>
-                    <button onClick={() => setShowModal(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button onClick={() => { setIsEditing(false); setFormData({ name: '', email: '', password: '', phone: '', role: 'Doctor', username: '' }); setShowModal(true); }} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <UserPlus size={18} /> Add New Staff
                     </button>
                 </header>
@@ -121,6 +138,17 @@ const AdminStaff = () => {
                                     <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                             <button 
+                                                onClick={() => {
+                                                    setIsEditing(true);
+                                                    setSelectedStaff(s);
+                                                    setFormData({ name: s.name, email: s.email, phone: s.phone || '', role: s.role, username: s.username || '' });
+                                                    setShowModal(true);
+                                                }}
+                                                style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#0ea5e9', color: 'white', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                            >
+                                                EDIT
+                                            </button>
+                                            <button 
                                                 onClick={async () => {
                                                     const newStatus = s.status === 'suspended' ? 'active' : 'suspended';
                                                     await updateStaffStatus(s.email, newStatus);
@@ -158,10 +186,10 @@ const AdminStaff = () => {
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                         <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '32px', padding: '40px', boxShadow: 'var(--shadow-lg)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Add Hospital Staff</h3>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: '800' }}>{isEditing ? 'Edit Hospital Staff' : 'Add Hospital Staff'}</h3>
                                 <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={24} /></button>
                             </div>
-                            <form onSubmit={handleAddStaff} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <form onSubmit={isEditing ? handleEditStaff : handleAddStaff} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Full Name</label>
                                     <input type="text" className="input-field" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
@@ -173,11 +201,11 @@ const AdminStaff = () => {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Email Address</label>
-                                        <input type="email" className="input-field" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                                        <input type="email" className="input-field" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} disabled={isEditing} style={{ background: isEditing ? '#f1f5f9' : 'white' }} />
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Department</label>
-                                        <select className="input-field" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                                        <select className="input-field" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} disabled={isEditing} style={{ background: isEditing ? '#f1f5f9' : 'white' }}>
                                             <option>Doctor</option>
                                             <option>Pharmacy</option>
                                             <option>Lab</option>
@@ -190,7 +218,7 @@ const AdminStaff = () => {
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Temporary Password</label>
                                         <div style={{ position: 'relative' }}>
                                             <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94a3b8' }} />
-                                            <input type="text" className="input-field" style={{ paddingLeft: '36px' }} required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                                            <input type="text" className="input-field" style={{ paddingLeft: '36px' }} required={!isEditing} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} disabled={isEditing} style={{ background: isEditing ? '#f1f5f9' : 'white', paddingLeft: '36px' }} />
                                         </div>
                                     </div>
                                     <div>
@@ -198,7 +226,7 @@ const AdminStaff = () => {
                                         <input type="text" className="input-field" required maxLength="10" value={formData.phone} onChange={e => setFormData({...formData, phone: formatPhone(e.target.value)})} />
                                     </div>
                                 </div>
-                                <button type="submit" className="btn-primary" style={{ marginTop: '12px', padding: '16px' }}>Provision Staff Account</button>
+                                <button type="submit" className="btn-primary" style={{ marginTop: '12px', padding: '16px' }}>{isEditing ? 'Save Changes' : 'Provision Staff Account'}</button>
                             </form>
                         </div>
                     </div>
