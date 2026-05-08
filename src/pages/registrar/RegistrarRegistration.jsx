@@ -11,10 +11,12 @@ import { format } from 'date-fns';
 import { addPatient } from '../../lib/api';
 import { useNotification } from '../../components/NotificationContext';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const RegistrarRegistration = () => {
     const navigate = useNavigate();
     const { showNotification } = useNotification();
+    const { profile } = useAuth();
     const rolePath = window.location.pathname.startsWith('/admin') ? '/admin' : '/registrar';
 
     const [activeTab, setActiveTab] = useState('new'); // 'new' or 'returning'
@@ -150,8 +152,7 @@ const RegistrarRegistration = () => {
             const { data, error } = await supabase.from('appointment').insert({
                 pid: selectedPatient.pid,
                 appodate: format(new Date(), 'yyyy-MM-dd'),
-                status: 'pending',
-                reason: 'Follow-up / Returning Visit'
+                status: 'pending'
             }).select();
 
             if (error) throw error;
@@ -196,8 +197,7 @@ const RegistrarRegistration = () => {
             const { data: appo, error: appoErr } = await supabase.from('appointment').insert({
                 pid: selectedPatient.pid,
                 appodate: format(new Date(), 'yyyy-MM-dd'),
-                status: 'pending_lab', 
-                reason: 'Walk-in Lab Order'
+                status: 'pending_lab'
             }).select();
 
             if (appoErr) throw appoErr;
@@ -283,6 +283,7 @@ const RegistrarRegistration = () => {
             pnotes: formData.notes || null,
             pdate_registered: new Date().toISOString(),
             pstatus: 'active',
+            created_by: profile?.full_name || 'Staff',
             // Sync vitals to patient table so doctor sees them
             ptemp: formData.temp || null,
             pbp: formData.bp || null,
@@ -487,8 +488,7 @@ const RegistrarRegistration = () => {
                                                     const { error: appoErr } = await supabase.from('appointment').insert({
                                                         pid: selectedPatient.pid,
                                                         appodate: new Date().toISOString().split('T')[0],
-                                                        status: 'pending',
-                                                        reason: 'Returning Visit / Follow-up'
+                                                        status: 'pending'
                                                     });
 
                                                     if (appoErr) throw appoErr;

@@ -56,9 +56,10 @@ const PharmaDashboard = () => {
                         .gte('expiry_date', todayStr.split('T')[0])
                         .order('expiry_date', { ascending: true })
                         .limit(5),
-                    supabase.from('pharmacy_sale_item')
-                        .select('quantity, medicine:medicine_id(med_name), sale:sale_id!inner(created_at)')
-                        .gte('sale.created_at', todayStr)
+                    supabase.from('pharmacy_sale')
+                        .select('created_at, pharmacy_sale_item(quantity, medicine:medicine_id(med_name))')
+                        .gte('created_at', todayStr)
+                        .order('created_at', { ascending: false })
                         .limit(5)
                 ]);
 
@@ -70,12 +71,23 @@ const PharmaDashboard = () => {
                 const todaySales = salesRes.data || [];
                 const inv = inventoryRes.data || [];
                 const pendingLabs = labRes.data || [];
-                const activityData = activityRes.data || [];
+                const activitySales = activityRes.data || [];
+                
+                const activityData = [];
+                activitySales.forEach(sale => {
+                    (sale.pharmacy_sale_item || []).forEach(item => {
+                        activityData.push({
+                            quantity: item.quantity,
+                            medicine: item.medicine,
+                            sale: { created_at: sale.created_at }
+                        });
+                    });
+                });
 
-                // Sort activity data locally since cross-table ordering can be tricky
-                const sortedActivity = [...activityData].sort((a, b) => 
+                // Sort activity data locally
+                const sortedActivity = activityData.sort((a, b) => 
                     new Date(b.sale?.created_at) - new Date(a.sale?.created_at)
-                );
+                ).slice(0, 5);
 
                 // Calculate stats
                 const totalRevenue = todaySales.reduce((acc, s) => acc + (s.total_amount || 0), 0);

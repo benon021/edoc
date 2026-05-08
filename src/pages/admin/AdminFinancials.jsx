@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Plus, Edit2, Search, Activity, Stethoscope, Microscope, Pill, FileText, CheckCircle, Save } from 'lucide-react';
+import { DollarSign, Plus, Edit2, Search, Activity, Stethoscope, Microscope, Pill, FileText, CheckCircle, Save, Trash } from 'lucide-react';
 import { getLabCatalog, updateLabCatalogItem, createLabCatalogItem, getPricingMatrix, updatePricingMatrix, createPricingMatrix } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 
@@ -14,6 +14,9 @@ const AdminFinancials = () => {
     const [newItem, setNewItem] = useState({ category: 'Consultation', name: '', price: 0 });
     const [editingId, setEditingId] = useState(null);
     const [editingSource, setEditingSource] = useState(null);
+    
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -99,6 +102,28 @@ const AdminFinancials = () => {
         setEditingId(item.id);
         setEditingSource(item.source);
         setShowModal(true);
+    };
+
+    const handleDeleteItemClick = (item) => {
+        setItemToDelete(item);
+        setShowConfirmModal(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!itemToDelete) return;
+        
+        try {
+            if (itemToDelete.source === 'lab') {
+                await updateLabCatalogItem(itemToDelete.id, { is_enabled: false });
+            } else {
+                await updatePricingMatrix(itemToDelete.id, { is_active: false });
+            }
+            loadData();
+            setShowConfirmModal(false);
+            setItemToDelete(null);
+        } catch (error) {
+            console.error("Failed to delete item", error);
+        }
     };
 
     const filteredData = pricingData.filter(item => 
@@ -206,9 +231,14 @@ const AdminFinancials = () => {
                                         </div>
                                     </td>
                                     <td style={{ padding: '20px 32px', textAlign: 'right' }}>
-                                        <button onClick={() => handleEditItem(item)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseOver={e => { e.currentTarget.style.color = '#3b82f6'; e.currentTarget.style.borderColor = '#bfdbfe'; }} onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#e2e8f0'; }}>
-                                            <Edit2 size={16} />
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                            <button onClick={() => handleEditItem(item)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#64748b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseOver={e => { e.currentTarget.style.color = '#3b82f6'; e.currentTarget.style.borderColor = '#bfdbfe'; }} onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#e2e8f0'; }}>
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button onClick={() => handleDeleteItemClick(item)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#ef4444', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fecaca'; }} onMouseOut={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#e2e8f0'; }}>
+                                                <Trash size={16} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -283,6 +313,28 @@ const AdminFinancials = () => {
                     </div>
                 </div>
             )}
+
+            {/* Custom Confirm Modal */}
+            {showConfirmModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+                    <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)', animation: 'slideUp 0.3s ease-out' }}>
+                        <div style={{ padding: '32px', textAlign: 'center' }}>
+                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                <Trash size={24} />
+                            </div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: '#0f172a', marginBottom: '8px' }}>Are you sure?</h3>
+                            <p style={{ color: '#64748b', fontSize: '0.95rem', fontWeight: '500', marginBottom: '24px' }}>
+                                You are about to delete <strong style={{ color: '#0f172a' }}>{itemToDelete?.name}</strong>. This action cannot be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => setShowConfirmModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', background: 'white', color: '#475569', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>
+                                <button onClick={handleConfirmDelete} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.3)' }}>Yes, Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style>{`
                 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>

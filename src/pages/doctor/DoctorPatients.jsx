@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 
 const DoctorPatients = () => {
     const navigate = useNavigate();
-    const { profile } = useAuth();
+    const { profile, loading: authLoading } = useAuth();
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -20,27 +20,43 @@ const DoctorPatients = () => {
 
     useEffect(() => {
         const fetchPatients = async () => {
+            if (authLoading) return; // Wait for auth to resolve
+            
             setLoading(true);
             try {
-                // Parse docid to int to avoid 400 errors
-                const docIdInt = parseInt(profile?.docid);
-                if (isNaN(docIdInt)) {
-                    console.warn('[DoctorPatients] No valid docid:', profile?.docid);
-                    setLoading(false);
-                    return;
-                }
+                const isAdmin = profile?.role === 'a' || profile?.role === 'Admin';
+                let appointmentData = [];
+                let appointmentError = null;
 
-                if (!profile?.docid) {
-                    console.warn('Doctor profile not loaded yet');
-                    return;
+                if (isAdmin) {
+                    // Admin sees all appointments
+                    const { data, error } = await supabase
+                        .from('appointment')
+                        .select('pid, appodate, doctor:docid(docname)')
+                        .order('appodate', { ascending: false });
+                    appointmentData = data;
+                    appointmentError = error;
+                } else {
+                    // Doctor sees only their appointments
+                    if (!profile?.docid) {
+                        console.warn('[DoctorPatients] No valid docid found for doctor profile');
+                        setLoading(false);
+                        return;
+                    }
+                    const docIdInt = parseInt(profile.docid);
+                    if (isNaN(docIdInt)) {
+                        console.warn('[DoctorPatients] docid is not a number:', profile.docid);
+                        setLoading(false);
+                        return;
+                    }
+                    const { data, error } = await supabase
+                        .from('appointment')
+                        .select('pid, appodate, doctor:docid(docname)')
+                        .eq('docid', docIdInt)
+                        .order('appodate', { ascending: false });
+                    appointmentData = data;
+                    appointmentError = error;
                 }
-
-                // Get all appointments for this doctor (shows ALL history, not just consultations)
-                const { data: appointmentData, error: appointmentError } = await supabase
-                    .from('appointment')
-                    .select('pid, appodate')
-                    .eq('docid', docIdInt)
-                    .order('appodate', { ascending: false });
 
                 if (appointmentError) throw appointmentError;
 
@@ -77,11 +93,13 @@ const DoctorPatients = () => {
                     let formatted = data.map(p => {
                         const patientAppointments = appointmentData.filter(a => a.pid === p.pid);
                         let lastVisit = null;
+                        let lastDoctor = null;
                         if (patientAppointments && patientAppointments.length > 0) {
-                            const dates = patientAppointments.map(a => new Date(a.appodate).getTime());
-                            lastVisit = new Date(Math.max(...dates)).toISOString();
+                            const latestAppo = patientAppointments[0];
+                            lastVisit = latestAppo.appodate;
+                            lastDoctor = latestAppo.doctor?.docname;
                         }
-                        return { ...p, last_visit: lastVisit };
+                        return { ...p, last_visit: lastVisit, last_doctor: lastDoctor };
                     });
                     
                     if (filterDate) {
@@ -99,7 +117,7 @@ const DoctorPatients = () => {
 
         const timer = setTimeout(fetchPatients, 300);
         return () => clearTimeout(timer);
-    }, [searchTerm, filterDate, filterGender, profile?.docid]);
+    }, [searchTerm, filterDate, filterGender, profile?.docid, authLoading]);
 
     const calculateAge = (dob) => {
         if (!dob) return '--';
@@ -233,7 +251,7 @@ const DoctorPatients = () => {
                                             </td>
                                             <td style={{ padding: '16px 24px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: '600', fontSize: '0.9rem' }}>
-                                                    <Clock size={14} color="#64748b" /> {p.last_visit ? new Date(p.last_visit).toLocaleDateString() : 'New Patient'}
+                                                    <Clock size={14} color="#64748b" /> {p.last_visit ? `${new Date(p.last_visit).toLocaleDateString()} (${p.last_doctor || 'N/A'})` : 'New Patient'}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '16px 24px', textAlign: 'right' }}>

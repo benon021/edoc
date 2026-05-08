@@ -113,22 +113,45 @@ export const getAllStaff = async () => {
   };
 };
 
-export const createStaffAccount = async ({ role, name, email, password, phone }) => {
+export const createStaffAccount = async ({ role, name, email, password, phone, username }) => {
   const typeMap = { Doctor: 'd', Receptionist: 'r', Lab: 'l', Pharmacy: 'ph', Admin: 'a' };
   const type = typeMap[role];
   if (!type) throw new Error('Unsupported staff role');
+
+  // Validation
+  if (username) {
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return { error: { message: 'Username can only contain letters, numbers, and underscores.' } };
+    }
+
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('id')
+      .ilike('username', username)
+      .maybeSingle();
+      
+    if (existingUser) {
+      return { error: { message: 'This username is already taken. Please choose another.' } };
+    }
+  }
 
   // 1. Create Supabase Auth Account
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email, 
     password, 
-    options: { data: { usertype: type, full_name: name } },
+    options: { data: { usertype: type, full_name: name, username } },
   });
 
   if (authError) return { error: authError };
 
   // 2. Profile Record is created AUTOMATICALLY by the database trigger!
-  // No need to manually insert here anymore.
+  // But we need to update the username manually as the trigger might not handle it.
+  if (username) {
+    await supabase
+      .from('profiles')
+      .update({ username })
+      .eq('email', email);
+  }
 
   // 3. Keep legacy tables in sync for now
   const legacyMap = {
@@ -423,6 +446,46 @@ export const getAdminProfitStats = async () => {
   const opex = expenseData?.reduce((sum, row) => sum + Number(row.amount || 0), 0) || 0;
   const cogs = saleItems?.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.buying_price || 0), 0) || 0;
   return { gross_revenue: grossRevenue, cogs, opex, net_profit: grossRevenue - (cogs + opex) };
+};
+
+export const getPasswordChangeRequests = () =>
+  supabase.from('password_change_requests').select('*').order('created_at', { ascending: false });
+
+export const updatePasswordChangeRequestStatus = (id, status) =>
+  supabase.from('password_change_requests').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+
+export const createPasswordChangeRequest = (data) =>
+  supabase.from('password_change_requests').insert([data]).select();
+
+export const updateCurrentUserProfile = async (data) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('No active session');
+  
+  const currentEmail = user.email;
+  
+  const updates = {};
+  if (data.full_name) updates.full_name = data.full_name;
+  if (data.email) updates.email = data.email;
+  
+  if (Object.keys(updates).length > 0) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('email', currentEmail);
+      
+    if (profileError) return { error: profileError };
+  }
+  
+  const authUpdates = {};
+  if (data.email) authUpdates.email = data.email;
+  if (data.password) authUpdates.password = data.password;
+  
+  if (Object.keys(authUpdates).length > 0) {
+    const { error: authError } = await supabase.auth.updateUser(authUpdates);
+    if (authError) return { error: authError };
+  }
+  
+  return { error: null };
 };
 
 export const getAdminLogs = () =>

@@ -3,7 +3,7 @@
 // PURPOSE: React component for staff profile updates using Supabase.
 // =============================================================
 import React, { useState, useEffect } from 'react';
-import { User, Camera, Phone, Lock, Save, ShieldCheck } from 'lucide-react';
+import { User, Camera, Phone, Lock, Save, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useNotification } from './NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -24,9 +24,16 @@ const StaffSettings = () => {
         staffId: '',
         currentPassword: '',
         newPassword: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        newUsername: ''
     });
     const [msg, setMsg] = useState({ type: '', text: '' });
+    const [passwordRequest, setPasswordRequest] = useState(null);
+    const [showPassword, setShowPassword] = useState({
+        current: false,
+        new: false,
+        confirm: false
+    });
 
     useEffect(() => {
         if (!profile) return;
@@ -46,6 +53,23 @@ const StaffSettings = () => {
             confirmPassword: ''
         });
     }, [profile]);
+
+    useEffect(() => {
+        const fetchRequest = async () => {
+            const { data } = await supabase
+                .from('password_change_requests')
+                .select('*')
+                .eq('user_email', formData.email)
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (data && data.length > 0) {
+                setPasswordRequest(data[0]);
+            }
+        };
+        if (formData.email) {
+            fetchRequest();
+        }
+    }, [formData.email]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -201,15 +225,73 @@ const StaffSettings = () => {
         showNotification('Profile updated successfully!', 'success');
     };
 
-    const handleChangePassword = (e) => {
+    const handleChangePassword = async (e) => {
         e.preventDefault();
         if (formData.newPassword !== formData.confirmPassword) {
             setMsg({ type: 'error', text: 'New passwords do not match' });
             return;
         }
-        setMsg({ type: 'success', text: 'Password changed successfully' });
+        
+        try {
+            const { data, error } = await supabase
+                .from('password_change_requests')
+                .insert([{
+                    user_email: formData.email,
+                    current_password: formData.currentPassword,
+                    new_password: formData.newPassword,
+                    status: 'pending'
+                }])
+                .select();
+                
+            if (error) throw error;
+            
+            setMsg({ type: 'success', text: 'Currently on preview untill the admin acept it' });
+            setPasswordRequest(data[0]);
+        } catch (error) {
+            setMsg({ type: 'error', text: error.message });
+        }
     };
-
+    const handleRequestUsernameChange = async (e) => {
+        e.preventDefault();
+        if (!formData.newUsername) {
+            setMsg({ type: 'error', text: 'Please enter a new username' });
+            return;
+        }
+        
+        if (!/^[a-zA-Z0-9_]+$/.test(formData.newUsername)) {
+            setMsg({ type: 'error', text: 'Username can only contain letters, numbers, and underscores.' });
+            return;
+        }
+        
+        try {
+            const { data: existingUser } = await supabase
+                .from('profiles')
+                .select('id')
+                .ilike('username', formData.newUsername)
+                .maybeSingle();
+                
+            if (existingUser) {
+                setMsg({ type: 'error', text: 'This username is already taken. Please choose another.' });
+                return;
+            }
+            const { data, error } = await supabase
+                .from('username_change_requests')
+                .insert([{
+                    user_email: formData.email,
+                    current_username: profile.username || '',
+                    new_username: formData.newUsername,
+                    status: 'pending'
+                }])
+                .select();
+                
+            if (error) throw error;
+            
+            showNotification('Username change request submitted for approval.', 'success');
+            setFormData(prev => ({ ...prev, newUsername: '' }));
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    };
     const getRoleName = (type) => {
         if (type === 'd') return 'Doctor';
         if (type === 'r') return 'Registrar';
@@ -308,18 +390,70 @@ const StaffSettings = () => {
 
             <section style={{ background: 'white', padding: 40, borderRadius: 24, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                 <SectionHeader icon={Lock} title="Security Settings" />
+                
+                {passwordRequest && (
+                    (() => {
+                        const now = new Date();
+                        const updatedAt = new Date(passwordRequest.updated_at || passwordRequest.created_at);
+                        const diffHours = (now - updatedAt) / (1000 * 60 * 60);
+                        
+                        if (passwordRequest.status === 'pending') {
+                            return (
+                                <div style={{ padding: 16, background: '#fef3c7', color: '#d97706', borderRadius: 12, border: '1px solid #fef3c7', fontWeight: 500, marginBottom: 16 }}>
+                                    Password change is pending admin approval.
+                                </div>
+                            );
+                        } else if ((passwordRequest.status === 'authorized' || passwordRequest.status === 'revoked') && diffHours < 24) {
+                            return (
+                                <div style={{ 
+                                    padding: 16, 
+                                    background: passwordRequest.status === 'authorized' ? '#f0fdf4' : '#fef2f2', 
+                                    color: passwordRequest.status === 'authorized' ? '#16a34a' : '#dc2626', 
+                                    borderRadius: 12, 
+                                    border: `1px solid ${passwordRequest.status === 'authorized' ? '#bbf7d0' : '#fee2e2'}`, 
+                                    fontWeight: 500,
+                                    marginBottom: 16 
+                                }}>
+                                    Your password change request was {passwordRequest.status}.
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()
+                )}
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 400 }}>
                     <div>
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: 8, color: '#475569' }}>New Username</label>
+                        <input type="text" name="newUsername" value={formData.newUsername} onChange={handleChange} className="input-field" placeholder="Enter new username" />
+                        <button onClick={handleRequestUsernameChange} style={{ marginTop: 8, padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>Request Username Change</button>
+                    </div>
+                    <div style={{ position: 'relative' }}>
                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: 8, color: '#475569' }}>Current Password</label>
-                        <input type="password" name="currentPassword" value={formData.currentPassword} onChange={handleChange} className="input-field" placeholder="••••••••" />
+                        <input type={showPassword.current ? 'text' : 'password'} name="currentPassword" value={formData.currentPassword} onChange={handleChange} className="input-field" placeholder="••••••••" style={{ paddingRight: '40px' }} />
+                        <button type="button" onClick={() => setShowPassword({...showPassword, current: !showPassword.current})} style={{ position: 'absolute', right: '12px', top: '35px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                            {showPassword.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                     </div>
-                    <div>
+                    <div style={{ position: 'relative' }}>
                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: 8, color: '#475569' }}>New Password</label>
-                        <input type="password" name="newPassword" value={formData.newPassword} onChange={handleChange} className="input-field" placeholder="••••••••" />
+                        <input type={showPassword.new ? 'text' : 'password'} name="newPassword" value={formData.newPassword} onChange={handleChange} className="input-field" placeholder="••••••••" style={{ paddingRight: '40px' }} />
+                        <button type="button" onClick={() => setShowPassword({...showPassword, new: !showPassword.new})} style={{ position: 'absolute', right: '12px', top: '35px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                            {showPassword.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                     </div>
-                    <div>
+                    <div style={{ position: 'relative' }}>
                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: 8, color: '#475569' }}>Confirm New Password</label>
-                        <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="input-field" placeholder="••••••••" />
+                        <input type={showPassword.confirm ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="input-field" placeholder="••••••••" style={{ paddingRight: '40px', borderColor: formData.confirmPassword && formData.newPassword !== formData.confirmPassword ? '#ef4444' : '#e2e8f0' }} />
+                        <button type="button" onClick={() => setShowPassword({...showPassword, confirm: !showPassword.confirm})} style={{ position: 'absolute', right: '12px', top: '35px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                            {showPassword.confirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                        {formData.confirmPassword && formData.newPassword !== formData.confirmPassword && (
+                            <span style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4, display: 'block' }}>Passwords do not match</span>
+                        )}
+                        {formData.confirmPassword && formData.newPassword === formData.confirmPassword && (
+                            <span style={{ fontSize: '0.75rem', color: '#10b981', marginTop: 4, display: 'block' }}>Passwords match</span>
+                        )}
                     </div>
                     <button onClick={handleChangePassword} style={{ marginTop: 12, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#f8fafc', color: '#1e293b', border: '1px solid #e2e8f0', borderRadius: 12, cursor: 'pointer' }}>
                         <ShieldCheck size={18} /> Change Password

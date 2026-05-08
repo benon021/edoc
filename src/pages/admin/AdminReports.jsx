@@ -4,7 +4,7 @@ import {
     Microscope, Pill, Calendar, Download, RefreshCw,
     ArrowUpRight, ArrowDownRight, UserPlus, FileText,
     Clock, AlertTriangle, Briefcase, Zap, ShieldAlert,
-    ChevronRight, Search, ListFilter, PieChart, Info, ShoppingCart, Eye,
+    ChevronRight, ChevronDown, Search, ListFilter, PieChart, Info, ShoppingCart, Eye,
     Printer, X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -1366,7 +1366,7 @@ const PatientAuditModal = ({ patient, raw, onClose }) => {
                                                                   {/* Signature Footer */}
                                                                   <div style={{ borderTop: '2px solid #0f172a', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginTop: '4px' }}>
                                                                           <div><p style={{ fontSize: '0.72rem', fontWeight: '600', color: '#64748b', lineHeight: '1.7' }}>I certify that the information above is accurate. I consent to the collection and processing of my medical data for clinical purposes by EDOC Medical Hub.</p><div style={{ marginTop: '20px', borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Patient / Guardian Signature &amp; Date</div></div>
-                                                                          <div style={{ textAlign: 'right' }}><div style={{ height: '44px' }} /><div style={{ borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Registrar Signature</div><div style={{ borderTop: '1px solid #94a3b8', marginTop: '28px', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8' }}>Official Stamp</div></div>
+                                                                          <div style={{ textAlign: 'right' }}><div style={{ height: '44px', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: '4px', fontSize: '0.85rem', fontWeight: '700', color: '#0f172a' }}>{patient?.created_by || ''}</div><div style={{ borderTop: '1px solid #0f172a', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#475569' }}>Registrar Signature</div><div style={{ borderTop: '1px solid #94a3b8', marginTop: '28px', paddingTop: '6px', fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8' }}>Official Stamp</div></div>
                                                                   </div>
                                                           </div>
                                                   </div>
@@ -1437,50 +1437,79 @@ const PatientAuditModal = ({ patient, raw, onClose }) => {
 
                                   {auditTab === 'lab' && (
                                           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                  {labs.length > 0 ? labs.map((l, i) => {
-                                                          const key = `lab-${i}`;
-                                                          const open = expandedDoc === key;
-                                                          let parsedResults = {};
-                                                          try { parsedResults = l.results ? JSON.parse(l.results) : {}; } catch(e){}
-                                                          const resultEntries = Object.entries(parsedResults);
+                                                  {(() => {
+                                                      const groupedLabs = labs.reduce((acc, l) => {
+                                                          const date = l.created_at ? new Date(l.created_at).toLocaleDateString() : 'Unknown Date';
+                                                          if (!acc[date]) acc[date] = [];
+                                                          acc[date].push(l);
+                                                          return acc;
+                                                      }, {});
+
+                                                      return labs.length > 0 ? Object.entries(groupedLabs).map(([date, dateLabs], gi) => {
+                                                          const groupKey = `lab-group-${gi}`;
+                                                          const groupOpen = expandedDoc === groupKey;
+                                                          
                                                           return (
-                                                                  <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #10b981' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
-                                                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#f0fdf4' : '#f8fafc' }}>
-                                                                                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                                                                          <div style={{ width: '36px', height: '36px', background: '#10b981', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}><Microscope size={16} /></div>
-                                                                                          <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#059669' }}>Ref #LR-{l.id || i+1}   {l.created_at ? new Date(l.created_at).toLocaleDateString() : 'N/A'}</p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{l.test_name || 'Laboratory Investigation'}</p></div>
-                                                                                  </div>
-                                                                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                                          <button onClick={(e)=>{e.stopPropagation(); printDocument('consultation', c, patient);}} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
-                                                                                          <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#10b981' : 'white', color: open ? 'white' : '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
-                                                                                  </div>
-                                                                          </div>
-                                                                          {open && (
-                                                                                  <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0' }}>
-                                                                                          <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px 18px', marginBottom: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                                                                                                  <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Patient</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{patient?.pname || 'N/A'}</p></div>
-                                                                                                  <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Test Name</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{l.test_name || '—'}</p></div>
-                                                                                                  <div><p style={{ fontSize: '0.58rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Date</p><p style={{ fontWeight: '800', fontSize: '0.85rem', color: '#0f172a' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</p></div>
-                                                                                          </div>
-                                                                                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                                                                                                  <thead><tr style={{ background: '#f1f5f9' }}>{['Parameter','Result','Normal Range','Status'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.6rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
-                                                                                                  <tbody>
-                                                                                                          {resultEntries.length > 0 ? resultEntries.map(([param, data], ri) => (
-                                                                                                                  <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                                                                                          <td style={{ padding: '8px 12px', fontWeight: '700', color: '#1e293b' }}>{param}</td>
-                                                                                                                          <td style={{ padding: '8px 12px', fontWeight: '900', color: data?.value ? '#0f172a' : '#94a3b8' }}>{data?.value || '—'} {data?.unit || ''}</td>
-                                                                                                                          <td style={{ padding: '8px 12px', color: '#64748b' }}>{data?.ref || '—'}</td>
-                                                                                                                          <td style={{ padding: '8px 12px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '800', background: data?.status === 'Normal' ? '#f0fdf4' : '#fef2f2', color: data?.status === 'Normal' ? '#166534' : '#dc2626' }}>{data?.status || '—'}</span></td>
-                                                                                                                  </tr>
-                                                                                                          )) : <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No detailed results recorded</td></tr>}
-                                                                                                  </tbody>
-                                                                                          </table>
-                                                                                          {l.notes && <div style={{ marginTop: '12px', padding: '12px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', fontSize: '0.82rem', color: '#92400e' }}><strong>Notes:</strong> {l.notes}</div>}
-                                                                                  </div>
-                                                                          )}
+                                                              <div key={gi} style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '12px', overflow: 'hidden' }}>
+                                                                  <div 
+                                                                      onClick={() => toggleDoc(groupKey)}
+                                                                      style={{ padding: '14px 18px', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                                                                  >
+                                                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                          <Calendar size={16} color="#64748b" />
+                                                                          <span style={{ fontWeight: '800', color: '#1e293b' }}>{date}</span>
+                                                                          <span style={{ fontSize: '0.75rem', background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '12px', marginLeft: '4px' }}>{dateLabs.length} Test(s)</span>
+                                                                      </div>
+                                                                      {groupOpen ? <ChevronDown size={16} style={{ transform: 'rotate(180deg)' }} /> : <ChevronDown size={16} />}
                                                                   </div>
+                                                                  
+                                                                  {groupOpen && (
+                                                                      <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                          {dateLabs.map((l, i) => {
+                                                                              const key = `lab-${l.id || `${date}-${i}`}`;
+                                                                              const open = expandedDoc === key;
+                                                                              let parsedResults = {};
+                                                                              try { parsedResults = l.results ? JSON.parse(l.results) : {}; } catch(e){}
+                                                                              const resultEntries = Object.entries(parsedResults);
+                                                                              return (
+                                                                                      <div key={i} style={{ background: 'white', borderRadius: '14px', border: open ? '2px solid #10b981' : '1px solid #e2e8f0', overflow: 'hidden', transition: '0.2s' }}>
+                                                                                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: open ? '#f0fdf4' : '#f8fafc' }}>
+                                                                                                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                                                                                              <div style={{ width: '36px', height: '36px', background: '#10b981', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '0.8rem', flexShrink: 0 }}><Microscope size={16} /></div>
+                                                                                                              <div><p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#059669' }}>Ref #LR-{l.id || i+1}</p><p style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.88rem' }}>{l.test_name || 'Laboratory Investigation'}</p></div>
+                                                                                                      </div>
+                                                                                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                                              <button onClick={(e) => { e.stopPropagation(); printDocument('lab', l, patient); }} style={{ padding: '6px 12px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Printer size={12} /></button>
+                                                                                                              <button onClick={(e) => { e.stopPropagation(); toggleDoc(key); }} style={{ padding: '6px 12px', background: open ? '#10b981' : 'white', color: open ? 'white' : '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700' }}><Eye size={12} /> {open ? 'Close' : 'View'}</button>
+                                                                                                      </div>
+                                                                                              </div>
+                                                                                              {open && (
+                                                                                                      <div style={{ padding: '20px 24px', borderTop: '1px solid #e2e8f0' }}>
+                                                                                                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                                                                                                      <thead><tr style={{ background: '#f1f5f9' }}>{['Parameter','Result','Normal Range','Status'].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: '0.6rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{h}</th>)}</tr></thead>
+                                                                                                                      <tbody>
+                                                                                                                              {resultEntries.length > 0 ? resultEntries.map(([param, data], ri) => (
+                                                                                                                                      <tr key={ri} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                                                                                                              <td style={{ padding: '8px 12px', fontWeight: '700', color: '#1e293b' }}>{param}</td>
+                                                                                                                                              <td style={{ padding: '8px 12px', fontWeight: '900', color: data?.value ? '#0f172a' : '#94a3b8' }}>{data?.value || '—'} {data?.unit || ''}</td>
+                                                                                                                                              <td style={{ padding: '8px 12px', color: '#64748b' }}>{data?.ref || '—'}</td>
+                                                                                                                                              <td style={{ padding: '8px 12px' }}><span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '800', background: data?.status === 'Normal' ? '#f0fdf4' : '#fef2f2', color: data?.status === 'Normal' ? '#166534' : '#dc2626' }}>{data?.status || '—'}</span></td>
+                                                                                                                                      </tr>
+                                                                                                                              )) : <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No detailed results recorded</td></tr>}
+                                                                                                                      </tbody>
+                                                                                                              </table>
+                                                                                                              {l.notes && <div style={{ marginTop: '12px', padding: '12px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', fontSize: '0.82rem', color: '#92400e' }}><strong>Notes:</strong> {l.notes}</div>}
+                                                                                                      </div>
+                                                                                              )}
+                                                                                      </div>
+                                                                              );
+                                                                          })}
+                                                                      </div>
+                                                                  )}
+                                                              </div>
                                                           );
-                                                  }) : <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No laboratory results available.</div>}
+                                                      }) : <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>No laboratory results available.</div>;
+                                                  })()}
                                           </div>
                                   )}
 

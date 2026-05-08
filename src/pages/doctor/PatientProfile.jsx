@@ -27,26 +27,26 @@ const PatientProfile = () => {
             setLoading(true);
             try {
                 // 1. Fetch Patient
-                const pidInt = parseInt(pid);
                 let patient = null;
-                let patientError = null;
                 
-                const { data: pData, error: pError } = await supabase
-                    .from('patient')
-                    .select('*')
-                    .eq('pid', pidInt)
-                    .single();
+                let query = supabase.from('patient').select('*');
+                if (!isNaN(pid) && !pid.startsWith('PT-')) {
+                    query = query.eq('pid', parseInt(pid));
+                } else {
+                    query = query.eq('patient_display_id', pid);
+                }
                 
-                if (pData) patient = pData;
-                else patientError = pError;
-
-                if (patientError) {
-                    console.warn('[PatientProfile] patient table failed, trying patients:', patientError.message);
-                    const { data: altData } = await supabase
-                        .from('patients')
-                        .select('*')
-                        .eq('pid', pidInt)
-                        .single();
+                const { data: pData } = await query.maybeSingle();
+                patient = pData;
+                
+                if (!patient) {
+                    let altQuery = supabase.from('patients').select('*');
+                    if (!isNaN(pid) && !pid.startsWith('PT-')) {
+                        altQuery = altQuery.eq('pid', parseInt(pid));
+                    } else {
+                        altQuery = altQuery.eq('patient_display_id', pid);
+                    }
+                    const { data: altData } = await altQuery.maybeSingle();
                     patient = altData || null;
                 }
 
@@ -60,7 +60,7 @@ const PatientProfile = () => {
                 const { data: consultationsData, error: consultError } = await supabase
                     .from('consultations')
                     .select('*')
-                    .eq('pid', pidInt)
+                    .eq('pid', patient.pid)
                     .in('status', ['final', 'completed'])
                     .order('consultation_date', { ascending: false });
                 
@@ -93,6 +93,21 @@ const PatientProfile = () => {
                         const reqIds = reqData.map(r => r.id);
                         const { data: lData } = await supabase.from('lab_reports').select('*').in('request_id', reqIds);
                         lab_reports = lData || [];
+                        
+                        const techIds = [...new Set(lab_reports.map(r => r.technician_id))].filter(Boolean);
+                        let technicians = [];
+                        if (techIds.length > 0) {
+                            const { data: tData } = await supabase
+                                .from('lab_technician')
+                                .select('labid, labname')
+                                .in('labid', techIds);
+                            technicians = tData || [];
+                        }
+                        
+                        lab_reports = lab_reports.map(r => ({
+                            ...r,
+                            technician_name: technicians.find(t => String(t.labid) === String(r.technician_id))?.labname || 'Unknown Technician'
+                        }));
                     }
 
                     enrichedConsultations = consultationsData.map(c => {
@@ -216,6 +231,9 @@ const PatientProfile = () => {
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
                                         <MapPin size={14} color="#94a3b8" style={{ marginTop: '3px' }} /> <span style={{ color: '#334155', fontWeight: '600' }}>{patient.paddress}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+                                        <User size={14} color="#94a3b8" /> <span style={{ color: '#334155', fontWeight: '600' }}>Registered By: {patient.created_by || 'N/A'}</span>
                                     </div>
                                 </div>
                             </section>
@@ -360,7 +378,7 @@ const PatientProfile = () => {
                                                             {c.lab_results && c.lab_results.length > 0 ? c.lab_results.map((res, i) => (
                                                                 <div key={i} style={{ background: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                                                                     <div style={{ fontWeight: '800', color: '#1e293b' }}>{res.test_name}</div>
-                                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Status: Verified</div>
+                                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Status: Verified • Done by: {res.technician_name || 'Unknown'}</div>
                                                                 </div>
                                                             )) : (
                                                                 <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0' }}>No lab records.</div>

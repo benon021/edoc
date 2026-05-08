@@ -86,7 +86,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
   <div class="g3 box box-purple">${F('Payment Method', p.ppayment)}${F('Insurance Provider', p.pinsurance_provider)}${F('Policy / Member #', p.pinsurance_number)}</div>
   <div class="sig">
     <div><p style="font-size:10px;color:#64748b;line-height:1.7">I certify that the above information is accurate and consent to data processing by EDOC Medical Hub.</p><div class="sl">Patient / Guardian Signature &amp; Date</div></div>
-    <div style="text-align:right"><div class="sl" style="margin-top:64px">Registrar Signature</div><div class="sl light">Official Stamp</div></div>
+    <div style="text-align:right"><div style="font-size:11px;font-weight:700;color:#0f172a;">${p.created_by || 'Not Recorded'}</div><div class="sl" style="margin-top:40px">Registrar Signature</div><div class="sl light">Official Stamp</div></div>
   </div>
 </div>`;
     } else if (type === 'consultation') {

@@ -13,7 +13,7 @@ const AdminStaff = () => {
     const [staff, setStaff] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', role: 'Doctor' });
+    const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', role: 'Doctor', username: '' });
 
     const formatPhone = (val) => {
         const digits = val.replace(/\D/g, '').slice(0, 10);
@@ -36,7 +36,7 @@ const AdminStaff = () => {
             showNotification("Staff account provisioned successfully!", "success");
             setShowModal(false);
             fetchStaff();
-            setFormData({ name: '', email: '', password: '', phone: '', role: 'Doctor' });
+            setFormData({ name: '', email: '', password: '', phone: '', role: 'Doctor', username: '' });
         } else {
             showNotification(`Error adding staff: ${error.message || "Unknown error"}`, "error");
         }
@@ -165,6 +165,10 @@ const AdminStaff = () => {
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Full Name</label>
                                     <input type="text" className="input-field" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Username</label>
+                                    <input type="text" className="input-field" required value={formData.username || ''} onChange={e => setFormData({...formData, username: e.target.value})} />
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
                                     <div>

@@ -1,6 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import MainLayout from './components/layouts/MainLayout';
+import { getSystemConfig } from './lib/api';
+import Maintenance from './pages/Maintenance';
 
 // Pages
 import Home from './pages/Home';
@@ -71,6 +74,45 @@ function ProtectedRoute({ children }) {
 }
 
 function App() {
+  const { profile, loading: authLoading } = useAuth();
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const { data } = await getSystemConfig();
+        if (data) {
+          const status = data.find(c => c.key === 'system_status')?.value;
+          if (status === 'Maintenance Mode') {
+            setIsMaintenance(true);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check maintenance status', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkMaintenance();
+  }, []);
+
+  if (loading || authLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#000000' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  const isAdmin = profile?.role === 'a' || profile?.role === 'Admin';
+  const isLoginPage = window.location.pathname === '/login';
+
+  if (isMaintenance && !isAdmin && !isLoginPage) {
+    return <Maintenance />;
+  }
+
   return (
     <NotificationProvider>
       <Router 

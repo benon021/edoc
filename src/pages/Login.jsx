@@ -38,8 +38,26 @@ const Login = () => {
     setLoading(true);
 
     // 1. Authenticate with Supabase Auth
+    let emailToUse = email;
+    
+    if (!email.includes('@')) {
+      // It's likely a username!
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('email')
+        .ilike('username', email)
+        .single();
+      if (profileData) {
+        emailToUse = profileData.email;
+      } else {
+        setError('Username not found.');
+        setLoading(false);
+        return;
+      }
+    }
+
     const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: emailToUse,
       password,
     });
 
@@ -128,13 +146,13 @@ const Login = () => {
 
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
-              <label style={{ display: 'block', color: '#475569', fontSize: '0.85rem', fontWeight: 800, marginBottom: 10, paddingLeft: '4px' }}>OFFICIAL EMAIL</label>
+              <label style={{ display: 'block', color: '#475569', fontSize: '0.85rem', fontWeight: 800, marginBottom: 10, paddingLeft: '4px' }}>EMAIL OR USERNAME</label>
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="doctor@moonview.med"
+                placeholder="doctor@moonview.med or username"
                 style={{
                   width: '100%', boxSizing: 'border-box', padding: '16px 20px',
                   background: 'white', border: '2px solid #f1f5f9', borderRadius: '18px',

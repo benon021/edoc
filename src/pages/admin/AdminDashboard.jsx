@@ -54,14 +54,14 @@ const AdminDashboard = () => {
                 { count: labPending },
                 { count: lowStock }
             ] = await Promise.all([
-                supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                supabase.from('patient').select('*', { count: 'exact', head: true }),
                 supabase.from('appointment').select('*', { count: 'exact', head: true }).eq('appodate', today),
-                supabase.from('doctor').select('*', { count: 'exact', head: true }),
-                supabase.from('registrar').select('*', { count: 'exact', head: true }),
-                supabase.from('lab_tech').select('*', { count: 'exact', head: true }),
-                supabase.from('pharmacist').select('*', { count: 'exact', head: true }),
+                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'd'),
+                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'r'),
+                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'l'),
+                supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'ph'),
                 supabase.from('lab_requests').select('*', { count: 'exact', head: true }).in('status', ['pending', 'waiting']),
-                supabase.from('medicine_inventory').select('*', { count: 'exact', head: true }).lt('stock_qty', 20)
+                supabase.from('medicine').select('*', { count: 'exact', head: true }).lt('stock_qty', 20)
             ]);
 
             setStats({
