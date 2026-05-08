@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
 const StaffSettings = () => {
-    const { profile, userType } = useAuth();
+    const { profile, userType, refreshProfile } = useAuth();
     const { showNotification } = useNotification();
 
     const [formData, setFormData] = useState({
@@ -223,6 +223,7 @@ const StaffSettings = () => {
         }
 
         showNotification('Profile updated successfully!', 'success');
+        await refreshProfile();
     };
 
     const handleChangePassword = async (e) => {

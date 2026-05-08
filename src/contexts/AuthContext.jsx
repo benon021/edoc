@@ -115,8 +115,10 @@ export function AuthProvider({ children }) {
     window.location.href = '/login';
   };
 
+  const refreshProfile = () => fetchProfile(user);
+
   return (
-    <AuthContext.Provider value={{ user, userType, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, userType, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

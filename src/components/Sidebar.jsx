@@ -91,11 +91,11 @@ const Sidebar = ({ userType }) => {
 
     // Helper: get the display name from whichever staff table profile we have
     const displayName = profile
-        ? (profile.docname || profile.regname || profile.labname || profile.phname || profile.aname || 'User')
+        ? (profile.full_name || profile.docname || profile.regname || profile.labname || profile.phname || profile.aname || 'User')
         : 'Loading…';
 
     const displayEmail = profile
-        ? (profile.docemail || profile.regemail || profile.labemail || profile.phemail || profile.aemail || '')
+        ? (profile.email || profile.docemail || profile.regemail || profile.labemail || profile.phemail || profile.aemail || '')
         : '';
 
     // Helper: get photo from profile (whichever field is populated)
