@@ -302,7 +302,9 @@ export default function LabWorkbench() {
             init[fieldName] = {
                 value: '',
                 unit: f.unit || '',
-                ref: f.ref || '',
+                ref: f.ref || (f.min && f.max ? `${f.min} - ${f.max}` : f.min ? `>${f.min}` : f.max ? `<${f.max}` : ''),
+                min: f.min || '',
+                max: f.max || '',
                 status: 'Normal',
                 type: f.type || 'Number'
             };
@@ -681,7 +683,7 @@ export default function LabWorkbench() {
             {panelOpen && selected && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
                     <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(2px)' }} onClick={() => setPanelOpen(false)} />
-                    <div style={{ width: 520, height: '100vh', background: 'white', boxShadow: '-10px 0 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                    <div style={{ width: '100%', maxWidth: '50vw', height: '100vh', background: 'white', boxShadow: '-10px 0 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                         <div style={{ padding: '24px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
                             <div>
                                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Process Test</h2>
@@ -834,7 +836,25 @@ export default function LabWorkbench() {
                                                                     <input
                                                                         type={fieldType === 'Number' ? 'number' : 'text'}
                                                                         value={resultValues[fieldName]?.value || ''}
-                                                                        onChange={e => setResultValues(v => ({ ...v, [fieldName]: { ...v[fieldName], value: e.target.value } }))}
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            const numVal = parseFloat(val);
+                                                                            let status = resultValues[fieldName]?.status || 'Normal';
+                                                                            const min = parseFloat(resultValues[fieldName]?.min);
+                                                                            const max = parseFloat(resultValues[fieldName]?.max);
+
+                                                                            if (fieldType === 'Number' && !isNaN(numVal)) {
+                                                                                if (!isNaN(min) && numVal < min) {
+                                                                                    status = 'Critical';
+                                                                                } else if (!isNaN(max) && numVal > max) {
+                                                                                    status = 'Critical';
+                                                                                } else if (!isNaN(min) && !isNaN(max)) {
+                                                                                    status = 'Normal';
+                                                                                }
+                                                                            }
+
+                                                                            setResultValues(v => ({ ...v, [fieldName]: { ...v[fieldName], value: val, status: status } }));
+                                                                        }}
                                                                         placeholder={fieldType === 'Number' ? "Enter number" : "Type result here..."}
                                                                         style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.9rem', boxSizing: 'border-box', background: 'white' }}
                                                                     />

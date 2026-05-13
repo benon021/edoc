@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Clock, ChevronRight, Activity, Calendar, FlaskConical, Pill, ArrowRight, UserPlus, FileText, ListOrdered, CreditCard, Stethoscope } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import BillingGateModal from '../../components/registrar/BillingGateModal';
 
 const RegistrarHistory = () => {
     const { profile } = useAuth();
@@ -20,7 +19,6 @@ const RegistrarHistory = () => {
 
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [showBookingModal, setShowBookingModal] = useState(false);
-    const [showBillingModal, setShowBillingModal] = useState(false);
     const [bookingData, setBookingData] = useState({ docid: '' });
     const [bookingError, setBookingError] = useState('');
 
@@ -106,11 +104,6 @@ const RegistrarHistory = () => {
         setBookingError('');
         setBookingData({ docid: '' });
         setShowBookingModal(true);
-    };
-
-    const handleBillingClick = (patient) => {
-        setSelectedPatient(patient);
-        setShowBillingModal(true);
     };
 
     const confirmBooking = async () => {
@@ -306,12 +299,6 @@ const RegistrarHistory = () => {
                                         <td style={{ padding: '20px 24px', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                                 <button 
-                                                    onClick={() => handleBillingClick(patient)}
-                                                    style={{ padding: '8px 14px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                                >
-                                                    <CreditCard size={14} color="#3b82f6" /> Billing
-                                                </button>
-                                                <button 
                                                     onClick={() => handleHandoverClick(patient)}
                                                     style={{ padding: '8px 14px', background: '#0f172a', border: 'none', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                                                 >
@@ -367,14 +354,7 @@ const RegistrarHistory = () => {
                 </div>
             )}
             <style>{`@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-            {/* Billing Modal */}
-            <BillingGateModal 
-                isOpen={showBillingModal}
-                onClose={() => setShowBillingModal(false)}
-                onUpdate={fetchPatients}
-                patient={selectedPatient}
-                appointmentId={selectedPatient?.appointment?.appoid}
-            />
+
         </div>
     );
 };

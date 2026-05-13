@@ -311,7 +311,7 @@ const handleToggle = async (item) => {
                                                 let currentFields = [];
                                                 try { currentFields = form.ref_ranges ? JSON.parse(form.ref_ranges) : []; } catch(e) { currentFields = []; }
                                                 if (!Array.isArray(currentFields)) currentFields = [];
-                                                const updated = [...currentFields, { field: '', unit: '', ref: '', type: 'Number' }];
+                                                const updated = [...currentFields, { field: '', unit: '', min: '', max: '', type: 'Number' }];
                                                 setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
                                             }}
                                             style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 6, fontSize: '0.7rem', cursor: 'pointer', fontWeight: 700 }}
@@ -379,11 +379,18 @@ const handleToggle = async (item) => {
                                                     </div>
                                                     <div>
                                                         <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Normal Range</label>
-                                                        <input placeholder="e.g. 70 to 100" value={f.ref || ''} onChange={e => {
-                                                            const updated = [...fields];
-                                                            updated[idx].ref = e.target.value;
-                                                            setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
-                                                        }} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem', boxSizing: 'border-box', background: 'white' }} />
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <input placeholder="Min" value={f.min || ''} onChange={e => {
+                                                                const updated = [...fields];
+                                                                updated[idx].min = e.target.value;
+                                                                setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                            }} style={{ width: '50%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem', boxSizing: 'border-box', background: 'white' }} />
+                                                            <input placeholder="Max" value={f.max || ''} onChange={e => {
+                                                                const updated = [...fields];
+                                                                updated[idx].max = e.target.value;
+                                                                setForm(v => ({ ...v, ref_ranges: JSON.stringify(updated) }));
+                                                            }} style={{ width: '50%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.8rem', boxSizing: 'border-box', background: 'white' }} />
+                                                        </div>
                                                     </div>
                                                     <button 
                                                         type="button" 

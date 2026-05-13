@@ -1,42 +1,34 @@
-// =============================================================
-// FILE: RegistrarBilling.jsx
-// PURPOSE: Centralized billing and cashier dashboard for Reception
-// =============================================================
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Search, DollarSign, FileText, CheckCircle, Clock } from 'lucide-react';
+import { CreditCard, Search, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import BillingGateModal from '../../components/registrar/BillingGateModal';
 
 const RegistrarBilling = () => {
-    const [invoices, setInvoices] = useState([]);
+    const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [selectedInvoice, setSelectedInvoice] = useState(null);
-    const [paymentForm, setPaymentForm] = useState({
-        amount_paid: 0,
-        payment_method: 'Cash',
-        insurance_provider: '',
-        insurance_number: ''
-    });
+    const [showGateModal, setShowGateModal] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState(null);
+    const [currentTab, setCurrentTab] = useState('ongoing');
 
     useEffect(() => {
-        fetchInvoices();
+        fetchAppointments();
     }, []);
 
-    const fetchInvoices = async () => {
+    const fetchAppointments = async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
-                .from('invoices')
-                .select('*, patient:patient_id(pname, pemail)')
-                .order('created_at', { ascending: false });
+                .from('appointment')
+                .select('*, patient:pid(pname, pemail, patient_display_id)')
+                .in('status', ['waiting', 'in_consultation', 'pending_lab', 'lab_processing', 'lab_results_partial', 'lab_completed', 'completed'])
+                .order('appodate', { ascending: false });
             
             if (error) {
-                // If table doesn't exist, we just get an error. 
-                console.error("Error fetching invoices:", error.message);
-                setInvoices([]);
+                console.error("Error fetching appointments:", error.message);
+                setAppointments([]);
             } else {
-                setInvoices(data || []);
+                setAppointments(data || []);
             }
         } catch (err) {
             console.error(err);
@@ -45,44 +37,22 @@ const RegistrarBilling = () => {
         }
     };
 
-    const handleSettle = (inv) => {
-        setSelectedInvoice(inv);
-        setPaymentForm({
-            amount_paid: Number(inv.total_amount) - Number(inv.amount_paid),
-            payment_method: inv.payment_method || 'Cash',
-            insurance_provider: inv.insurance_provider || '',
-            insurance_number: inv.insurance_number || ''
-        });
-        setShowPaymentModal(true);
+    const handleSettle = (appt) => {
+        setSelectedAppointment(appt);
+        setShowGateModal(true);
     };
 
-    const processPayment = async () => {
-        try {
-            const newPaid = Number(selectedInvoice.amount_paid) + Number(paymentForm.amount_paid);
-            const status = newPaid >= Number(selectedInvoice.total_amount) ? 'Paid' : 'Partially Paid';
-            
-            const { error } = await supabase.from('invoices').update({
-                amount_paid: newPaid,
-                status: status,
-                payment_method: paymentForm.payment_method,
-                insurance_provider: paymentForm.insurance_provider,
-                insurance_number: paymentForm.insurance_number
-            }).eq('id', selectedInvoice.id);
+    const filteredAppointments = appointments.filter(appt => {
+        const matchesSearch = (appt.patient?.pname || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (appt.patient?.patient_display_id || '').toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const isOngoing = ['waiting', 'in_consultation', 'pending_lab', 'lab_processing', 'lab_results_partial', 'lab_completed'].includes(appt.status);
+        const isDone = appt.status === 'completed';
 
-            if (error) throw error;
-            
-            setShowPaymentModal(false);
-            fetchInvoices();
-        } catch (err) {
-            console.error("Payment failed", err);
-            alert("Error processing payment");
-        }
-    };
-
-    const filteredInvoices = invoices.filter(i => 
-        (i.receipt_no || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (i.patient?.pname || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+        if (currentTab === 'ongoing') return matchesSearch && isOngoing;
+        if (currentTab === 'done') return matchesSearch && isDone;
+        return matchesSearch;
+    });
 
     return (
         <div style={{ padding: '32px 40px', maxWidth: '1400px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
@@ -94,30 +64,38 @@ const RegistrarBilling = () => {
                         </div>
                         Centralized Billing Desk
                     </h1>
-                    <p style={{ color: '#64748b', fontSize: '1rem', marginTop: '8px' }}>Manage patient invoices, collect payments, and track outstanding balances.</p>
+                    <p style={{ color: '#64748b', fontSize: '1rem', marginTop: '8px' }}>Manage patient billing and track outstanding balances.</p>
                 </div>
             </div>
 
-            {/* Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-                <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px', color: '#10b981' }}><DollarSign size={24} /></div>
-                    <div>
-                        <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Total Collected</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#0f172a' }}>
-                            KES {invoices.filter(i => i.status === 'Paid').reduce((sum, i) => sum + Number(i.total_amount), 0).toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-                <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '12px', color: '#f59e0b' }}><Clock size={24} /></div>
-                    <div>
-                        <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Pending Invoices</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#0f172a' }}>
-                            {invoices.filter(i => i.status === 'Pending').length}
-                        </div>
-                    </div>
-                </div>
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                <button 
+                    onClick={() => setCurrentTab('ongoing')}
+                    style={{ 
+                        padding: '12px 24px', borderRadius: '12px', border: 'none', 
+                        background: currentTab === 'ongoing' ? '#0f172a' : 'white', 
+                        color: currentTab === 'ongoing' ? 'white' : '#64748b',
+                        fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer',
+                        boxShadow: currentTab === 'ongoing' ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none',
+                        transition: '0.2s'
+                    }}
+                >
+                    Currently Ongoing
+                </button>
+                <button 
+                    onClick={() => setCurrentTab('done')}
+                    style={{ 
+                        padding: '12px 24px', borderRadius: '12px', border: 'none', 
+                        background: currentTab === 'done' ? '#0f172a' : 'white', 
+                        color: currentTab === 'done' ? 'white' : '#64748b',
+                        fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer',
+                        boxShadow: currentTab === 'done' ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none',
+                        transition: '0.2s'
+                    }}
+                >
+                    Done
+                </button>
             </div>
 
             <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -126,7 +104,7 @@ const RegistrarBilling = () => {
                         <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                         <input 
                             type="text" 
-                            placeholder="Search invoice by receipt no or patient name..." 
+                            placeholder="Search by patient name or ID..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             style={{ width: '100%', padding: '10px 12px 10px 40px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
@@ -137,53 +115,50 @@ const RegistrarBilling = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
                         <tr>
-                            <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>INVOICE / RECEIPT</th>
+                            <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>APPT ID</th>
                             <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>PATIENT</th>
-                            <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>AMOUNT</th>
                             <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>STATUS</th>
                             <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>ACTION</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>Loading billing records... (Ensure setup_billing.sql is run in Supabase)</td></tr>
-                        ) : filteredInvoices.length === 0 ? (
-                            <tr><td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>No invoices found.</td></tr>
-                        ) : filteredInvoices.map(inv => (
-                            <tr key={inv.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                            <tr><td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>Loading records...</td></tr>
+                        ) : filteredAppointments.length === 0 ? (
+                            <tr><td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>No patients found.</td></tr>
+                        ) : filteredAppointments.map(appt => (
+                            <tr key={appt.appoid} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                 <td style={{ padding: '16px 24px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <FileText size={18} color="#94a3b8" />
-                                        <span style={{ fontWeight: '800', color: '#0f172a' }}>{inv.receipt_no}</span>
+                                        <span style={{ fontWeight: '800', color: '#0f172a' }}>APPT-{appt.appoid}</span>
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '30px' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '30px' }}>{new Date(appt.appodate).toLocaleDateString()}</div>
                                 </td>
                                 <td style={{ padding: '16px 24px', fontWeight: '700', color: '#334155' }}>
-                                    {inv.patient?.pname || 'Unknown'}
-                                </td>
-                                <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                    <div style={{ fontWeight: '800', color: '#0f172a' }}>KES {Number(inv.total_amount).toLocaleString()}</div>
-                                    {inv.status !== 'Paid' && <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>Bal: KES {(Number(inv.total_amount) - Number(inv.amount_paid)).toLocaleString()}</div>}
+                                    {appt.patient?.pname || 'Unknown'}
+                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>ID: {appt.patient?.patient_display_id}</div>
                                 </td>
                                 <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                                     <span style={{
                                         padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '800',
-                                        background: inv.status === 'Paid' ? '#dcfce7' : (inv.status === 'Pending' ? '#fef3c7' : '#e0e7ff'),
-                                        color: inv.status === 'Paid' ? '#166534' : (inv.status === 'Pending' ? '#b45309' : '#4338ca')
+                                        background: '#fef3c7',
+                                        color: '#b45309'
                                     }}>
-                                        {inv.status}
+                                        {appt.status}
                                     </span>
                                 </td>
                                 <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                    {inv.status !== 'Paid' ? (
-                                        <button onClick={() => handleSettle(inv)} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                                            Settle Bill
-                                        </button>
-                                    ) : (
-                                        <span style={{ color: '#10b981', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                            <CheckCircle size={16} /> Cleared
-                                        </span>
-                                    )}
+                                    <button 
+                                        onClick={() => handleSettle(appt)} 
+                                        style={{ 
+                                            background: currentTab === 'done' ? '#0f172a' : '#3b82f6', 
+                                            color: 'white', border: 'none', padding: '8px 16px', 
+                                            borderRadius: '8px', fontWeight: '700', cursor: 'pointer' 
+                                        }}
+                                    >
+                                        {currentTab === 'done' ? 'View Breakdown' : 'Make Payment'}
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -191,54 +166,14 @@ const RegistrarBilling = () => {
                 </table>
             </div>
 
-            {showPaymentModal && selectedInvoice && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: 'white', padding: '32px', borderRadius: '16px', width: '100%', maxWidth: '400px' }}>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '16px' }}>Settle Invoice {selectedInvoice.receipt_no}</h2>
-                        
-                        <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>Amount Received (KES)</label>
-                            <input 
-                                type="number" 
-                                value={paymentForm.amount_paid} 
-                                onChange={e => setPaymentForm({...paymentForm, amount_paid: e.target.value})}
-                                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>Payment Method</label>
-                            <select 
-                                value={paymentForm.payment_method} 
-                                onChange={e => setPaymentForm({...paymentForm, payment_method: e.target.value})}
-                                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                            >
-                                <option value="Cash">Cash</option>
-                                <option value="Card">Card</option>
-                                <option value="M-Pesa">M-Pesa</option>
-                                <option value="Insurance">Insurance</option>
-                            </select>
-                        </div>
-
-                        {paymentForm.payment_method === 'Insurance' && (
-                            <>
-                                <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>Provider</label>
-                                    <input type="text" value={paymentForm.insurance_provider} onChange={e => setPaymentForm({...paymentForm, insurance_provider: e.target.value})} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-                                </div>
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#64748b', marginBottom: '8px' }}>Policy Number</label>
-                                    <input type="text" value={paymentForm.insurance_number} onChange={e => setPaymentForm({...paymentForm, insurance_number: e.target.value})} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-                                </div>
-                            </>
-                        )}
-
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setShowPaymentModal(false)} style={{ padding: '10px 16px', border: '1px solid #cbd5e1', background: 'white', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>
-                            <button onClick={processPayment} style={{ padding: '10px 16px', border: 'none', background: '#10b981', color: 'white', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>Process Payment</button>
-                        </div>
-                    </div>
-                </div>
+            {showGateModal && selectedAppointment && (
+                <BillingGateModal 
+                    isOpen={showGateModal}
+                    onClose={() => setShowGateModal(false)}
+                    onUpdate={fetchAppointments}
+                    patient={selectedAppointment.patient}
+                    appointmentId={selectedAppointment.appoid}
+                />
             )}
         </div>
     );

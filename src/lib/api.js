@@ -1,3 +1,4 @@
+
 // =============================================================
 // FILE: api.js
 // PURPOSE: Central data-access layer — replaces all old fetch('/api/...')
@@ -61,10 +62,10 @@ export const deletePatient = (pid) =>
 export const deletePatientRecord = deletePatient;
 
 export const signUpPatient = (data) =>
-  supabase.auth.signUp({ 
-    email: data.email, 
-    password: data.password, 
-    options: { data: { usertype: 'patient', full_name: `${data.fname} ${data.lname}`, nic: data.nic } } 
+  supabase.auth.signUp({
+    email: data.email,
+    password: data.password,
+    options: { data: { usertype: 'patient', full_name: `${data.fname} ${data.lname}`, nic: data.nic } }
   });
 
 export const getPatientHistory = async (pid) => {
@@ -129,7 +130,7 @@ export const createStaffAccount = async ({ role, name, email, password, phone, u
       .select('id')
       .ilike('username', username)
       .maybeSingle();
-      
+
     if (existingUser) {
       return { error: { message: 'This username is already taken. Please choose another.' } };
     }
@@ -137,8 +138,8 @@ export const createStaffAccount = async ({ role, name, email, password, phone, u
 
   // 1. Create Supabase Auth Account
   const { data: authData, error: authError } = await supabase.auth.signUp({
-    email, 
-    password, 
+    email,
+    password,
     options: { data: { usertype: type, full_name: name, username } },
   });
 
@@ -152,17 +153,17 @@ export const createStaffAccount = async ({ role, name, email, password, phone, u
       .update({ username })
       .eq('email', email)
       .select();
-      
+
     if (!updatedData || updatedData.length === 0) {
       // Record didn't exist yet (trigger delay), let's insert it!
       await supabase
         .from('profiles')
-        .insert({ 
-          id: authData.user.id, 
-          email, 
-          username, 
-          usertype: type, 
-          full_name: name 
+        .insert({
+          id: authData.user.id,
+          email,
+          username,
+          usertype: type,
+          full_name: name
         });
     }
   }
@@ -188,14 +189,14 @@ export const updateStaffStatus = (email, status) =>
 export const updateStaffAccount = async (email, { name, phone, username, role }) => {
   const typeMap = { Doctor: 'd', Receptionist: 'r', Lab: 'l', Pharmacy: 'ph' };
   const type = typeMap[role];
-  
+
   if (username) {
     const { data: existingUser } = await supabase
       .from('profiles')
       .select('email')
       .ilike('username', username)
       .maybeSingle();
-      
+
     if (existingUser && existingUser.email !== email) {
       return { error: { message: 'This username is already taken. Please choose another.' } };
     }
@@ -206,9 +207,9 @@ export const updateStaffAccount = async (email, { name, phone, username, role })
     .from('profiles')
     .update({ full_name: name, username })
     .eq('email', email);
-    
+
   if (profileError) return { error: profileError };
-  
+
   // 2. Update Legacy table
   const legacyMap = {
     d: { table: 'doctor', nameField: 'docname', telField: 'doctel', emailField: 'docemail' },
@@ -216,21 +217,21 @@ export const updateStaffAccount = async (email, { name, phone, username, role })
     l: { table: 'lab_technician', nameField: 'labname', telField: 'labtel', emailField: 'labemail' },
     ph: { table: 'pharmacist', nameField: 'phname', telField: 'phtel', emailField: 'phemail' },
   };
-  
+
   if (legacyMap[type]) {
     const { table, nameField, telField, emailField } = legacyMap[type];
     const updateData = {};
     if (name) updateData[nameField] = name;
     if (phone) updateData[telField] = phone;
-    
+
     const { error: legacyError } = await supabase
       .from(table)
       .update(updateData)
       .eq(emailField, email);
-      
+
     if (legacyError) return { error: legacyError };
   }
-  
+
   return { error: null };
 };
 
@@ -238,7 +239,7 @@ export const deleteStaffAccount = async (email) => {
   // We delete from profiles, but note that the Auth user still exists 
   // (requires service role to delete auth user via API)
   const { error: profileError } = await supabase.from('profiles').delete().eq('email', email);
-  
+
   // Also clean up legacy tables
   const legacyTables = [
     { t: 'doctor', e: 'docemail' },
@@ -274,12 +275,12 @@ export const getDoctorQueue = async (docEmail) => {
 };
 
 export const getRegistrarActiveQueue = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    return supabase
-      .from('appointment')
-      .select(`appoid, status, apponum, patient:pid(pname,patient_display_id), doctor:docid(docname), consultations:consultations(id), lab_requests:lab_requests(id)`)
-      .eq('appodate', today)
-      .order('apponum', { ascending: false });
+  const today = new Date().toISOString().split('T')[0];
+  return supabase
+    .from('appointment')
+    .select(`appoid, status, apponum, patient:pid(pname,patient_display_id), doctor:docid(docname), consultations:consultations(id), lab_requests:lab_requests(id)`)
+    .eq('appodate', today)
+    .order('apponum', { ascending: false });
 };
 
 export const bookAppointment = (data) =>
@@ -358,8 +359,8 @@ export const collectLabSample = (data) =>
   supabase.from('lab_samples').insert([data]).select();
 
 export const getLabAnalytics = async () => {
-    const { data } = await supabase.from('lab_analytics').select('*');
-    return data || [];
+  const { data } = await supabase.from('lab_analytics').select('*');
+  return data || [];
 };
 
 // ----------------------------------------------------------------
@@ -438,12 +439,12 @@ export const getPharmacyRequests = () =>
   supabase.from('prescriptions').select('*').order('created_at', { ascending: false });
 
 export const getPharmacyStats = async () => {
-    const { data: pharmacySales } = await supabase.from('pharmacy_sale').select('total_amount');
-    const { data: inventory } = await supabase.from('medicine').select('stock_qty');
-    return {
-      totalSales: pharmacySales?.reduce((sum, item) => sum + Number(item.total_amount || 0), 0) || 0,
-      inventoryCount: inventory?.reduce((sum, item) => sum + Number(item.stock_qty || 0), 0) || 0,
-    };
+  const { data: pharmacySales } = await supabase.from('pharmacy_sale').select('total_amount');
+  const { data: inventory } = await supabase.from('medicine').select('stock_qty');
+  return {
+    totalSales: pharmacySales?.reduce((sum, item) => sum + Number(item.total_amount || 0), 0) || 0,
+    inventoryCount: inventory?.reduce((sum, item) => sum + Number(item.stock_qty || 0), 0) || 0,
+  };
 };
 
 // ----------------------------------------------------------------
@@ -456,10 +457,10 @@ export const getAdminStats = async () => {
   const endOfDay = `${today}T23:59:59`;
 
   const [
-    patientResult, 
+    patientResult,
     profileResult,
-    pharmacyResult, 
-    labResult, 
+    pharmacyResult,
+    labResult,
     prescriptionResult
   ] = await Promise.all([
     supabase.from('patient').select('pid'),
@@ -523,31 +524,31 @@ export const createPasswordChangeRequest = (data) =>
 export const updateCurrentUserProfile = async (data) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('No active session');
-  
+
   const currentEmail = user.email;
-  
+
   const updates = {};
   if (data.full_name) updates.full_name = data.full_name;
   if (data.email) updates.email = data.email;
-  
+
   if (Object.keys(updates).length > 0) {
     const { error: profileError } = await supabase
       .from('profiles')
       .update(updates)
       .eq('email', currentEmail);
-      
+
     if (profileError) return { error: profileError };
   }
-  
+
   const authUpdates = {};
   if (data.email) authUpdates.email = data.email;
   if (data.password) authUpdates.password = data.password;
-  
+
   if (Object.keys(authUpdates).length > 0) {
     const { error: authError } = await supabase.auth.updateUser(authUpdates);
     if (authError) return { error: authError };
   }
-  
+
   return { error: null };
 };
 

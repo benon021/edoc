@@ -45,7 +45,7 @@ const RegistrarRegistration = () => {
         guardianName: '', guardianRelation: '', guardianPhone: '', guardianEmail: '', guardianAddress: '',
         guardianId: '', guardianInsurance: '',
         consentBy: '', consentSignature: '', consentDate: format(new Date(), 'yyyy-MM-dd'),
-        paymentMethod: '', insuranceProvider: '', insuranceNumber: '',
+        paymentMethod: '',
         photo: '', notes: ''
     };
 
@@ -278,8 +278,6 @@ const RegistrarRegistration = () => {
             pguardian_address: formData.guardianAddress || null,
             pguardian_id: formData.guardianId || null,
             ppayment: formData.paymentMethod || null,
-            pinsurance_provider: formData.insuranceProvider || null,
-            pinsurance_number: formData.insuranceNumber || null,
             pnotes: formData.notes || null,
             pdate_registered: new Date().toISOString(),
             pstatus: 'active',
@@ -755,20 +753,8 @@ const RegistrarRegistration = () => {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                                         <div>
                                             <label className="label-text">Payment Method</label>
-                                            <Select name="paymentMethod" options={[{ value: 'Cash', label: 'Cash' }, { value: 'Card', label: 'Card' }, { value: 'Insurance', label: 'Insurance' }]} value={formData.paymentMethod ? { value: formData.paymentMethod, label: formData.paymentMethod } : null} onChange={handleSelectChange} styles={customSelectStyles} />
+                                            <Select name="paymentMethod" options={[{ value: 'Cash', label: 'Cash' }, { value: 'Card', label: 'Card' }, { value: 'Insurance', label: 'Insurance' }, { value: 'Mpesa', label: 'Mpesa' }]} value={formData.paymentMethod ? { value: formData.paymentMethod, label: formData.paymentMethod } : null} onChange={handleSelectChange} styles={customSelectStyles} />
                                         </div>
-                                        {formData.paymentMethod === 'Insurance' && (
-                                            <>
-                                                <div>
-                                                    <label className="label-text">Insurance Provider</label>
-                                                    <input type="text" name="insuranceProvider" value={formData.insuranceProvider} onChange={handleChange} className="input-field" />
-                                                </div>
-                                                <div>
-                                                    <label className="label-text">Insurance Number</label>
-                                                    <input type="text" name="insuranceNumber" value={formData.insuranceNumber} onChange={handleChange} className="input-field" />
-                                                </div>
-                                            </>
-                                        )}
                                         {regFees.length > 0 && (
                                             <div style={{ gridColumn: 'span 2', marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                                                 <label className="label-text" style={{ color: '#2563eb' }}>Applicable Registration Fees</label>

@@ -265,32 +265,13 @@ const Sidebar = ({ userType }) => {
             >
                 {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
-            {/* Hospital Branding Header */}
-            <div style={{ padding: '24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                <div style={{ minWidth: '40px', width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                    {hospitalConfig.logo ? (
-                        <img src={hospitalConfig.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                        <Globe size={24} color="white" />
-                    )}
-                </div>
-                {!isCollapsed && (
-                    <div style={{ whiteSpace: 'nowrap' }}>
-                        <h2 style={{ fontSize: '1rem', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>
-                            {hospitalConfig.name}
-                        </h2>
-                        <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Medical Terminal
-                        </span>
-                    </div>
-                )}
-            </div>
+
 
             {/* Profile Block */}
             <div style={{ padding: '32px 24px', textAlign: 'center', borderBottom: '1px solid #f8f9fa' }}>
-                <div style={{
-                    width: isCollapsed ? '40px' : '100px', height: isCollapsed ? '40px' : '100px', borderRadius: '50%',
-                    background: '#f8f9fa', margin: '0 auto 20px',
+                <div className="floating-logo" style={{
+                    width: isCollapsed ? '50px' : '180px', height: isCollapsed ? '50px' : '180px', borderRadius: '20px',
+                    background: '#1e293b', margin: '0 auto 20px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: isCollapsed ? '2px solid #f1f5f9' : '4px solid #f1f5f9', overflow: 'hidden',
                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
@@ -299,7 +280,7 @@ const Sidebar = ({ userType }) => {
                     {displayPhoto ? (
                         <img src={displayPhoto} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                        <UserCircle size={isCollapsed ? 30 : 80} color="#cbd5e1" strokeWidth={1} />
+                        <img src="/logo.png" alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
                 </div>
 
@@ -454,6 +435,23 @@ const Sidebar = ({ userType }) => {
                 }}
             />
         )}
+        <style>{`
+            @keyframes float {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-8px); }
+                100% { transform: translateY(0px); }
+            }
+            .floating-logo {
+                animation: float 4s ease-in-out infinite;
+                transition: all 0.3s ease;
+            }
+            .floating-logo:hover {
+                animation-play-state: paused;
+                transform: scale(1.03);
+                box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1) !important;
+                cursor: pointer;
+            }
+        `}</style>
         </>
     );
 };

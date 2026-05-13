@@ -23,6 +23,10 @@ const PharmaWorkbench = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [cart, setCart] = useState([]);
     const [paymentMethod, setPaymentMethod] = useState('Cash');
+    const [mpesaPhone, setMpesaPhone] = useState('');
+    const [pendingReceiptNo, setPendingReceiptNo] = useState('');
+    const [stkLoading, setStkLoading] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(null);
     const [selectedPresc, setSelectedPresc] = useState(null);
@@ -264,10 +268,38 @@ const PharmaWorkbench = () => {
         });
     };
 
+    const initiateStkPush = async () => {
+        if (!mpesaPhone) {
+            showNotification("Please enter the M-Pesa phone number", 'warning');
+            return;
+        }
+        try {
+            setStkLoading(true);
+            const receiptNo = `RX-${Date.now().toString().slice(-6).toUpperCase()}`;
+            setPendingReceiptNo(receiptNo); // Save for finalize step
+
+            const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
+                body: {
+                    phone: mpesaPhone,
+                    amount: total,
+                    reference_id: receiptNo,
+                    reference_type: 'pharmacy_sale'
+                }
+            });
+            if (error) throw error;
+            showNotification("STK Push initiated! Please check phone.", 'success');
+        } catch (err) {
+            console.error("STK Push failed", err);
+            showNotification(`Error: ${err.message}`, 'error');
+        } finally {
+            setStkLoading(false);
+        }
+    };
+
     const handleFinalize = async (mode = 'save') => {
         setLoading(true);
         try {
-            const receiptNo = `RX-${Date.now().toString().slice(-6).toUpperCase()}`;
+            const receiptNo = pendingReceiptNo || `RX-${Date.now().toString().slice(-6).toUpperCase()}`;
             
             // 1. Insert into pharmacy_sale
             const salePayload = {
@@ -608,6 +640,27 @@ const PharmaWorkbench = () => {
                                     </button>
                                 ))}
                             </div>
+
+                            {paymentMethod === 'M-Pesa' && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#6c757d', marginBottom: '8px' }}>M-Pesa Phone Number</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="e.g. 07XXXXXXXX"
+                                        value={mpesaPhone} 
+                                        onChange={e => setMpesaPhone(e.target.value)}
+                                        style={{ width: '100%', padding: '10px', border: '1px solid #dee2e6', borderRadius: '4px', fontSize: '0.85rem' }}
+                                    />
+                                    <button 
+                                        onClick={initiateStkPush}
+                                        disabled={stkLoading || cart.length === 0}
+                                        style={{ width: '100%', marginTop: '8px', padding: '10px', border: 'none', background: '#8b5cf6', color: 'white', borderRadius: '4px', fontWeight: '700', cursor: 'pointer' }}
+                                    >
+                                        {stkLoading ? 'Sending Prompt...' : 'Send STK Push'}
+                                    </button>
+                                </div>
+                            )}
+
 
                             <button 
                                 onClick={handleReview}

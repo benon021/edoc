@@ -322,7 +322,7 @@ const StaffSettings = () => {
                         <input type="file" id="photo-upload" style={{ display: 'none' }} onChange={handlePhotoUpload} accept="image/*" />
                         <div
                             onClick={() => document.getElementById('photo-upload').click()}
-                            style={{ width: 140, height: 140, background: '#f1f5f9', borderRadius: '50%', border: '4px solid white', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', overflow: 'hidden', position: 'relative', marginBottom: 16, cursor: 'pointer' }}
+                            style={{ width: 160, height: 160, background: '#f1f5f9', borderRadius: '16px', border: '4px solid white', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', overflow: 'hidden', position: 'relative', marginBottom: 16, cursor: 'pointer' }}
                         >
                             {formData.photo ? (
                                 <img src={formData.photo} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
