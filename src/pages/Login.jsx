@@ -100,6 +100,41 @@ const Login = () => {
       position: 'relative',
       overflow: 'hidden'
     }}>
+      {/* Top Left Back Button */}
+      <Link to="/" style={{
+          position: 'absolute',
+          top: '32px',
+          left: '32px',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          color: '#f97316', 
+          textDecoration: 'none', 
+          fontWeight: '800',
+          fontSize: '0.9rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          padding: '12px 20px',
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '100px',
+          border: '1px solid rgba(249, 115, 22, 0.2)',
+          boxShadow: '0 4px 15px rgba(249, 115, 22, 0.15)',
+          zIndex: 50,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}
+      onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 10px 25px rgba(249, 115, 22, 0.25)';
+      }}
+      onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 4px 15px rgba(249, 115, 22, 0.15)';
+      }}
+      >
+          <ArrowLeft size={18} /> Back to Home
+      </Link>
+
       {/* Dynamic Background Elements */}
       <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(251, 146, 60, 0.1) 0%, transparent 70%)', borderRadius: '50%' }}></div>
       <div style={{ position: 'absolute', bottom: '-10%', left: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(249, 115, 22, 0.08) 0%, transparent 70%)', borderRadius: '50%' }}></div>
@@ -198,24 +233,6 @@ const Login = () => {
             >
               {loading ? 'Authenticating...' : <><KeyRound size={20} /> Sign In</>}
             </button>
-            
-            <Link to="/" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '8px', 
-                color: '#64748b', 
-                textDecoration: 'none', 
-                fontWeight: '600',
-                marginTop: '8px',
-                fontSize: '0.95rem',
-                transition: 'color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#0f172a'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
-            >
-                <ArrowLeft size={16} /> Back to Home
-            </Link>
           </form>
         </div>
 
