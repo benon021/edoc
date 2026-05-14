@@ -48,7 +48,7 @@ const ReceiptModal = ({ isOpen, onClose, saleData, onFinalize, loading }) => {
 
                 <div id="receipt-content" style={{ padding: '32px', fontFamily: '"Courier New", Courier, monospace' }}>
                     <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '0 0 4px 0', fontFamily: 'Inter' }}>CITY HOSPITAL</h2>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '0 0 4px 0', fontFamily: 'Inter' }}>MOONVIEW MEDICAL CENTER</h2>
                         <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>Pharmacy Department</p>
                         <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '4px 0' }}>Tel: +254 700 000 000</p>
                     </div>
@@ -107,7 +107,7 @@ const ReceiptModal = ({ isOpen, onClose, saleData, onFinalize, loading }) => {
                     </div>
 
                     <div style={{ textAlign: 'center', marginTop: '32px' }}>
-                        <p style={{ fontSize: '0.7rem', color: '#94a3b8', margin: 0 }}>Thank you for visiting City Hospital.</p>
+                        <p style={{ fontSize: '0.7rem', color: '#94a3b8', margin: 0 }}>Thank you for visiting Moonview Medical Center.</p>
                         <p style={{ fontSize: '0.7rem', color: '#94a3b8', margin: '4px 0' }}>Quick Recovery!</p>
                     </div>
                 </div>

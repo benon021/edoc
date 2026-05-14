@@ -190,3 +190,28 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* =============================================================
+   Global Mobile Overrides (Size & Layout Fixes)
+   ============================================================= */
+@media (max-width: 992px) {
+  /* Override massive inline paddings usually found on page roots */
+  main > div {
+    padding: 16px !important;
+  }
+  
+  /* Target nested hero cards or large banners that have hardcoded 40px paddings */
+  main > div > div[style*="padding: 40px"] {
+    padding: 20px !important;
+    border-radius: 12px !important; /* Scale down radii too */
+  }
+
+  /* Make sure any real tables handle overflow nicely instead of squishing */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}

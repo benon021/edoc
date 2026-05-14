@@ -192,7 +192,7 @@ const PharmaDashboard = () => {
                         </div>
                         <div style={{ fontSize: '1.25rem', fontWeight: '600', opacity: 0.9 }}>Pharmacy Dispensary HQ</div>
                     </div>
-                </div>>
+                </div>
 
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#343a40', marginBottom: '25px' }}>Status</h2>
 

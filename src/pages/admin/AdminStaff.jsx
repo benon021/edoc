@@ -218,7 +218,7 @@ const AdminStaff = () => {
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '700', marginBottom: '8px' }}>Temporary Password</label>
                                         <div style={{ position: 'relative' }}>
                                             <Key size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: '#94a3b8' }} />
-                                            <input type="text" className="input-field" style={{ paddingLeft: '36px' }} required={!isEditing} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} disabled={isEditing} style={{ background: isEditing ? '#f1f5f9' : 'white', paddingLeft: '36px' }} />
+                                            <input type="text" className="input-field" required={!isEditing} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} disabled={isEditing} style={{ background: isEditing ? '#f1f5f9' : 'white', paddingLeft: '36px' }} />
                                         </div>
                                     </div>
                                     <div>

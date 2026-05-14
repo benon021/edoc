@@ -109,7 +109,7 @@ export default function LabResults() {
             </style></head><body>
             <div class="header">
                 <div>
-                    <div class="logo">EDOC CLINICAL LAB</div>
+                    <div class="logo">MOONVIEW MEDICAL CENTER</div>
                     <div class="hospital">Diagnostic Excellence Center</div>
                 </div>
                 <div style="text-align:right">
@@ -172,7 +172,7 @@ export default function LabResults() {
             </style></head><body>
             <div class="header">
                 <div>
-                    <div class="logo">EDOC CLINICAL LAB</div>
+                    <div class="logo">MOONVIEW MEDICAL CENTER</div>
                     <div class="hospital">Diagnostic Excellence Center</div>
                 </div>
                 <div style="text-align:right">

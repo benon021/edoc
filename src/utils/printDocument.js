@@ -65,7 +65,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
         ];
         body = `
 <div class="hdr">
-  <div><h1>EDOC Medical Hub</h1><p>Patient Enrollment Record — Confidential</p></div>
+  <div><h1>Moonview Medical Center</h1><p>Patient Enrollment Record — Confidential</p></div>
   <div style="text-align:right"><span class="id">PT-${p.pid || 'N/A'}</span><p style="color:rgba(255,255,255,.55);font-size:10px;margin-top:5px">Registered: ${p.pdate_registered ? new Date(p.pdate_registered).toLocaleDateString() : '—'}</p></div>
 </div>
 <div class="body">
@@ -85,7 +85,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
   <h2 class="purple">5. Payment &amp; Insurance</h2>
   <div class="g3 box box-purple">${F('Payment Method', p.ppayment)}${F('Insurance Provider', p.pinsurance_provider)}${F('Policy / Member #', p.pinsurance_number)}</div>
   <div class="sig">
-    <div><p style="font-size:10px;color:#64748b;line-height:1.7">I certify that the above information is accurate and consent to data processing by EDOC Medical Hub.</p><div class="sl">Patient / Guardian Signature &amp; Date</div></div>
+    <div><p style="font-size:10px;color:#64748b;line-height:1.7">I certify that the above information is accurate and consent to data processing by Moonview Medical Center.</p><div class="sl">Patient / Guardian Signature &amp; Date</div></div>
     <div style="text-align:right"><div style="font-size:11px;font-weight:700;color:#0f172a;">${p.created_by || 'Not Recorded'}</div><div class="sl" style="margin-top:40px">Registrar Signature</div><div class="sl light">Official Stamp</div></div>
   </div>
 </div>`;
@@ -93,7 +93,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
         const c = m;
         body = `
 <div class="hdr">
-  <div><h1>SOAP Consultation Form</h1><p>EDOC Medical Hub — Clinical Record</p></div>
+  <div><h1>SOAP Consultation Form</h1><p>Moonview Medical Center — Clinical Record</p></div>
   <div style="text-align:right"><strong style="color:white">${p.pname || 'Patient'}</strong><p style="color:rgba(255,255,255,.65);font-size:10px;margin-top:3px">${c.consultation_date ? new Date(c.consultation_date).toLocaleDateString() : c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'} · ${c.consultation_type || 'General'}</p></div>
 </div>
 <div class="body">
@@ -118,7 +118,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
         const plainResult = typeof l.results === 'string' && !l.results.startsWith('{') ? l.results : 'Pending';
         body = `
 <div class="hdr">
-  <div><h1>Laboratory Report</h1><p>EDOC Medical Hub — Ref #LR-${l.id || 'N/A'}</p></div>
+  <div><h1>Laboratory Report</h1><p>Moonview Medical Center — Ref #LR-${l.id || 'N/A'}</p></div>
   <div style="text-align:right"><strong style="color:white">${p.pname || 'Patient'}</strong><p style="color:rgba(255,255,255,.65);font-size:10px;margin-top:3px">${l.created_at ? new Date(l.created_at).toLocaleDateString() : 'N/A'}</p></div>
 </div>
 <div class="body">
@@ -138,7 +138,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
         const med = m;
         body = `
 <div class="hdr">
-  <div><h1>Medicine Prescription Slip</h1><p>EDOC Medical Hub</p></div>
+  <div><h1>Medicine Prescription Slip</h1><p>Moonview Medical Center</p></div>
   <div style="text-align:right"><strong style="color:white">${p.pname || 'Patient'}</strong><p style="color:rgba(255,255,255,.65);font-size:10px;margin-top:3px">${med.date || (med.created_at ? new Date(med.created_at).toLocaleDateString() : 'N/A')}</p></div>
 </div>
 <div class="body">
@@ -160,7 +160,7 @@ td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px}
 </div>`;
     }
 
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>EDOC — Print</title>${css}</head><body>${body}</body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Moonview — Print</title>${css}</head><body>${body}</body></html>`);
     win.document.close();
     setTimeout(() => { win.focus(); win.print(); }, 400);
 }

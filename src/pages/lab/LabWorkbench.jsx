@@ -380,7 +380,7 @@ export default function LabWorkbench() {
                 </head>
                 <body>
                     <div class="label">
-                        <div class="header">EDOC LAB SPECIMEN</div>
+                        <div class="header">MOONVIEW MEDICAL CENTER</div>
                         <div>ID: #LR-${req.id}</div>
                         <div>PT: ${req.pname}</div>
                         <div>TEST: ${req.test_name}</div>

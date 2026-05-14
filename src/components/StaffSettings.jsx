@@ -246,7 +246,7 @@ const StaffSettings = () => {
                 
             if (error) throw error;
             
-            setMsg({ type: 'success', text: 'Currently on preview untill the admin acept it' });
+            setMsg({ type: 'success', text: 'Currently on preview until the admin accepts it' });
             setPasswordRequest(data[0]);
         } catch (error) {
             setMsg({ type: 'error', text: error.message });

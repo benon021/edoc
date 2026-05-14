@@ -55,6 +55,7 @@ import RegistrarReports from './pages/registrar/RegistrarReports';
 import AdminReports from './pages/admin/AdminReports';
 import { NotificationProvider } from './components/NotificationContext';
 import ICD10Search from './components/ICD10Search';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 // ProtectedRoute Logic
 function ProtectedRoute({ children }) {
@@ -194,6 +195,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+      <PwaInstallPrompt />
     </NotificationProvider>
   );
 }

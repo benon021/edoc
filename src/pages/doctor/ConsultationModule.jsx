@@ -3254,7 +3254,7 @@ const ConsultationModule = () => {
                         <div id="printable-rx" style={{ flex: 1, overflowY: 'auto', padding: '40px' }}>
                             {/* Hospital Header */}
                             <div style={{ textAlign: 'center', marginBottom: '40px', borderBottom: '2px solid #1e293b', paddingBottom: '20px' }}>
-                                <h1 style={{ margin: 0, fontSize: '2rem', color: '#1e293b', textTransform: 'uppercase' }}>EDOC SPECIALIST CLINIC</h1>
+                                <h1 style={{ margin: 0, fontSize: '2rem', color: '#1e293b', textTransform: 'uppercase' }}>MOONVIEW MEDICAL CENTER</h1>
                                 <p style={{ margin: '5px 0', color: '#64748b' }}>123 Clinical Way, Medical District • Tel: +254 700 000 000</p>
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '10px', fontSize: '0.85rem', fontWeight: '700' }}>
                                     <span>License: MED-99283-A</span>

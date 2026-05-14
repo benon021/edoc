@@ -24,7 +24,7 @@ const MainLayout = () => {
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
             <Sidebar userType={userType} />
-            <main style={{ flex: 1, position: 'relative' }}>
+            <main style={{ flex: 1, position: 'relative', minWidth: 0, overflowX: 'hidden' }}>
                 <Outlet />
             </main>
         </div>

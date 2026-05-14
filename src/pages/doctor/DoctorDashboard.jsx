@@ -16,7 +16,7 @@ const DoctorDashboard = () => {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [confirmDelete, setConfirmDelete] = useState({ open: false, appo: null });
-    const [hospitalConfig, setHospitalConfig] = useState({ name: 'eDoc Hospital', logo: '' });
+    const [hospitalConfig, setHospitalConfig] = useState({ name: 'Moonview Medical Center', logo: '' });
     
     const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -32,7 +32,7 @@ const DoctorDashboard = () => {
                 if (!data) return;
                 const config = Object.fromEntries(data.map(r => [r.key, r.value]));
                 setHospitalConfig({
-                    name: config.hospital_name || 'eDoc Hospital',
+                    name: config.hospital_name || 'Moonview Medical Center',
                     logo: config.hospital_logo || '',
                 });
             });

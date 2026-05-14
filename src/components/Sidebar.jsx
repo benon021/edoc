@@ -25,7 +25,7 @@ const Sidebar = ({ userType }) => {
     const { profile, signOut } = useAuth();
 
     // Hospital branding fetched from Supabase system_config
-    const [hospitalConfig, setHospitalConfig] = React.useState({ name: 'eDoc Hospital', logo: '' });
+    const [hospitalConfig, setHospitalConfig] = React.useState({ name: 'Moonview Medical Center', logo: '' });
     // Persist sidebar state across page loads to avoid "resetting" feel
     const [isCollapsed, setIsCollapsed] = React.useState(() => {
         const saved = localStorage.getItem('sidebar_collapsed');
@@ -35,9 +35,16 @@ const Sidebar = ({ userType }) => {
         return localStorage.getItem('sidebar_expanded_menu') || null;
     });
     const [showMobile, setShowMobile] = React.useState(false);
+    const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 1024);
 
     const sidebarRef = React.useRef(null);
     const navRef = React.useRef(null);
+
+    React.useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     React.useEffect(() => {
         localStorage.setItem('sidebar_collapsed', JSON.stringify(isCollapsed));
@@ -71,7 +78,7 @@ const Sidebar = ({ userType }) => {
                 if (!data) return;
                 const config = Object.fromEntries(data.map(r => [r.key, r.value]));
                 setHospitalConfig({
-                    name: config.hospital_name || 'eDoc Hospital',
+                    name: config.hospital_name || 'Moonview Medical Center',
                     logo: config.hospital_logo || '',
                 });
             });
@@ -204,6 +211,8 @@ const Sidebar = ({ userType }) => {
     const toggleSidebar = () => setIsCollapsed(!isCollapsed);
     const toggleMobile = () => setShowMobile(!showMobile);
 
+    const effectiveCollapsed = isMobile ? false : isCollapsed;
+
     return (
         <>
         {/* Mobile Toggle Button */}
@@ -221,7 +230,7 @@ const Sidebar = ({ userType }) => {
                 border: 'none',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                 zIndex: 1000,
-                display: window.innerWidth < 768 ? 'flex' : 'none',
+                display: isMobile ? 'flex' : 'none',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer'
@@ -231,18 +240,19 @@ const Sidebar = ({ userType }) => {
         </button>
 
         <aside ref={sidebarRef} style={{
-            width: isCollapsed ? '80px' : '260px',
+            width: effectiveCollapsed ? '80px' : '260px',
             background: '#ffffff',
             borderRight: '1px solid #dee2e6',
             height: '100vh',
-            display: (window.innerWidth < 768 && !showMobile) ? 'none' : 'flex',
+            display: 'flex',
             flexDirection: 'column',
-            position: window.innerWidth < 768 ? 'fixed' : 'sticky',
+            position: isMobile ? 'fixed' : 'sticky',
             top: 0,
             left: 0,
             zIndex: 1100,
             transition: 'width 0.3s ease, transform 0.3s ease',
-            boxShadow: window.innerWidth < 768 ? '0 0 20px rgba(0,0,0,0.1)' : 'none'
+            boxShadow: isMobile ? '0 0 20px rgba(0,0,0,0.15)' : 'none',
+            transform: isMobile ? (showMobile ? 'translateX(0)' : 'translateX(-100%)') : 'none'
         }}>
             {/* Collapse Toggle (Desktop) */}
             <button 
@@ -256,24 +266,24 @@ const Sidebar = ({ userType }) => {
                     borderRadius: '50%',
                     background: 'white',
                     border: '1px solid #dee2e6',
-                    display: window.innerWidth < 768 ? 'none' : 'flex',
+                    display: isMobile ? 'none' : 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
                     zIndex: 10
                 }}
             >
-                {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                {effectiveCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
 
 
             {/* Profile Block */}
             <div style={{ padding: '32px 24px', textAlign: 'center', borderBottom: '1px solid #f8f9fa' }}>
                 <div className="floating-logo" style={{
-                    width: isCollapsed ? '50px' : '180px', height: isCollapsed ? '50px' : '180px', borderRadius: '20px',
+                    width: effectiveCollapsed ? '50px' : '180px', height: effectiveCollapsed ? '50px' : '180px', borderRadius: '20px',
                     background: '#1e293b', margin: '0 auto 20px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: isCollapsed ? '2px solid #f1f5f9' : '4px solid #f1f5f9', overflow: 'hidden',
+                    border: effectiveCollapsed ? '2px solid #f1f5f9' : '4px solid #f1f5f9', overflow: 'hidden',
                     boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)',
                     transition: 'all 0.3s'
                 }}>
@@ -284,7 +294,7 @@ const Sidebar = ({ userType }) => {
                     )}
                 </div>
 
-                {!isCollapsed && (
+                {!effectiveCollapsed && (
                     <>
                         <h3 style={{ fontSize: '1.2rem', fontWeight: '900', color: '#1e293b', marginBottom: '4px', letterSpacing: '-0.02em' }}>
                             {displayName}
@@ -301,19 +311,19 @@ const Sidebar = ({ userType }) => {
                         id="sidebar-logout-btn"
                         onClick={handleLogout}
                         style={{
-                            width: '100%', padding: isCollapsed ? '10px 0' : '12px',
+                            width: '100%', padding: effectiveCollapsed ? '10px 0' : '12px',
                             background: '#f8fafc', color: '#475569',
                             border: '1px solid #e2e8f0', borderRadius: '12px',
                             fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isCollapsed ? '0' : '10px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: effectiveCollapsed ? '0' : '10px',
                             transition: 'all 0.2s',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#475569'; }}
-                        title={isCollapsed ? "Log out" : ""}
+                        title={effectiveCollapsed ? "Log out" : ""}
                     >
-                        <LogOut size={16} /> {!isCollapsed && "Sign Out Account"}
+                        <LogOut size={16} /> {!effectiveCollapsed && "Sign Out Account"}
                     </button>
                 </div>
             </div>
@@ -327,7 +337,7 @@ const Sidebar = ({ userType }) => {
                 {items.map((item, idx) => {
                     // 1. Handle Separator/Header
                     if (item.type === 'header') {
-                        return !isCollapsed && (
+                        return !effectiveCollapsed && (
                             <div key={`header-${idx}`} style={{ 
                                 padding: '24px 30px 8px', 
                                 fontSize: '0.65rem', 
@@ -364,15 +374,16 @@ const Sidebar = ({ userType }) => {
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                         <item.icon size={20} style={{ minWidth: '20px' }} />
-                                        {!isCollapsed && <span>{item.name}</span>}
+                                        {!effectiveCollapsed && <span>{item.name}</span>}
                                     </div>
-                                    {!isCollapsed && (
+                                    {!effectiveCollapsed && (
                                         <ChevronRight size={16} style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: '0.3s' }} />
                                     )}
                                 </div>
                             ) : (
                                 <Link
                                     to={item.path}
+                                    onClick={() => { if (isMobile) setShowMobile(false); }}
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: '15px',
                                         padding: '15px 30px', cursor: 'pointer', textDecoration: 'none',
@@ -384,7 +395,7 @@ const Sidebar = ({ userType }) => {
                                     }}
                                 >
                                     <item.icon size={20} style={{ minWidth: '20px' }} />
-                                    {!isCollapsed && <span>{item.name}</span>}
+                                    {!effectiveCollapsed && <span>{item.name}</span>}
                                 </Link>
                             )}
 
@@ -419,12 +430,12 @@ const Sidebar = ({ userType }) => {
             </nav>
 
             <div style={{ padding: '20px', fontSize: '0.75rem', color: '#adb5bd', textAlign: 'center', borderTop: '1px solid #f8f9fa' }}>
-                {isCollapsed ? "LX" : "Powered by lumiaxy System"}
+                {effectiveCollapsed ? "LX" : "Powered by lumiaxy System"}
             </div>
         </aside>
         
         {/* Mobile Overlay */}
-        {showMobile && window.innerWidth < 768 && (
+        {showMobile && isMobile && (
             <div 
                 onClick={toggleMobile}
                 style={{
