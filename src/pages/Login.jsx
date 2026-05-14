@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LogIn, Eye, EyeOff, AlertCircle, LockKeyhole, HeartPulse, Microscope, KeyRound, ShieldCheck, UserCheck, Activity } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, LockKeyhole, HeartPulse, Microscope, KeyRound, ShieldCheck, UserCheck, Activity, ArrowLeft } from 'lucide-react';
 
 // Route map: usertype code → dashboard path
 const ROLE_ROUTES = {
@@ -198,6 +198,24 @@ const Login = () => {
             >
               {loading ? 'Authenticating...' : <><KeyRound size={20} /> Sign In</>}
             </button>
+            
+            <Link to="/" style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                color: '#64748b', 
+                textDecoration: 'none', 
+                fontWeight: '600',
+                marginTop: '8px',
+                fontSize: '0.95rem',
+                transition: 'color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#0f172a'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
+            >
+                <ArrowLeft size={16} /> Back to Home
+            </Link>
           </form>
         </div>
 
