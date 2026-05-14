@@ -25,7 +25,9 @@ const MainLayout = () => {
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc' }}>
             <Sidebar userType={userType} />
             <main style={{ flex: 1, position: 'relative', minWidth: 0, overflowX: 'hidden' }}>
-                <Outlet />
+                <div key={location.pathname} className="page-transition">
+                    <Outlet />
+                </div>
             </main>
         </div>
     );
