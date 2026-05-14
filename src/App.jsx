@@ -63,8 +63,10 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#000000' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ width: 50, height: 50, border: '4px solid #e2e8f0', borderTopColor: '#007bff', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: 24 }} />
+        <h2 style={{ color: '#1e293b', fontWeight: 800, fontSize: '1.2rem', margin: 0 }}>Moonview Medical</h2>
+        <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: 8, fontWeight: 500 }}>Authenticating session...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -100,8 +102,10 @@ function App() {
 
   if (loading || authLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#000000' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc', fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ width: 50, height: 50, border: '4px solid #e2e8f0', borderTopColor: '#f97316', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: 24 }} />
+        <h2 style={{ color: '#1e293b', fontWeight: 800, fontSize: '1.2rem', margin: 0 }}>Moonview Medical</h2>
+        <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: 8, fontWeight: 500 }}>Initializing environment...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
